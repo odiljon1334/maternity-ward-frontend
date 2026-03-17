@@ -10,16 +10,16 @@ services:
     build:
       context: .
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://YOUR_SERVER_IP:3001/api/v1}
-        BACKEND_ORIGIN: ${BACKEND_ORIGIN:-http://YOUR_SERVER_IP:3001}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://YOUR_SERVER_IP:5001/api/v1}
+        BACKEND_ORIGIN: ${BACKEND_ORIGIN:-http://YOUR_SERVER_IP:5001}
     container_name: maternity_frontend
     restart: always
     ports:
-      - "3003:3000"
+      - "5000:5000"
     environment:
       NODE_ENV: production
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://YOUR_SERVER_IP:3001/api/v1}
-      BACKEND_ORIGIN: ${BACKEND_ORIGIN:-http://maternity_backend:3001}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://YOUR_SERVER_IP:5001/api/v1}
+      BACKEND_ORIGIN: ${BACKEND_ORIGIN:-http://maternity_backend:5001}
     deploy:
       resources:
         limits:

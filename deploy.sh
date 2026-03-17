@@ -17,5 +17,5 @@ docker image prune -f
 
 echo ""
 echo "✅ Frontend deploy tugadi!"
-echo "🌐 http://YOUR_SERVER_IP:3003 da ochiladi"
+echo "🌐 http://YOUR_SERVER_IP:5000 da ochiladi"
 echo "📋 Log ko'rish: docker logs maternity_frontend --tail=50 -f"

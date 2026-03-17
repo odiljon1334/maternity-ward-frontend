@@ -9,7 +9,7 @@ RUN npm ci
 COPY . .
 
 # Build vaqtida backend URL kerak
-ARG NEXT_PUBLIC_API_URL=http://localhost:3001/api/v1
+ARG NEXT_PUBLIC_API_URL=http://localhost:5001/api/v1
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
 RUN npm run build
@@ -33,6 +33,6 @@ RUN chown -R appuser:appgroup /app
 
 USER appuser
 
-EXPOSE 3000
+EXPOSE 5000
 
-CMD ["npx", "next", "start"]
+CMD ["npx", "next", "start", "-p", "5000"]

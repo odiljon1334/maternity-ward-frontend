@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api/v1";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001/api/v1";
 
 // Backend server URL (static files: photos)
 export const BACKEND_ORIGIN = BASE_URL.replace(/\/api\/v1\/?$/, "");
