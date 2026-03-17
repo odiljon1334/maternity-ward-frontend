@@ -1,0 +1,29 @@
+# VPS frontend-only deploy
+# Ishlatish:
+#   cd /home/deploy/maternity-ward-frontend
+#   bash deploy.sh
+
+version: '3.9'
+
+services:
+  frontend:
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://YOUR_SERVER_IP:3001/api/v1}
+        BACKEND_ORIGIN: ${BACKEND_ORIGIN:-http://YOUR_SERVER_IP:3001}
+    container_name: maternity_frontend
+    restart: always
+    ports:
+      - "3003:3000"
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://YOUR_SERVER_IP:3001/api/v1}
+      BACKEND_ORIGIN: ${BACKEND_ORIGIN:-http://maternity_backend:3001}
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.75'
+        reservations:
+          memory: 128M

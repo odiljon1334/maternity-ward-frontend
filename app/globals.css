@@ -2,26 +2,136 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Light Mode ── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg-primary:    #f9fafb;
+  --bg-secondary:  #ffffff;
+  --bg-card:       #ffffff;
+  --bg-hover:      #f3f4f6;
+  --border:        #e5e7eb;
+  --text-primary:  #111827;
+  --text-muted:    #6b7280;
+  --sidebar-bg:    #1e2638;
+  --sidebar-text:  #d1d5db;
+  --sidebar-hover: #232d42;
+  --sidebar-active:#374151;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ── Dark Mode ── */
+.dark {
+  --bg-primary:    #0d0f17;
+  --bg-secondary:  #111827;
+  --bg-card:       #1e2638;
+  --bg-hover:      #232d42;
+  --border:        #2d3748;
+  --text-primary:  #f9fafb;
+  --text-muted:    #9ca3af;
+  --sidebar-bg:    #111827;
+  --sidebar-text:  #d1d5db;
+  --sidebar-hover: #1e2638;
+  --sidebar-active:#374151;
 }
+
+* { box-sizing: border-box; }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
+  .text-balance { text-wrap: balance; }
+
+  /* Theme-aware bg */
+  .bg-primary   { background-color: var(--bg-primary); }
+  .bg-secondary { background-color: var(--bg-secondary); }
+  .bg-card      { background-color: var(--bg-card); }
+  .bg-hover     { background-color: var(--bg-hover); }
+  .border-theme { border-color: var(--border); }
+  .text-theme   { color: var(--text-primary); }
+  .text-muted   { color: var(--text-muted); }
+
+  /* Card - screenshot stilida */
+  .card {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border);
+    @apply rounded-xl;
+  }
+
+  /* Badges - screenshot'dagi outlined green badge */
+  .badge-green  { @apply inline-flex items-center rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-400; }
+  .badge-red    { @apply inline-flex items-center rounded-full border border-red-500/40   bg-red-500/10   px-2.5 py-0.5 text-xs font-medium text-red-400; }
+  .badge-yellow { @apply inline-flex items-center rounded-full border border-yellow-500/40 bg-yellow-500/10 px-2.5 py-0.5 text-xs font-medium text-yellow-400; }
+  .badge-gray   { @apply inline-flex items-center rounded-full border border-gray-500/40  bg-gray-500/10  px-2.5 py-0.5 text-xs font-medium text-gray-400; }
+  .badge-blue   { @apply inline-flex items-center rounded-full border border-blue-500/40  bg-blue-500/10  px-2.5 py-0.5 text-xs font-medium text-blue-400; }
+  .badge-purple { @apply inline-flex items-center rounded-full border border-purple-500/40 bg-purple-500/10 px-2.5 py-0.5 text-xs font-medium text-purple-400; }
+
+  /* Inputs */
+  .input-field {
+    @apply block w-full rounded-lg px-3 py-2 text-sm
+           focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
+           transition-all duration-150;
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+  }
+  .input-field::placeholder { color: var(--text-muted); }
+
+  /* Buttons */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white
+           hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500
+           transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold
+           focus:outline-none transition-all duration-150;
+    background-color: var(--bg-hover);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium
+           transition-all duration-150;
+    color: var(--text-muted);
+  }
+  .btn-ghost:hover {
+    background-color: var(--bg-hover);
+    color: var(--text-primary);
+  }
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-400
+           hover:bg-red-500/20 transition-all duration-150;
+  }
+
+  /* Sidebar nav item */
+  .nav-item {
+    @apply flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 cursor-pointer;
+    color: var(--sidebar-text);
+  }
+  .nav-item:hover {
+    background-color: var(--sidebar-hover);
+    color: #fff;
+  }
+  .nav-item.active {
+    background-color: var(--sidebar-active);
+    color: #fff;
+  }
+
+  /* Table row hover */
+  .table-row-hover {
+    transition: background-color 0.1s ease;
+  }
+  .table-row-hover:hover {
+    background-color: var(--bg-hover);
   }
 }
