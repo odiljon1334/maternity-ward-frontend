@@ -6,18 +6,18 @@ import { useAuthStore } from "@/stores/auth";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { isAuthenticated } = useAuthStore();
+  const token = useAuthStore((s) => s.token);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    if (!isAuthenticated()) router.replace("/login");
-  }, [isAuthenticated, router]);
+    if (!token) router.replace("/login");
+  }, [token, router]);
 
   // Server va client birinchi render da bir xil bo'lsin (null) — hydration mismatch yo'qoladi
   if (!mounted) return null;
 
-  if (!isAuthenticated()) return null;
+  if (!token) return null;
 
   return (
     <div className="flex h-screen overflow-hidden bg-[var(--bg-primary)]">

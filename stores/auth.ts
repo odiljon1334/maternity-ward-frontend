@@ -58,10 +58,15 @@ export const useAuthStore = create<AuthStore>()(
     }),
     {
       name: "auth-storage",
+      // Faqat data fieldlarni saqlash — funksiyalar saqlanmasin
+      partialize: (state) => ({
+        token: state.token,
+        user: state.user,
+        selectedHospital: state.selectedHospital,
+      }),
       onRehydrateStorage: () => (state) => {
         if (state?.token && typeof window !== "undefined") {
           localStorage.setItem("access_token", state.token);
-          // Sahifa yangilanganda cookie ni ham tiklaymiz
           setAuthCookie(state.token);
         }
       },
