@@ -233,17 +233,19 @@ export default function LoginPage() {
                   {process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'info@maternity.uz'}
                 </span>
               </a>
-              <a
-                href={`tel:${process.env.NEXT_PUBLIC_CONTACT_PHONE || ''}`}
-                className="flex items-center gap-3 group"
-              >
-                <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center flex-shrink-0 group-hover:bg-emerald-100 dark:group-hover:bg-emerald-500/20 transition-colors">
-                  <Phone className="w-3.5 h-3.5 text-emerald-500" />
-                </div>
-                <span className="text-sm dark:text-gray-300 text-gray-700 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                  {process.env.NEXT_PUBLIC_CONTACT_PHONE || ''}
-                </span>
-              </a>
+              {process.env.NEXT_PUBLIC_CONTACT_PHONE && (
+                <a
+                  href={`tel:${process.env.NEXT_PUBLIC_CONTACT_PHONE}`}
+                  className="flex items-center gap-3 group"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center flex-shrink-0 group-hover:bg-emerald-100 dark:group-hover:bg-emerald-500/20 transition-colors">
+                    <Phone className="w-3.5 h-3.5 text-emerald-500" />
+                  </div>
+                  <span className="text-sm dark:text-gray-300 text-gray-700 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                    {process.env.NEXT_PUBLIC_CONTACT_PHONE}
+                  </span>
+                </a>
+              )}
               <a
                 href="https://t.me/educampus1"
                 target="_blank"
