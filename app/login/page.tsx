@@ -223,25 +223,25 @@ export default function LoginPage() {
             </p>
             <div className="space-y-2.5">
               <a
-                href="mailto:odil1334@gmail.com"
+                href={`mailto:${process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'info@maternity.uz'}`}
                 className="flex items-center gap-3 group"
               >
                 <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center flex-shrink-0 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-500/20 transition-colors">
                   <Mail className="w-3.5 h-3.5 text-indigo-500" />
                 </div>
                 <span className="text-sm dark:text-gray-300 text-gray-700 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                  odil1334@gmail.com
+                  {process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'info@maternity.uz'}
                 </span>
               </a>
               <a
-                href="tel:+998955775454"
+                href={`tel:${process.env.NEXT_PUBLIC_CONTACT_PHONE || ''}`}
                 className="flex items-center gap-3 group"
               >
                 <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center flex-shrink-0 group-hover:bg-emerald-100 dark:group-hover:bg-emerald-500/20 transition-colors">
                   <Phone className="w-3.5 h-3.5 text-emerald-500" />
                 </div>
                 <span className="text-sm dark:text-gray-300 text-gray-700 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                  +998 95 577 54 54
+                  {process.env.NEXT_PUBLIC_CONTACT_PHONE || ''}
                 </span>
               </a>
               <a

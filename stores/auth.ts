@@ -50,6 +50,10 @@ export const useAuthStore = create<AuthStore>()(
         if (typeof window !== "undefined") {
           localStorage.removeItem("access_token");
           localStorage.removeItem("user");
+          // React Query cache ni tozalaymiz
+          import('../providers').then(({ globalQueryClient }) => {
+            globalQueryClient?.clear();
+          });
         }
         clearAuthCookie();
       },

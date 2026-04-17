@@ -5,19 +5,23 @@ import { ThemeProvider } from "next-themes";
 import { useState } from "react";
 import { Toaster } from "sonner";
 
+// QueryClient ni global export qilamiz — logout da tozalash uchun
+export let globalQueryClient: QueryClient;
+
 export function Providers({ children }: { children: React.ReactNode }) {
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            staleTime: 30_000,       // 30s cache
-            refetchOnWindowFocus: false,
-            retry: 1,
-          },
+  const [queryClient] = useState(() => {
+    const client = new QueryClient({
+      defaultOptions: {
+        queries: {
+          staleTime: 30_000,       // 30s cache
+          refetchOnWindowFocus: false,
+          retry: 1,
         },
-      })
-  );
+      },
+    });
+    globalQueryClient = client;
+    return client;
+  });
 
   return (
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
