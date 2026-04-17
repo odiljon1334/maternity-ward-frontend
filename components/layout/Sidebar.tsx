@@ -6,19 +6,23 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Users, CalendarDays, ClipboardList,
   DollarSign, FileBarChart2, Settings, LogOut,
-  Activity, ChevronLeft, ChevronRight, Building2, Bell, CreditCard, UserPlus, Shield, Send,
+  Activity, ChevronLeft, ChevronRight, Building2, Bell, CreditCard, UserPlus, Shield, Send, Eye,
 } from "lucide-react";
 import { cn, getInitials, getAvatarColor } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth";
 import { useState, useEffect } from "react";
 
 const mainNavItems = [
-  { href: "/dashboard",            label: "Dashboard",   icon: LayoutDashboard, roles: null },
-  { href: "/dashboard/employees",  label: "Xodimlar",    icon: Users,           roles: null },
-  { href: "/dashboard/schedules",  label: "Grafik",      icon: CalendarDays,    roles: null },
-  { href: "/dashboard/attendance", label: "Davomat",     icon: ClipboardList,   roles: null },
-  { href: "/dashboard/payroll",    label: "Maosh",       icon: DollarSign,      roles: null },
-  { href: "/dashboard/reports",    label: "Hisobotlar",  icon: FileBarChart2,   roles: null },
+  // MINISTRY faqat o'z paneliga kiradi
+  { href: "/dashboard/ministry",   label: "Vazirlik Paneli", icon: Eye,            roles: ["MINISTRY"] },
+
+  // Boshqa rollar uchun
+  { href: "/dashboard",            label: "Dashboard",   icon: LayoutDashboard, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
+  { href: "/dashboard/employees",  label: "Xodimlar",    icon: Users,           roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
+  { href: "/dashboard/schedules",  label: "Grafik",      icon: CalendarDays,    roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
+  { href: "/dashboard/attendance", label: "Davomat",     icon: ClipboardList,   roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
+  { href: "/dashboard/payroll",    label: "Maosh",       icon: DollarSign,      roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
+  { href: "/dashboard/reports",    label: "Hisobotlar",  icon: FileBarChart2,   roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/hospitals",      label: "Kasalxonalar",     icon: Building2,  roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN"] },
   { href: "/dashboard/payments",       label: "To'lovlar",        icon: CreditCard, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN"] },
   { href: "/dashboard/notifications",  label: "Bildirishnomalar", icon: Bell,       roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN"] },
@@ -113,14 +117,16 @@ export function Sidebar() {
           </Link>
         )}
 
-        <Link
-          href="/dashboard/settings"
-          className={cn("nav-item", collapsed && "justify-center px-0")}
-          title={collapsed ? "Sozlamalar" : undefined}
-        >
-          <Settings className="w-5 h-5 flex-shrink-0" />
-          {!collapsed && <span>Sozlamalar</span>}
-        </Link>
+        {mounted && user?.role !== "MINISTRY" && (
+          <Link
+            href="/dashboard/settings"
+            className={cn("nav-item", collapsed && "justify-center px-0")}
+            title={collapsed ? "Sozlamalar" : undefined}
+          >
+            <Settings className="w-5 h-5 flex-shrink-0" />
+            {!collapsed && <span>Sozlamalar</span>}
+          </Link>
+        )}
 
         <button
           onClick={handleLogout}

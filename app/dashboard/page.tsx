@@ -1,4 +1,6 @@
 "use client";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { dashboardApi, photoUrl as buildPhotoUrl } from "@/lib/api";
 import { Topbar } from "@/components/layout/Topbar";
@@ -72,7 +74,15 @@ function CustomTooltip({ active, payload, label }: any) {
 export default function DashboardPage() {
   const today = dayjs().format("YYYY-MM-DD");
   const { user, selectedHospital } = useAuthStore();
+  const router = useRouter();
   const targetHospitalId = isSuperLike(user?.role) ? (selectedHospital?.id || undefined) : undefined;
+
+  // MINISTRY role faqat o'z paneliga kirishi kerak
+  useEffect(() => {
+    if (user?.role === "MINISTRY") {
+      router.replace("/dashboard/ministry");
+    }
+  }, [user?.role, router]);
 
   const { data: overview, isLoading } = useQuery({
     queryKey: ["dashboard-overview", today, targetHospitalId],

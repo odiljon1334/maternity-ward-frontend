@@ -15,7 +15,10 @@ export function photoUrl(url: string | null | undefined): string | undefined {
 export const api = axios.create({
   baseURL: BASE_URL,
   timeout: 15000,
-  headers: { "Content-Type": "application/json" },
+  headers: {
+    "Content-Type": "application/json",
+    "ngrok-skip-browser-warning": "true",
+  },
 });
 
 // Request interceptor — JWT token qo'shish
@@ -34,6 +37,8 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && typeof window !== "undefined") {
       localStorage.removeItem("access_token");
       localStorage.removeItem("user");
+      localStorage.removeItem("auth-storage");
+      document.cookie = "auth_token=; path=/; max-age=0";
       window.location.href = "/login";
     }
     return Promise.reject(error);
@@ -268,6 +273,41 @@ export const auditLogsApi = {
 
   clearOldLogs: (olderThanDays: number) =>
     api.delete("/audit-logs/clear", { params: { olderThanDays } }).then((r) => r.data.data),
+};
+
+// ─── HikConnect (kameralar + live stream) ───────
+export const hikconnectApi = {
+  status: () =>
+    api.get("/hikconnect/status").then((r) => r.data.data as { configured: boolean }),
+  cameras: (hospitalId?: string) =>
+    api.get("/hikconnect/cameras", { params: hospitalId ? { hospitalId } : {} }).then((r) => r.data.data),
+  createCamera: (data: {
+    hospitalId: string; name: string;
+    streamPath?: string; cameraIndexCode?: string;
+    channelNo?: number; deviceSerial?: string;
+  }) => api.post("/hikconnect/cameras", data).then((r) => r.data.data),
+  updateCamera: (id: string, data: any) =>
+    api.put(`/hikconnect/cameras/${id}`, data).then((r) => r.data.data),
+  deleteCamera: (id: string) =>
+    api.delete(`/hikconnect/cameras/${id}`).then((r) => r.data.data),
+  liveUrl: (cameraId: string) =>
+    api.get(`/hikconnect/cameras/${cameraId}/live`).then(
+      (r) => r.data.data as { url: string; protocol: string; expireTime: number; source: string }
+    ),
+  fetchFromHikConnect: (pageNo?: number, pageSize?: number) =>
+    api.get("/hikconnect/fetch-cameras", { params: { pageNo, pageSize } }).then((r) => r.data.data),
+};
+
+// ─── Ministry (MINISTRY + SUPER_ADMIN) ──────────
+export const ministryApi = {
+  overview: (params?: { date?: string }) =>
+    api.get("/ministry/overview", { params }).then((r) => r.data.data),
+  hospitalDetail: (hospitalId: string, params?: { date?: string }) =>
+    api.get(`/ministry/hospitals/${hospitalId}/detail`, { params }).then((r) => r.data.data),
+  absentToday: (params?: { hospitalId?: string; date?: string }) =>
+    api.get("/ministry/attendance/absent", { params }).then((r) => r.data.data),
+  payrollSummary: (params?: { month?: number; year?: number }) =>
+    api.get("/ministry/payroll/summary", { params }).then((r) => r.data.data),
 };
 
 // ─── Helper: download blob ───────────────────────
