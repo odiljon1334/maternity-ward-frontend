@@ -229,7 +229,9 @@ function SalaryTab({ employeeId, baseSalary }: { employeeId: string; baseSalary:
   });
 
   // Use saved payroll if exists, otherwise preview
-  const data = payroll ?? preview;
+  // preview API returns { preview: {...} } — flatten it
+  const rawData = payroll ?? preview;
+  const data = (rawData as any)?.preview ?? rawData;
   const isSaved = !!payroll;
 
   // Last 6 months payroll history
