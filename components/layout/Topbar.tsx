@@ -1,6 +1,6 @@
 "use client";
 import { useTheme } from "next-themes";
-import { Sun, Moon, Bell, Building2, X, CheckCheck } from "lucide-react";
+import { Sun, Moon, Bell, Building2, X, CheckCheck, Menu } from "lucide-react";
 import { useAuthStore } from "@/stores/auth";
 import { getAvatarColor, getInitials, isSuperLike } from "@/lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -8,6 +8,7 @@ import { telegramApi, notificationsApi } from "@/lib/api";
 import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { useMobileMenu } from "@/contexts/mobile-menu";
 
 interface TopbarProps {
   title: string;
@@ -60,7 +61,7 @@ function NotificationDropdown({ onClose }: { onClose: () => void }) {
   return (
     <div
       ref={ref}
-      className="absolute right-0 top-full mt-2 w-96 card z-50 shadow-2xl overflow-hidden"
+      className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] max-w-sm sm:w-96 card z-50 shadow-2xl overflow-hidden"
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)]">
@@ -137,6 +138,7 @@ function NotificationDropdown({ onClose }: { onClose: () => void }) {
 export function Topbar({ title, subtitle }: TopbarProps) {
   const { theme, setTheme } = useTheme();
   const { user, selectedHospital, setSelectedHospital } = useAuthStore();
+  const { toggle: toggleMenu } = useMobileMenu();
   const [notifOpen, setNotifOpen] = useState(false);
 
   const isSuperAdmin = isSuperLike(user?.role);
@@ -183,10 +185,20 @@ export function Topbar({ title, subtitle }: TopbarProps) {
         </div>
       )}
 
-      <header className="flex items-center justify-between px-6 py-4 border-b border-[var(--border)] bg-[var(--bg-secondary)]">
-        <div>
-          <h1 className="text-lg font-semibold text-[var(--text-primary)]">{title}</h1>
-          {subtitle && <p className="text-sm text-[var(--text-muted)]">{subtitle}</p>}
+      <header className="flex items-center gap-3 justify-between px-4 lg:px-6 py-3 lg:py-4 border-b border-[var(--border)] bg-[var(--bg-secondary)]">
+        <div className="flex items-center gap-3 min-w-0">
+          {/* Hamburger — mobile only */}
+          <button
+            onClick={toggleMenu}
+            className="lg:hidden flex-shrink-0 p-2 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+            aria-label="Menyuni ochish"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+          <div className="min-w-0">
+            <h1 className="text-base lg:text-lg font-semibold text-[var(--text-primary)] truncate">{title}</h1>
+            {subtitle && <p className="text-xs lg:text-sm text-[var(--text-muted)] truncate">{subtitle}</p>}
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
