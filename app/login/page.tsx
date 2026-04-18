@@ -46,77 +46,92 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex dark:bg-[#0d0f17] bg-slate-100">
       {/* ── Left decorative panel ── */}
-      <div className="hidden lg:flex w-[55%] relative overflow-hidden bg-gradient-to-br from-indigo-600 via-indigo-500 to-violet-600">
-        {/* Animated background shapes */}
-        <div className="absolute inset-0">
-          <div className="absolute top-[-80px] left-[-80px] w-80 h-80 rounded-full bg-white/10 blur-3xl animate-pulse" />
-          <div className="absolute bottom-[-60px] right-[-60px] w-96 h-96 rounded-full bg-violet-400/20 blur-3xl animate-pulse" style={{ animationDelay: "1s" }} />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full bg-indigo-400/10 blur-3xl" />
+      <div className="hidden lg:flex w-[55%] relative overflow-hidden"
+        style={{ background: "linear-gradient(145deg, #312e81 0%, #4f46e5 45%, #7c3aed 100%)" }}>
+
+        {/* Layered glow blobs */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute -top-24 -left-24 w-[420px] h-[420px] rounded-full bg-violet-500/25 blur-[80px] animate-pulse" />
+          <div className="absolute -bottom-20 -right-20 w-[380px] h-[380px] rounded-full bg-indigo-400/30 blur-[80px] animate-pulse" style={{ animationDelay: "1.4s" }} />
+          <div className="absolute top-1/3 right-1/4 w-[260px] h-[260px] rounded-full bg-purple-400/15 blur-[60px] animate-pulse" style={{ animationDelay: "2.5s" }} />
         </div>
 
-        {/* Grid dot pattern */}
+        {/* Dot grid */}
         <div
-          className="absolute inset-0 opacity-10"
+          className="absolute inset-0 opacity-[0.12]"
           style={{
-            backgroundImage: `radial-gradient(circle at 1px 1px, rgba(255,255,255,0.8) 1px, transparent 0)`,
-            backgroundSize: "28px 28px",
+            backgroundImage: `radial-gradient(circle at 1px 1px, rgba(255,255,255,0.9) 1px, transparent 0)`,
+            backgroundSize: "30px 30px",
           }}
         />
 
+        {/* Diagonal accent line */}
+        <div className="absolute top-0 right-0 w-px h-full bg-gradient-to-b from-transparent via-white/20 to-transparent" />
+
         {/* Content */}
-        <div className="relative z-10 flex flex-col justify-between p-14 text-white w-full">
-          {/* Logo top-left */}
+        <div className="relative z-10 flex flex-col justify-between p-12 xl:p-16 text-white w-full">
+
+          {/* ── Logo ── */}
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-2xl bg-white/20 backdrop-blur">
+            <div className="p-2.5 rounded-2xl bg-white/20 backdrop-blur-sm border border-white/25 shadow-lg">
               <Activity className="w-6 h-6 text-white" />
             </div>
             <span className="text-xl font-bold tracking-tight">MaternityCare</span>
           </div>
 
-          {/* Center content */}
-          <div>
-            <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm border border-white/20 rounded-full px-4 py-1.5 text-sm mb-8">
-              <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse" />
-              Xodimlar boshqaruv tizimi
+          {/* ── Main content ── */}
+          <div className="flex flex-col gap-8">
+            {/* Status badge */}
+            <div className="inline-flex items-center gap-2.5 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-5 py-2 text-sm w-fit shadow-sm">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse" />
+              <span className="text-white/90 font-medium">Xodimlar boshqaruv tizimi</span>
             </div>
 
-            <h2 className="text-5xl font-bold leading-tight mb-4">
-              Aqlli
-              <br />
-              <span className="text-indigo-200">Boshqaruv</span>
-              <br />
-              Tizimi
-            </h2>
-            <p className="text-indigo-100 text-base leading-relaxed max-w-xs mb-12">
-              Xodimlar davomati, maosh va kasalxona operatsiyalarini bir platformada boshqaring.
-            </p>
+            {/* Heading */}
+            <div className="flex flex-col gap-3">
+              <h2 className="text-[3.5rem] xl:text-[4rem] font-extrabold leading-[1.05] tracking-tight">
+                Aqlli
+                <br />
+                <span className="text-transparent bg-clip-text" style={{ backgroundImage: "linear-gradient(90deg, #c7d2fe, #a5b4fc)" }}>
+                  Boshqaruv
+                </span>
+                <br />
+                Tizimi
+              </h2>
+              <p className="text-indigo-200/90 text-[15px] leading-relaxed max-w-[320px]">
+                Xodimlar davomati, maosh va kasalxona operatsiyalarini bir platformada boshqaring.
+              </p>
+            </div>
 
             {/* Feature list */}
-            <div className="space-y-4">
+            <div className="flex flex-col gap-3">
               {features.map(({ icon: Icon, label, desc }) => (
-                <div key={label} className="flex items-center gap-4 group">
-                  <div className="w-10 h-10 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center flex-shrink-0 group-hover:bg-white/25 transition-colors">
-                    <Icon className="w-5 h-5 text-indigo-100" />
+                <div key={label} className="flex items-center gap-4 group p-3 rounded-2xl hover:bg-white/10 transition-colors duration-200">
+                  <div className="w-11 h-11 rounded-xl bg-white/15 backdrop-blur border border-white/15 flex items-center justify-center flex-shrink-0 group-hover:bg-white/25 group-hover:border-white/30 transition-all duration-200 shadow-sm">
+                    <Icon className="w-5 h-5 text-white" />
                   </div>
                   <div>
                     <p className="font-semibold text-sm text-white">{label}</p>
-                    <p className="text-xs text-indigo-200">{desc}</p>
+                    <p className="text-xs text-indigo-300 mt-0.5">{desc}</p>
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Bottom stats */}
-          <div className="grid grid-cols-3 gap-4">
+          {/* ── Bottom stats ── */}
+          <div className="grid grid-cols-3 gap-3">
             {[
               { value: "99%", label: "Davomat aniqligi" },
               { value: "24/7", label: "Monitoring" },
               { value: "5 daq", label: "O'rnatish" },
             ].map((s) => (
-              <div key={s.label} className="bg-white/10 backdrop-blur rounded-2xl p-4 border border-white/10">
-                <p className="text-2xl font-bold text-white">{s.value}</p>
-                <p className="text-xs text-indigo-200 mt-0.5">{s.label}</p>
+              <div
+                key={s.label}
+                className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/15 hover:bg-white/15 transition-colors duration-200"
+              >
+                <p className="text-2xl font-extrabold text-white tracking-tight">{s.value}</p>
+                <p className="text-xs text-indigo-300 mt-1 leading-tight">{s.label}</p>
               </div>
             ))}
           </div>
