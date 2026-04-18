@@ -80,7 +80,7 @@ export default function LoginPage() {
           </div>
 
           {/* ── Main content — center (flex-1 so it fills space) ── */}
-          <div className="flex-1 flex flex-col justify-center gap-7 py-10">
+          <div className="flex-1 flex flex-col justify-center gap-5 py-4">
 
             {/* Status badge */}
             <div className="inline-flex items-center gap-2.5 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-5 py-2 text-sm w-fit shadow-sm">
