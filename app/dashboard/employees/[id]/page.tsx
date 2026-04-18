@@ -85,7 +85,8 @@ function AttendanceTab({ employeeId }: { employeeId: string }) {
   const totalLateMin = serverStats?.totalLateMin ?? arr.reduce((s: number, r: any) => s + (r.lateMinutes ?? 0), 0);
   const totalLunchLate = arr.reduce((s: number, r: any) => s + (r.lunchLateMin ?? 0), 0);
 
-  const monthName = new Date(year, month - 1, 1).toLocaleString("uz-UZ", { month: "long", year: "numeric" });
+  const UZ_MONTHS = ["","Yanvar","Fevral","Mart","Aprel","May","Iyun","Iyul","Avgust","Sentyabr","Oktyabr","Noyabr","Dekabr"];
+  const monthName = `${UZ_MONTHS[month]} ${year}`;
   const prevMonth = () => { if (month === 1) { setMonth(12); setYear(y => y - 1); } else setMonth(m => m - 1); };
   const nextMonth = () => { if (month === 12) { setMonth(1); setYear(y => y + 1); } else setMonth(m => m + 1); };
 
@@ -250,7 +251,8 @@ function SalaryTab({ employeeId, baseSalary }: { employeeId: string; baseSalary:
     },
   });
 
-  const monthName = new Date(year, month - 1, 1).toLocaleString("uz-UZ", { month: "long", year: "numeric" });
+  const UZ_MONTHS = ["","Yanvar","Fevral","Mart","Aprel","May","Iyun","Iyul","Avgust","Sentyabr","Oktyabr","Noyabr","Dekabr"];
+  const monthName = `${UZ_MONTHS[month]} ${year}`;
   const prevMonth = () => { if (month === 1) { setMonth(12); setYear(y => y - 1); } else setMonth(m => m - 1); };
   const nextMonth = () => { if (month === 12) { setMonth(1); setYear(y => y + 1); } else setMonth(m => m + 1); };
 

@@ -10,8 +10,10 @@ export function isSuperLike(role?: string | null): boolean {
   return role === "SUPER_ADMIN" || role === "ASSISTANT_ADMIN";
 }
 
-export function formatMoney(amount: number | string): string {
-  return Number(amount).toLocaleString("uz-UZ") + " so'm";
+export function formatMoney(amount: number | string | null | undefined): string {
+  const n = Number(amount);
+  if (amount === null || amount === undefined || isNaN(n)) return "0 so'm";
+  return n.toLocaleString("uz-UZ") + " so'm";
 }
 
 export function formatMinutes(min: number): string {
