@@ -162,16 +162,16 @@ export default function DashboardPage() {
     <div>
       <Topbar title="Dashboard" subtitle={dayjs().format("DD MMMM YYYY, dddd")} />
 
-      <div className="p-6 space-y-6">
+      <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
         {/* ── Stats Cards (5 column grid) ── */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 lg:gap-4">
           {stats.map((s) => (
             <StatCard key={s.label} {...s} />
           ))}
         </div>
 
         {/* ── Charts row ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 lg:gap-4">
           {/* Attendance trend (2/3 width) */}
           <div className="lg:col-span-2 card p-5">
             <div className="flex items-center justify-between mb-4">
@@ -180,7 +180,7 @@ export default function DashboardPage() {
                 <p className="text-xs text-[var(--text-muted)]">So'nggi 14 kun</p>
               </div>
             </div>
-            <ResponsiveContainer width="100%" height={220}>
+            <ResponsiveContainer width="100%" height={200}>
               <AreaChart data={trend || []}>
                 <defs>
                   <linearGradient id="presentGrad" x1="0" y1="0" x2="0" y2="1">
@@ -277,7 +277,7 @@ export default function DashboardPage() {
 
         {/* ── Today's attendance table ── */}
         <div className="card">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
+          <div className="flex items-center justify-between px-4 sm:px-5 py-3 sm:py-4 border-b border-[var(--border)]">
             <div>
               <h3 className="font-semibold text-[var(--text-primary)]">Bugungi davomat</h3>
               <p className="text-xs text-[var(--text-muted)]">{today}</p>

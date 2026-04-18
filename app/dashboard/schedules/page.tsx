@@ -63,9 +63,9 @@ function CellEditModal({
   if (!entry) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative card w-full max-w-sm">
+      <div className="relative card w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
           <div>
             <h2 className="font-semibold text-[var(--text-primary)]">Grafik tahrirlash</h2>
@@ -189,9 +189,9 @@ function GenerateModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative card w-full max-w-md max-h-[90vh] overflow-y-auto">
+      <div className="relative card w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl">
         <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border)] sticky top-0 bg-[var(--bg-card)] z-10">
           <h2 className="font-semibold text-[var(--text-primary)]">Grafik yaratish</h2>
           <button onClick={onClose} className="btn-ghost p-1.5"><X className="w-4 h-4" /></button>
@@ -427,9 +427,9 @@ export default function SchedulesPage() {
     <div>
       <Topbar title="Grafik" subtitle="Oylik ish grafigi" />
 
-      <div className="p-6 space-y-4">
+      <div className="p-4 lg:p-6 space-y-4">
         {/* Header controls */}
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {/* Month nav */}
           <div className="flex items-center gap-1 card px-2 py-1">
             <button onClick={() => navMonth(-1)} className="btn-ghost p-1.5">
@@ -447,7 +447,7 @@ export default function SchedulesPage() {
           <select
             value={deptFilter}
             onChange={(e) => setDeptFilter(e.target.value)}
-            className="input-field w-auto text-sm"
+            className="input-field text-sm w-full sm:w-auto"
           >
             <option value="">Barcha bo'limlar</option>
             {(departments as any[]).map((d: any) => (

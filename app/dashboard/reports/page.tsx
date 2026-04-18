@@ -86,62 +86,37 @@ export default function ReportsPage() {
     <div>
       <Topbar title="Hisobotlar" subtitle="Excel formatida yuklab olish" />
 
-      <div className="p-6 space-y-6">
+      <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
         {/* ── Filters ── */}
         <div className="card p-4">
-          <h3 className="text-sm font-medium text-[var(--text-primary)] mb-3">
-            Filtr parametrlari
-          </h3>
-          <div className="flex flex-wrap gap-3">
+          <h3 className="text-sm font-medium text-[var(--text-primary)] mb-3">Filtr parametrlari</h3>
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3">
             <div className="flex flex-col gap-1">
               <label className="text-xs text-[var(--text-muted)]">Oy</label>
-              <select
-                value={month}
-                onChange={(e) => setMonth(Number(e.target.value))}
-                className="input-field w-36"
-              >
+              <select value={month} onChange={(e) => setMonth(Number(e.target.value))} className="input-field">
                 {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                  <option key={m} value={m}>
-                    {dayjs().month(m - 1).format("MMMM")}
-                  </option>
+                  <option key={m} value={m}>{dayjs().month(m - 1).format("MMMM")}</option>
                 ))}
               </select>
             </div>
 
             <div className="flex flex-col gap-1">
               <label className="text-xs text-[var(--text-muted)]">Yil</label>
-              <select
-                value={year}
-                onChange={(e) => setYear(Number(e.target.value))}
-                className="input-field w-24"
-              >
-                {[2024, 2025, 2026, 2027].map((y) => (
-                  <option key={y} value={y}>{y}</option>
-                ))}
+              <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="input-field">
+                {[2024, 2025, 2026, 2027].map((y) => <option key={y} value={y}>{y}</option>)}
               </select>
             </div>
 
             <div className="flex flex-col gap-1">
               <label className="text-xs text-[var(--text-muted)]">Hafta boshlanishi</label>
-              <input
-                type="date"
-                value={weekStart}
-                onChange={(e) => setWeekStart(e.target.value)}
-                className="input-field w-44"
-              />
+              <input type="date" value={weekStart} onChange={(e) => setWeekStart(e.target.value)} className="input-field" />
             </div>
 
             <div className="flex flex-col gap-1">
               <label className="text-xs text-[var(--text-muted)]">Bo&apos;lim</label>
-              <select
-                value={deptFilter}
-                onChange={(e) => setDeptFilter(e.target.value)}
-                className="input-field w-48"
-              >
+              <select value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)} className="input-field">
                 <option value="">Barcha bo&apos;limlar</option>
-                {(departments as any[]).map((d) => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
-                ))}
+                {(departments as any[]).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
               </select>
             </div>
           </div>

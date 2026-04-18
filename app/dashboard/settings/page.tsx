@@ -290,9 +290,9 @@ function ShiftModal({ open, onClose, shift, targetHospitalId }: {
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative card w-full max-w-sm">
+      <div className="relative card w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
           <h2 className="font-semibold text-[var(--text-primary)] text-sm">
             {shift ? "Smenni tahrirlash" : "Yangi smen"}
@@ -784,8 +784,8 @@ export default function SettingsPage() {
     <div>
       <Topbar title="Sozlamalar" subtitle="Bo'lim, lavozim va smen boshqaruvi" />
 
-      <div className="p-6 space-y-5">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <div className="p-4 lg:p-6 space-y-4 lg:space-y-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-5">
           <DepartmentsPanel targetHospitalId={targetHospitalId} />
           <PositionsPanel targetHospitalId={targetHospitalId} />
           <ShiftsPanel targetHospitalId={targetHospitalId} />

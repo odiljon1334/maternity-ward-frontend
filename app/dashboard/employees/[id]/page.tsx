@@ -453,7 +453,7 @@ export default function EmployeeProfilePage() {
     return (
       <div>
         <Topbar title="Xodim profili" />
-        <div className="p-6 space-y-4">
+        <div className="p-4 lg:p-6 space-y-4">
           <div className="card p-6 h-32 animate-pulse bg-[var(--bg-hover)]" />
           <div className="card p-6 h-20 animate-pulse bg-[var(--bg-hover)]" />
         </div>
@@ -480,7 +480,7 @@ export default function EmployeeProfilePage() {
         subtitle={`${employee.department?.name ?? ""}${employee.position?.name ? " · " + employee.position.name : ""}`}
       />
 
-      <div className="p-6 space-y-5">
+      <div className="p-4 lg:p-6 space-y-4 lg:space-y-5">
         {/* Back */}
         <button
           onClick={() => router.back()}
@@ -490,7 +490,7 @@ export default function EmployeeProfilePage() {
         </button>
 
         {/* ── Top: Header + Trend Chart side by side ── */}
-        <div className="grid grid-cols-1 xl:grid-cols-[1fr_280px] gap-5">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-4 lg:gap-5">
 
           {/* Employee Header Card */}
           <div className="card p-5">

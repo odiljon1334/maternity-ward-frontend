@@ -194,7 +194,7 @@ export default function PaymentsPage() {
     <div>
       <Topbar title="To'lovlar boshqaruvi" subtitle="Kasalxonalar obuna to'lovlari" />
 
-      <div className="p-6 space-y-6">
+      <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
         {/* Summary Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
