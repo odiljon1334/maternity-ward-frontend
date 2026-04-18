@@ -69,18 +69,19 @@ export default function LoginPage() {
         <div className="absolute top-0 right-0 w-px h-full bg-gradient-to-b from-transparent via-white/20 to-transparent" />
 
         {/* Content */}
-        <div className="relative z-10 flex flex-col justify-between p-12 xl:p-16 text-white w-full">
+        <div className="relative z-10 flex flex-col p-12 xl:p-16 text-white w-full min-h-full">
 
-          {/* ── Logo ── */}
-          <div className="flex items-center gap-3">
+          {/* ── Logo — top ── */}
+          <div className="flex items-center gap-3 flex-shrink-0">
             <div className="p-2.5 rounded-2xl bg-white/20 backdrop-blur-sm border border-white/25 shadow-lg">
               <Activity className="w-6 h-6 text-white" />
             </div>
             <span className="text-xl font-bold tracking-tight">MaternityCare</span>
           </div>
 
-          {/* ── Main content ── */}
-          <div className="flex flex-col gap-8">
+          {/* ── Main content — center (flex-1 so it fills space) ── */}
+          <div className="flex-1 flex flex-col justify-center gap-7 py-10">
+
             {/* Status badge */}
             <div className="inline-flex items-center gap-2.5 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-5 py-2 text-sm w-fit shadow-sm">
               <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse" />
@@ -89,7 +90,7 @@ export default function LoginPage() {
 
             {/* Heading */}
             <div className="flex flex-col gap-3">
-              <h2 className="text-[3.5rem] xl:text-[4rem] font-extrabold leading-[1.05] tracking-tight">
+              <h2 className="text-[3.2rem] xl:text-[3.6rem] font-extrabold leading-[1.05] tracking-tight">
                 Aqlli
                 <br />
                 <span className="text-transparent bg-clip-text" style={{ backgroundImage: "linear-gradient(90deg, #c7d2fe, #a5b4fc)" }}>
@@ -104,9 +105,9 @@ export default function LoginPage() {
             </div>
 
             {/* Feature list */}
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2">
               {features.map(({ icon: Icon, label, desc }) => (
-                <div key={label} className="flex items-center gap-4 group p-3 rounded-2xl hover:bg-white/10 transition-colors duration-200">
+                <div key={label} className="flex items-center gap-4 group px-3 py-2.5 rounded-2xl hover:bg-white/10 transition-colors duration-200">
                   <div className="w-11 h-11 rounded-xl bg-white/15 backdrop-blur border border-white/15 flex items-center justify-center flex-shrink-0 group-hover:bg-white/25 group-hover:border-white/30 transition-all duration-200 shadow-sm">
                     <Icon className="w-5 h-5 text-white" />
                   </div>
@@ -119,8 +120,8 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* ── Bottom stats ── */}
-          <div className="grid grid-cols-3 gap-3">
+          {/* ── Stats — bottom ── */}
+          <div className="grid grid-cols-3 gap-3 flex-shrink-0">
             {[
               { value: "99%", label: "Davomat aniqligi" },
               { value: "24/7", label: "Monitoring" },
