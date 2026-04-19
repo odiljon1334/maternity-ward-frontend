@@ -100,6 +100,8 @@ export const shiftsApi = {
     api.put(`/shifts/${id}`, data, { params }).then((r) => r.data.data),
   delete: (id: string, params?: { targetHospitalId?: string }) =>
     api.delete(`/shifts/${id}`, { params }).then((r) => r.data.data),
+  seed: (params?: { targetHospitalId?: string }) =>
+    api.post("/shifts/seed", {}, { params }).then((r) => r.data.data),
 };
 
 // ─── Employees ──────────────────────────────────

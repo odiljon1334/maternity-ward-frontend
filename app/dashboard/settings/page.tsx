@@ -7,7 +7,7 @@ import { Topbar } from "@/components/layout/Topbar";
 import { useAuthStore } from "@/stores/auth";
 import { useForm } from "react-hook-form";
 import {
-  Building2, Briefcase, Clock, Plus, Edit2, Trash2, X, Check, Moon, Sun, Camera,
+  Building2, Briefcase, Clock, Plus, Edit2, Trash2, X, Check, Moon, Sun, Camera, Zap,
 } from "lucide-react";
 import { cn, isSuperLike } from "@/lib/utils";
 
@@ -395,6 +395,12 @@ function ShiftsPanel({ targetHospitalId }: { targetHospitalId?: string }) {
     onError: (e: any) => toast.error(e?.response?.data?.message || "O'chirishda xatolik"),
   });
 
+  const seedMut = useMutation({
+    mutationFn: () => shiftsApi.seed(params),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["shifts"] }); toast.success("Standart smenlar yaratildi"); },
+    onError: (e: any) => toast.error(e?.response?.data?.message || "Xatolik"),
+  });
+
   return (
     <>
       <div className="card">
@@ -455,7 +461,18 @@ function ShiftsPanel({ targetHospitalId }: { targetHospitalId?: string }) {
             </div>
           ))}
           {!isLoading && (shifts as any[]).length === 0 && (
-            <p className="px-4 py-8 text-center text-sm text-[var(--text-muted)]">Smenlar yo&apos;q</p>
+            <div className="px-4 py-8 text-center space-y-3">
+              <p className="text-sm text-[var(--text-muted)]">Smenlar yo&apos;q</p>
+              <button
+                onClick={() => seedMut.mutate()}
+                disabled={seedMut.isPending}
+                className="btn-primary py-1.5 px-4 text-xs mx-auto"
+              >
+                <Zap className="w-3.5 h-3.5" />
+                {seedMut.isPending ? "Yaratilmoqda..." : "Standart smenlarni yaratish"}
+              </button>
+              <p className="text-xs text-[var(--text-muted)]">Kunduzgi (08:00–20:00) va Kechki (20:00–08:00)</p>
+            </div>
           )}
         </div>
       </div>
