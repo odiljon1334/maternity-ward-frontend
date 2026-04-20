@@ -1,6 +1,6 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect, useRef, useCallback, memo } from "react";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { employeesApi, departmentsApi, positionsApi, attendanceApi, downloadBlob, photoUrl as buildPhotoUrl } from "@/lib/api";
@@ -9,10 +9,12 @@ import { getInitials, getAvatarColor, formatMoney, cn, isSuperLike } from "@/lib
 import { useAuthStore } from "@/stores/auth";
 import {
   Plus, Search, Download, Upload, Camera,
-  Trash2, X, ChevronLeft, ChevronRight, FileSpreadsheet, Coffee,
+  Trash2, X, FileSpreadsheet, Coffee,
 } from "lucide-react";
 import dayjs from "dayjs";
 import { useForm } from "react-hook-form";
+
+const LIMIT = 20;
 
 type EmpForm = {
   fullName:     string;
@@ -75,9 +77,7 @@ function EmployeeModal({
       const emp = employee
         ? await employeesApi.update(employee.id, data, params)
         : await employeesApi.create(data, params);
-      if (photoFile) {
-        await employeesApi.uploadPhoto(emp.id, photoFile, params);
-      }
+      if (photoFile) await employeesApi.uploadPhoto(emp.id, photoFile, params);
       return emp;
     },
     onSuccess: () => {
@@ -105,7 +105,6 @@ function EmployeeModal({
         </div>
 
         <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="p-5 space-y-4">
-          {/* Photo upload */}
           <div className="flex items-center gap-4">
             <div
               onClick={() => photoRef.current?.click()}
@@ -203,6 +202,76 @@ function EmployeeModal({
   );
 }
 
+// ── Memoized table row ────────────────────────────
+const EmpRow = memo(function EmpRow({
+  emp, lunchLate, onEdit, onDelete, onPhoto, uploadingId, router,
+}: {
+  emp: any;
+  lunchLate?: number;
+  onEdit: (emp: any) => void;
+  onDelete: (id: string) => void;
+  onPhoto: (id: string) => void;
+  uploadingId: string | null;
+  router: any;
+}) {
+  return (
+    <tr className="border-b border-[var(--border)] table-row-hover">
+      <td className="px-5 py-3.5">
+        <div className="flex items-center gap-3">
+          <button onClick={(e) => { e.stopPropagation(); onPhoto(emp.id); }} className="relative group flex-shrink-0">
+            {emp.photoUrl ? (
+              <img src={buildPhotoUrl(emp.photoUrl)} alt={emp.fullName} className="w-9 h-9 rounded-full object-cover" />
+            ) : (
+              <div className={cn("w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold text-white", getAvatarColor(emp.fullName))}>
+                {getInitials(emp.fullName)}
+              </div>
+            )}
+            <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <Camera className="w-3.5 h-3.5 text-white" />
+            </div>
+            {uploadingId === emp.id && (
+              <div className="absolute inset-0 rounded-full bg-black/60 flex items-center justify-center">
+                <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
+          </button>
+          <button onClick={() => router.push(`/dashboard/employees/${emp.id}`)} className="text-left hover:text-indigo-400 transition-colors group/name">
+            <div className="flex items-center gap-1.5">
+              <p className="font-medium text-[var(--text-primary)] group-hover/name:text-indigo-400">{emp.fullName}</p>
+              {lunchLate && lunchLate > 0 ? (
+                <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-400 whitespace-nowrap">
+                  <Coffee className="w-2.5 h-2.5" />+{lunchLate}min
+                </span>
+              ) : null}
+            </div>
+            <p className="text-xs text-[var(--text-muted)]">{emp.phone || "—"}</p>
+          </button>
+        </div>
+      </td>
+      <td className="px-5 py-3.5 text-[var(--text-primary)]">{emp.department?.name}</td>
+      <td className="px-5 py-3.5 text-[var(--text-muted)]">{emp.position?.name}</td>
+      <td className="px-5 py-3.5 font-mono text-xs text-[var(--text-muted)]">{emp.employeeNo || <span className="opacity-40">—</span>}</td>
+      <td className="px-5 py-3.5">{formatMoney(emp.baseSalary)}</td>
+      <td className="px-5 py-3.5">
+        {emp.firedAt ? <span className="badge-red">Ketgan</span> : <span className="badge-green">Aktiv</span>}
+      </td>
+      <td className="px-5 py-3.5">
+        <div className="flex items-center gap-1 justify-end">
+          <button onClick={() => onEdit(emp)} className="text-indigo-400 hover:text-indigo-300 px-2 py-1 rounded text-xs font-medium">
+            Tahrirlash
+          </button>
+          <button
+            onClick={() => confirm("O'chirishni tasdiqlaysizmi?") && onDelete(emp.id)}
+            className="p-1.5 rounded text-[var(--text-muted)] hover:text-red-400 hover:bg-red-500/10"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+});
+
 // ── Main Page ────────────────────────────────────
 export default function EmployeesPage() {
   const qc = useQueryClient();
@@ -214,31 +283,69 @@ export default function EmployeesPage() {
     : undefined;
   const params = targetHospitalId ? { targetHospitalId } : undefined;
 
-  const [search, setSearch] = useState("");
+  const [search, setSearch]       = useState("");
   const [deptFilter, setDeptFilter] = useState("");
-  const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
-  const [editEmp, setEditEmp] = useState<any>(null);
-
+  const [editEmp, setEditEmp]     = useState<any>(null);
   const [uploadingEmpId, setUploadingEmpId] = useState<string | null>(null);
-  const photoInputRef = useRef<HTMLInputElement>(null);
-
   const [importing, setImporting] = useState(false);
-  const csvInputRef = useRef<HTMLInputElement>(null);
+  const [fixing, setFixing]       = useState(false);
 
-  const LIMIT = 15;
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const csvInputRef   = useRef<HTMLInputElement>(null);
+  const sentinelRef   = useRef<HTMLDivElement>(null);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["employees", search, deptFilter, page, targetHospitalId],
-    queryFn: () => employeesApi.list({
-      search,
-      departmentId: deptFilter || undefined,
-      page,
-      limit: LIMIT,
-      ...(params || {}),
-    }),
+  // ── Infinite query ───────────────────────────
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+  } = useInfiniteQuery({
+    queryKey: ["employees", search, deptFilter, targetHospitalId],
+    queryFn: ({ pageParam = 1 }) =>
+      employeesApi.list({
+        search,
+        departmentId: deptFilter || undefined,
+        page: pageParam as number,
+        limit: LIMIT,
+        ...(params || {}),
+      }),
+    getNextPageParam: (lastPage: any) => {
+      const meta = lastPage?.meta;
+      if (!meta) return undefined;
+      return meta.page < meta.totalPages ? meta.page + 1 : undefined;
+    },
+    initialPageParam: 1,
   });
 
+  // Flatten all pages
+  const employees = data?.pages.flatMap((p: any) => p?.data ?? []) ?? [];
+  const total     = data?.pages[0]?.meta?.total ?? 0;
+
+  // ── IntersectionObserver for infinite scroll ─
+  const handleObserver = useCallback(
+    (entries: IntersectionObserverEntry[]) => {
+      if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+        fetchNextPage();
+      }
+    },
+    [fetchNextPage, hasNextPage, isFetchingNextPage],
+  );
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(handleObserver, { threshold: 0.1 });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [handleObserver]);
+
+  // Reset scroll when filters change
+  useEffect(() => { window.scrollTo(0, 0); }, [search, deptFilter, targetHospitalId]);
+
+  // ── Departments / Positions ──────────────────
   const { data: departments = [] } = useQuery({
     queryKey: ["departments", targetHospitalId],
     queryFn: () => departmentsApi.list(params),
@@ -249,6 +356,7 @@ export default function EmployeesPage() {
     queryFn: () => positionsApi.list(params),
   });
 
+  // ── Today attendance ─────────────────────────
   const today = dayjs().format("YYYY-MM-DD");
   const { data: todayAttRaw } = useQuery({
     queryKey: ["attendance-daily-lunch", today, targetHospitalId],
@@ -258,18 +366,18 @@ export default function EmployeesPage() {
   const lunchLateMap = new Map<string, number>();
   if (Array.isArray(todayAttRaw)) {
     for (const r of todayAttRaw) {
-      if (r.employeeId && (r.lunchLateMin ?? 0) > 0) {
-        lunchLateMap.set(r.employeeId, r.lunchLateMin);
-      }
+      if (r.employeeId && (r.lunchLateMin ?? 0) > 0) lunchLateMap.set(r.employeeId, r.lunchLateMin);
     }
   }
 
+  // ── Delete ───────────────────────────────────
   const deleteMutation = useMutation({
     mutationFn: (id: string) => employeesApi.delete(id, params),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["employees"] }); toast.success("Xodim o'chirildi"); },
-    onError: () => toast.error("O'chirishda xatolik"),
+    onError: (e: any) => toast.error(e?.response?.data?.message || "O'chirishda xatolik"),
   });
 
+  // ── Excel export ─────────────────────────────
   const handleExcel = async () => {
     try {
       const res = await employeesApi.exportExcel(params);
@@ -277,7 +385,7 @@ export default function EmployeesPage() {
     } catch { toast.error("Export xatoligi"); }
   };
 
-  const [fixing, setFixing] = useState(false);
+  // ── Fix employee numbers ─────────────────────
   const handleFixNumbers = async () => {
     setFixing(true);
     try {
@@ -287,11 +395,10 @@ export default function EmployeesPage() {
       toast.success(`Terminal ID tuzatildi: ${result?.fixed ?? 0} ta | o'tkazildi: ${result?.skipped ?? 0} ta`);
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Xatolik");
-    } finally {
-      setFixing(false);
-    }
+    } finally { setFixing(false); }
   };
 
+  // ── CSV import ───────────────────────────────
   const handleCsvChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -302,28 +409,25 @@ export default function EmployeesPage() {
       qc.invalidateQueries({ queryKey: ["employees"] });
       qc.invalidateQueries({ queryKey: ["departments"] });
       qc.invalidateQueries({ queryKey: ["positions"] });
-      const imported = result?.imported ?? 0;
-      const newDepts: string[] = result?.created?.departments ?? [];
-      const newPos: string[] = result?.created?.positions ?? [];
-      const errs: string[] = result?.errors ?? [];
+      const imported  = result?.imported ?? 0;
+      const newDepts  = result?.created?.departments ?? [];
+      const newPos    = result?.created?.positions ?? [];
+      const errs      = result?.errors ?? [];
       if (imported > 0) {
         const extras: string[] = [];
         if (newDepts.length > 0) extras.push(`${newDepts.length} yangi bo'lim`);
-        if (newPos.length > 0) extras.push(`${newPos.length} yangi lavozim`);
+        if (newPos.length > 0)   extras.push(`${newPos.length} yangi lavozim`);
         toast.success(`${imported} ta xodim import qilindi${extras.length ? ` (${extras.join(", ")} yaratildi)` : ""}`);
       } else {
         toast.warning("Hech qanday xodim import qilinmadi");
       }
-      if (errs.length > 0) {
-        toast.error(`${errs.length} ta xatolik: ${errs.slice(0, 2).join("; ")}${errs.length > 2 ? " ..." : ""}`);
-      }
+      if (errs.length > 0) toast.error(`${errs.length} ta xatolik: ${errs.slice(0, 2).join("; ")}${errs.length > 2 ? " ..." : ""}`);
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Import xatoligi");
-    } finally {
-      setImporting(false);
-    }
+    } finally { setImporting(false); }
   };
 
+  // ── Photo upload ─────────────────────────────
   const handlePhotoClick = (empId: string) => {
     setUploadingEmpId(empId);
     photoInputRef.current?.click();
@@ -340,25 +444,17 @@ export default function EmployeesPage() {
       toast.success("Rasm yuklandi", { id: toastId });
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Rasm yuklashda xatolik", { id: toastId });
-    } finally {
-      setUploadingEmpId(null);
-    }
+    } finally { setUploadingEmpId(null); }
   };
-
-  const employees = data?.data || data || [];
-  const total = data?.total || employees.length;
-  const totalPages = Math.ceil(total / LIMIT);
 
   return (
     <div>
       <Topbar title="Xodimlar" subtitle={`Jami ${total} nafar`} />
 
-      {/* Hidden inputs */}
-      <input ref={csvInputRef} type="file" accept=".csv" className="hidden" onChange={handleCsvChange} />
+      <input ref={csvInputRef}   type="file" accept=".csv"    className="hidden" onChange={handleCsvChange} />
       <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
 
       <div className="p-4 lg:p-6 space-y-4">
-        {/* Hospital warning */}
         {isSuperLike(user?.role) && !selectedHospital && (
           <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm">
             <span className="text-base">⚠️</span>
@@ -368,28 +464,27 @@ export default function EmployeesPage() {
 
         {/* ── Toolbar ── */}
         <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3">
-          {/* Row 1: search + dept filter */}
           <div className="flex gap-2 sm:contents">
+            {/* Search — icon ichkarida, to'g'ri joylashgan */}
             <div className="relative flex-1 sm:flex-1 sm:min-w-48">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)] z-10" />
               <input
                 value={search}
-                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                onChange={(e) => setSearch(e.target.value)}
                 placeholder="Qidirish (ism, ID)..."
-                className="input-field pl-9"
+                className="input-field pl-9 w-full"
               />
             </div>
             <select
               value={deptFilter}
-              onChange={(e) => { setDeptFilter(e.target.value); setPage(1); }}
+              onChange={(e) => setDeptFilter(e.target.value)}
               className="input-field w-40 sm:w-44 flex-shrink-0"
             >
               <option value="">Barcha bo'limlar</option>
-              {departments.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
+              {(departments as any[]).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
           </div>
 
-          {/* Row 2: action buttons */}
           <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
             <button
               onClick={async () => {
@@ -436,12 +531,11 @@ export default function EmployeesPage() {
           </div>
         </div>
 
-        {/* CSV hint */}
         <p className="text-xs text-[var(--text-muted)] hidden sm:block">
           CSV ustunlar: <code className="font-mono bg-[var(--bg-hover)] px-1 rounded">ism_familiya, jinsi, bolim_kodi, lavozim, telefon</code>
         </p>
 
-        {/* ── Mobile card view (hidden on sm+) ── */}
+        {/* ── Mobile cards ── */}
         <div className="sm:hidden space-y-3">
           {isLoading && [...Array(5)].map((_, i) => (
             <div key={i} className="card p-4 animate-pulse">
@@ -457,10 +551,9 @@ export default function EmployeesPage() {
           {!isLoading && employees.length === 0 && (
             <div className="card p-8 text-center text-[var(--text-muted)] text-sm">Xodimlar topilmadi</div>
           )}
-          {!isLoading && employees.map((emp: any) => (
+          {employees.map((emp: any) => (
             <div key={emp.id} className="card p-4">
               <div className="flex items-center gap-3">
-                {/* Avatar + photo upload */}
                 <button onClick={() => handlePhotoClick(emp.id)} className="relative group flex-shrink-0">
                   {emp.photoUrl
                     ? <img src={buildPhotoUrl(emp.photoUrl)} alt={emp.fullName} className="w-10 h-10 rounded-full object-cover" />
@@ -472,8 +565,6 @@ export default function EmployeesPage() {
                     <Camera className="w-3.5 h-3.5 text-white" />
                   </div>
                 </button>
-
-                {/* Info */}
                 <button className="flex-1 min-w-0 text-left" onClick={() => router.push(`/dashboard/employees/${emp.id}`)}>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <p className="font-medium text-[var(--text-primary)] text-sm">{emp.fullName}</p>
@@ -485,23 +576,13 @@ export default function EmployeesPage() {
                   </div>
                   <p className="text-xs text-[var(--text-muted)] truncate">{emp.department?.name} · {emp.position?.name}</p>
                 </button>
-
-                {/* Status */}
-                {emp.firedAt
-                  ? <span className="badge-red flex-shrink-0">Ketgan</span>
-                  : <span className="badge-green flex-shrink-0">Aktiv</span>
-                }
+                {emp.firedAt ? <span className="badge-red flex-shrink-0">Ketgan</span> : <span className="badge-green flex-shrink-0">Aktiv</span>}
               </div>
-
-              {/* Bottom row */}
               <div className="flex items-center gap-3 mt-3 pt-3 border-t border-[var(--border)]">
                 <span className="font-mono text-xs text-[var(--text-muted)]">{emp.employeeNo || "—"}</span>
                 <span className="text-xs text-[var(--text-primary)] font-medium">{formatMoney(emp.baseSalary)}</span>
                 <div className="ml-auto flex items-center gap-1">
-                  <button
-                    onClick={() => { setEditEmp(emp); setModalOpen(true); }}
-                    className="text-indigo-400 hover:text-indigo-300 px-2 py-1 rounded text-xs font-medium"
-                  >
+                  <button onClick={() => { setEditEmp(emp); setModalOpen(true); }} className="text-indigo-400 hover:text-indigo-300 px-2 py-1 rounded text-xs font-medium">
                     Tahrirlash
                   </button>
                   <button
@@ -516,7 +597,7 @@ export default function EmployeesPage() {
           ))}
         </div>
 
-        {/* ── Desktop table (hidden on mobile) ── */}
+        {/* ── Desktop table ── */}
         <div className="hidden sm:block card overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -541,66 +622,16 @@ export default function EmployeesPage() {
                 ))}
 
                 {!isLoading && employees.map((emp: any) => (
-                  <tr key={emp.id} className="border-b border-[var(--border)] table-row-hover">
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-3">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handlePhotoClick(emp.id); }}
-                          className="relative group flex-shrink-0"
-                        >
-                          {emp.photoUrl ? (
-                            <img src={buildPhotoUrl(emp.photoUrl)} alt={emp.fullName} className="w-9 h-9 rounded-full object-cover" />
-                          ) : (
-                            <div className={cn("w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold text-white", getAvatarColor(emp.fullName))}>
-                              {getInitials(emp.fullName)}
-                            </div>
-                          )}
-                          <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Camera className="w-3.5 h-3.5 text-white" />
-                          </div>
-                          {uploadingEmpId === emp.id && (
-                            <div className="absolute inset-0 rounded-full bg-black/60 flex items-center justify-center">
-                              <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                            </div>
-                          )}
-                        </button>
-
-                        <button onClick={() => router.push(`/dashboard/employees/${emp.id}`)} className="text-left hover:text-indigo-400 transition-colors group/name">
-                          <div className="flex items-center gap-1.5">
-                            <p className="font-medium text-[var(--text-primary)] group-hover/name:text-indigo-400">{emp.fullName}</p>
-                            {lunchLateMap.has(emp.id) && (
-                              <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-400 whitespace-nowrap">
-                                <Coffee className="w-2.5 h-2.5" />+{lunchLateMap.get(emp.id)}min
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-xs text-[var(--text-muted)]">{emp.phone || "—"}</p>
-                        </button>
-                      </div>
-                    </td>
-                    <td className="px-5 py-3.5 text-[var(--text-primary)]">{emp.department?.name}</td>
-                    <td className="px-5 py-3.5 text-[var(--text-muted)]">{emp.position?.name}</td>
-                    <td className="px-5 py-3.5 font-mono text-xs text-[var(--text-muted)]">
-                      {emp.employeeNo || <span className="opacity-40">—</span>}
-                    </td>
-                    <td className="px-5 py-3.5">{formatMoney(emp.baseSalary)}</td>
-                    <td className="px-5 py-3.5">
-                      {emp.firedAt ? <span className="badge-red">Ketgan</span> : <span className="badge-green">Aktiv</span>}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-1 justify-end">
-                        <button onClick={() => { setEditEmp(emp); setModalOpen(true); }} className="text-indigo-400 hover:text-indigo-300 px-2 py-1 rounded text-xs font-medium">
-                          Tahrirlash
-                        </button>
-                        <button
-                          onClick={() => confirm("O'chirishni tasdiqlaysizmi?") && deleteMutation.mutate(emp.id)}
-                          className="p-1.5 rounded text-[var(--text-muted)] hover:text-red-400 hover:bg-red-500/10"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                  <EmpRow
+                    key={emp.id}
+                    emp={emp}
+                    lunchLate={lunchLateMap.get(emp.id)}
+                    onEdit={(e) => { setEditEmp(e); setModalOpen(true); }}
+                    onDelete={(id) => deleteMutation.mutate(id)}
+                    onPhoto={handlePhotoClick}
+                    uploadingId={uploadingEmpId}
+                    router={router}
+                  />
                 ))}
 
                 {!isLoading && employees.length === 0 && (
@@ -614,49 +645,25 @@ export default function EmployeesPage() {
             </table>
           </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between px-5 py-3 border-t border-[var(--border)]">
-              <p className="text-xs text-[var(--text-muted)]">
-                {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} / {total}
-              </p>
-              <div className="flex items-center gap-1">
-                <button onClick={() => setPage(1)} disabled={page === 1} className="btn-ghost p-1.5 disabled:opacity-30 text-xs px-2">«</button>
-                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="btn-ghost p-1.5 disabled:opacity-30">
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  const start = Math.max(1, Math.min(page - 2, totalPages - 4));
-                  const p = start + i;
-                  return (
-                    <button key={p} onClick={() => setPage(p)} className={cn("btn-ghost px-3 py-1.5 text-xs rounded", p === page && "bg-indigo-600 text-white hover:bg-indigo-500")}>
-                      {p}
-                    </button>
-                  );
-                })}
-                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="btn-ghost p-1.5 disabled:opacity-30">
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-                <button onClick={() => setPage(totalPages)} disabled={page === totalPages} className="btn-ghost p-1.5 disabled:opacity-30 text-xs px-2">»</button>
-              </div>
+          {/* Infinite scroll info */}
+          {employees.length > 0 && (
+            <div className="px-5 py-3 border-t border-[var(--border)] text-xs text-[var(--text-muted)]">
+              {employees.length} / {total} ta ko'rsatilmoqda
             </div>
           )}
         </div>
 
-        {/* Mobile pagination */}
-        {totalPages > 1 && (
-          <div className="flex sm:hidden items-center justify-between">
-            <p className="text-xs text-[var(--text-muted)]">{(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} / {total}</p>
-            <div className="flex items-center gap-1">
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="btn-ghost p-2 disabled:opacity-30">
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="text-xs text-[var(--text-muted)] px-2">{page}/{totalPages}</span>
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="btn-ghost p-2 disabled:opacity-30">
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
+        {/* ── Sentinel (infinite scroll trigger) ── */}
+        <div ref={sentinelRef} className="h-4" />
+        {isFetchingNextPage && (
+          <div className="flex justify-center py-4">
+            <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
           </div>
+        )}
+        {!hasNextPage && employees.length > 0 && !isLoading && (
+          <p className="text-center text-xs text-[var(--text-muted)] py-2">
+            Barcha {total} ta xodim yuklandi ✓
+          </p>
         )}
       </div>
 
