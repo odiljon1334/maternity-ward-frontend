@@ -129,7 +129,7 @@ function EmployeeModal({
                 {photoFile ? photoFile.name.substring(0, 18) + "..." : "Rasm tanlash"}
               </button>
             </div>
-            <input ref={photoRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoSelect} />
+            <input ref={photoRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoSelect} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -452,7 +452,7 @@ export default function EmployeesPage() {
       <Topbar title="Xodimlar" subtitle={`Jami ${total} nafar`} />
 
       <input ref={csvInputRef}   type="file" accept=".csv"    className="hidden" onChange={handleCsvChange} />
-      <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
+      <input ref={photoInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoChange} />
 
       <div className="p-4 lg:p-6 space-y-4">
         {isSuperLike(user?.role) && !selectedHospital && (
