@@ -1,12 +1,13 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { schedulesApi, employeesApi, shiftsApi, departmentsApi } from "@/lib/api";
 import { Topbar } from "@/components/layout/Topbar";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Zap, X, Edit3, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, Zap, X, Edit3, Check, Clock, Sun, Moon, Plus, Edit2, Trash2 } from "lucide-react";
 import dayjs from "dayjs";
+import { useForm } from "react-hook-form";
 import { useAuthStore } from "@/stores/auth";
 
 // ─── Ish kunlari ─────────────────────────────────────────────────────────────
@@ -27,6 +28,252 @@ const PATTERNS = [
   { value: "1-1",        label: "1-1 (1 hafta kunduz, 1 hafta kech)" },
   { value: "3-1",        label: "3-1 (3 hafta kunduz, 1 hafta kech)" },
 ];
+
+// ─── Shift types ─────────────────────────────────────────────────────────────
+type ShiftForm = {
+  name: string;
+  type: "DAYTIME" | "NIGHTTIME" | "CUSTOM";
+  startTime: string;
+  endTime: string;
+  graceMinutes: number;
+  lunchStart: string;
+  lunchEnd: string;
+  lunchGraceMin: number;
+};
+
+function calcDuration(start: string, end: string, overnight: boolean): number {
+  const [sh, sm] = start.split(":").map(Number);
+  const [eh, em] = end.split(":").map(Number);
+  let mins = (eh * 60 + em) - (sh * 60 + sm);
+  if (overnight || mins <= 0) mins += 24 * 60;
+  return Math.round(mins / 60);
+}
+
+function ShiftModal({ open, onClose, shift, targetHospitalId }: {
+  open: boolean; onClose: () => void; shift?: any; targetHospitalId?: string;
+}) {
+  const qc = useQueryClient();
+  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<ShiftForm>();
+  const params = targetHospitalId ? { targetHospitalId } : undefined;
+
+  const startTime = watch("startTime", "08:00");
+  const endTime = watch("endTime", "17:00");
+
+  const isOvernight = (() => {
+    if (!startTime || !endTime) return false;
+    const [sh, sm] = startTime.split(":").map(Number);
+    const [eh, em] = endTime.split(":").map(Number);
+    return (eh * 60 + em) < (sh * 60 + sm);
+  })();
+
+  const durationH = startTime && endTime ? calcDuration(startTime, endTime, isOvernight) : 0;
+
+  useEffect(() => {
+    if (shift) {
+      reset({
+        name: shift.name, type: shift.type, startTime: shift.startTime, endTime: shift.endTime,
+        graceMinutes: shift.graceMinutes ?? 15,
+        lunchStart: shift.lunchStart ?? "", lunchEnd: shift.lunchEnd ?? "", lunchGraceMin: shift.lunchGraceMin ?? 10,
+      });
+    } else {
+      reset({ name: "", type: "DAYTIME", startTime: "08:00", endTime: "17:00", graceMinutes: 15, lunchStart: "", lunchEnd: "", lunchGraceMin: 10 });
+    }
+  }, [shift, open, reset]);
+
+  const mutation = useMutation({
+    mutationFn: (data: ShiftForm) => {
+      const payload = {
+        ...data,
+        durationH,
+        isOvernight,
+        graceMinutes: Number(data.graceMinutes),
+        lunchStart: data.lunchStart || null,
+        lunchEnd: data.lunchEnd || null,
+        lunchGraceMin: Number(data.lunchGraceMin) || 10,
+      };
+      return shift
+        ? shiftsApi.update(shift.id, payload, params)
+        : shiftsApi.create(payload, params);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["shifts"] });
+      toast.success(shift ? "Smen yangilandi" : "Smen qo'shildi");
+      onClose();
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message || "Xatolik"),
+  });
+
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative card w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
+          <h2 className="font-semibold text-[var(--text-primary)] text-sm">
+            {shift ? "Smenni tahrirlash" : "Yangi smen"}
+          </h2>
+          <button onClick={onClose} className="btn-ghost p-1.5"><X className="w-4 h-4" /></button>
+        </div>
+        <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="p-5 space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Smen nomi *</label>
+            <input {...register("name", { required: "Nom kerak" })} className="input-field text-sm" placeholder="1-smen" />
+            {errors.name && <p className="text-xs text-red-400 mt-1">{errors.name.message}</p>}
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Turi *</label>
+            <select {...register("type", { required: true })} className="input-field text-sm">
+              <option value="DAYTIME">☀️ Kunduzgi</option>
+              <option value="NIGHTTIME">🌙 Tungi</option>
+              <option value="CUSTOM">⚙️ Maxsus</option>
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Boshlanish *</label>
+              <input {...register("startTime", { required: true })} type="time" className="input-field text-sm" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Tugash *</label>
+              <input {...register("endTime", { required: true })} type="time" className="input-field text-sm" />
+            </div>
+          </div>
+          <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[var(--bg-hover)] text-xs text-[var(--text-muted)]">
+            <span>⏱ Davomiylik: <b className="text-[var(--text-primary)]">{durationH} soat</b></span>
+            {isOvernight && <span className="text-amber-400">🌙 Tungi (keyingi kun)</span>}
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Ruxsat (daqiqa)</label>
+            <input {...register("graceMinutes", { min: 0, max: 60 })} type="number" min={0} max={60} className="input-field text-sm" placeholder="15" />
+            <p className="text-xs text-[var(--text-muted)] mt-1">Kechikish uchun ruxsat etilgan daqiqalar (0–60)</p>
+          </div>
+          <div className="rounded-lg border border-[var(--border)] p-3 space-y-2.5">
+            <p className="text-xs font-semibold text-[var(--text-muted)] flex items-center gap-1.5">🍽️ Tushlik vaqti <span className="font-normal">(ixtiyoriy)</span></p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-[var(--text-muted)] mb-1">Tushlik boshi</label>
+                <input {...register("lunchStart")} type="time" className="input-field text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs text-[var(--text-muted)] mb-1">Tushlik oxiri</label>
+                <input {...register("lunchEnd")} type="time" className="input-field text-sm" />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs text-[var(--text-muted)] mb-1">Ruxsat (daqiqa)</label>
+              <input {...register("lunchGraceMin", { min: 0, max: 30 })} type="number" min={0} max={30} className="input-field text-sm" placeholder="10" />
+            </div>
+          </div>
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1 text-sm">Bekor</button>
+            <button type="submit" disabled={mutation.isPending} className="btn-primary flex-1 text-sm">
+              {mutation.isPending ? "Saqlanmoqda..." : (shift ? "Yangilash" : "Qo'shish")}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function ShiftsView({ targetHospitalId }: { targetHospitalId?: string }) {
+  const qc = useQueryClient();
+  const [shiftModal, setShiftModal] = useState<{ open: boolean; shift?: any }>({ open: false });
+  const params = targetHospitalId ? { targetHospitalId } : undefined;
+
+  const { data: shifts = [], isLoading } = useQuery({
+    queryKey: ["shifts", targetHospitalId],
+    queryFn: () => shiftsApi.list(params),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => shiftsApi.delete(id, params),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["shifts"] }); toast.success("O'chirildi"); },
+    onError: (e: any) => toast.error(e?.response?.data?.message || "O'chirishda xatolik"),
+  });
+
+  const seedMut = useMutation({
+    mutationFn: () => shiftsApi.seed(params),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["shifts"] }); toast.success("Standart smenlar yaratildi"); },
+    onError: (e: any) => toast.error(e?.response?.data?.message || "Xatolik"),
+  });
+
+  return (
+    <>
+      <div className="card">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-violet-400" />
+            <h3 className="font-semibold text-[var(--text-primary)]">Smenlar</h3>
+            <span className="badge-gray">{(shifts as any[]).length}</span>
+          </div>
+          <button onClick={() => setShiftModal({ open: true })} className="btn-primary py-1.5 px-3 text-xs flex items-center gap-1">
+            <Plus className="w-3.5 h-3.5" /> Qo&apos;shish
+          </button>
+        </div>
+
+        <div>
+          {isLoading && <div className="px-4 py-8 text-center text-sm text-[var(--text-muted)]">Yuklanmoqda...</div>}
+          {(shifts as any[]).map((s) => (
+            <div key={s.id} className="flex items-center justify-between px-4 py-3.5 border-b border-[var(--border)] hover:bg-[var(--bg-hover)] transition-colors group">
+              <div className="flex items-center gap-3 min-w-0">
+                {s.type === "DAYTIME"
+                  ? <Sun className="w-4 h-4 text-yellow-400 flex-shrink-0" />
+                  : <Moon className="w-4 h-4 text-indigo-400 flex-shrink-0" />
+                }
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-[var(--text-primary)]">{s.name}</p>
+                  <p className="text-xs text-[var(--text-muted)]">
+                    {s.startTime} – {s.endTime} &nbsp;·&nbsp; {s.durationH} soat
+                    {s.isOvernight && <span className="text-amber-400 ml-1">🌙</span>}
+                    {s.lunchStart && <span className="ml-1.5 text-orange-400">🍽 {s.lunchStart}–{s.lunchEnd}</span>}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <span className={cn(
+                  "text-xs px-2 py-0.5 rounded font-medium",
+                  s.type === "DAYTIME" ? "bg-yellow-500/15 text-yellow-400" : "bg-indigo-500/15 text-indigo-400"
+                )}>
+                  {s.type === "DAYTIME" ? "Kunduzgi" : s.type === "NIGHTTIME" ? "Tungi" : "Maxsus"}
+                </span>
+                <span className="text-xs text-[var(--text-muted)] bg-[var(--bg-hover)] px-1.5 py-0.5 rounded">
+                  {s.graceMinutes} min
+                </span>
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => setShiftModal({ open: true, shift: s })} className="p-1.5 rounded text-[var(--text-muted)] hover:text-indigo-400 hover:bg-indigo-500/10 transition-colors">
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => confirm("Smenni o'chirishni tasdiqlaysizmi?") && deleteMut.mutate(s.id)} className="p-1.5 rounded text-[var(--text-muted)] hover:text-red-400 hover:bg-red-500/10 transition-colors">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+          {!isLoading && (shifts as any[]).length === 0 && (
+            <div className="px-4 py-10 text-center space-y-3">
+              <Clock className="w-8 h-8 text-[var(--text-muted)] mx-auto opacity-40" />
+              <p className="text-sm text-[var(--text-muted)]">Smenlar yo&apos;q</p>
+              <button onClick={() => seedMut.mutate()} disabled={seedMut.isPending} className="btn-primary py-1.5 px-4 text-xs mx-auto flex items-center gap-1.5">
+                <Zap className="w-3.5 h-3.5" />
+                {seedMut.isPending ? "Yaratilmoqda..." : "Standart smenlarni yaratish"}
+              </button>
+              <p className="text-xs text-[var(--text-muted)]">Kunduzgi (08:00–20:00) va Kechki (20:00–08:00)</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <ShiftModal
+        open={shiftModal.open}
+        onClose={() => setShiftModal({ open: false })}
+        shift={shiftModal.shift}
+        targetHospitalId={targetHospitalId}
+      />
+    </>
+  );
+}
 
 // ─── Jadval katakchasi rangi ──────────────────────────────────────────────────
 function CellBadge({ sch }: { sch?: any }) {
@@ -357,6 +604,7 @@ export default function SchedulesPage() {
   const [deptFilter, setDeptFilter] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editEntry, setEditEntry] = useState<any>(null);
+  const [view, setView] = useState<"grafik" | "smenlar">("grafik");
 
   const { selectedHospital } = useAuthStore();
   const targetHospitalId = selectedHospital?.id;
@@ -430,46 +678,78 @@ export default function SchedulesPage() {
       <div className="p-4 lg:p-6 space-y-4">
         {/* Header controls */}
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          {/* Month nav */}
-          <div className="flex items-center gap-1 card px-2 py-1">
-            <button onClick={() => navMonth(-1)} className="btn-ghost p-1.5">
-              <ChevronLeft className="w-4 h-4" />
+          {/* Tab toggle */}
+          <div className="flex items-center gap-1 p-1 bg-[var(--bg-card)] border border-[var(--border)] rounded-lg">
+            <button
+              onClick={() => setView("grafik")}
+              className={cn(
+                "px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5",
+                view === "grafik" ? "bg-indigo-600 text-white" : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+              )}
+            >
+              <Edit3 className="w-3.5 h-3.5" /> Grafik
             </button>
-            <span className="px-3 text-sm font-medium text-[var(--text-primary)] min-w-32 text-center">
-              {dayjs(`${year}-${String(month).padStart(2, "0")}-01`).format("MMMM YYYY")}
-            </span>
-            <button onClick={() => navMonth(1)} className="btn-ghost p-1.5">
-              <ChevronRight className="w-4 h-4" />
+            <button
+              onClick={() => setView("smenlar")}
+              className={cn(
+                "px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5",
+                view === "smenlar" ? "bg-indigo-600 text-white" : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+              )}
+            >
+              <Clock className="w-3.5 h-3.5" /> Smenlar
             </button>
           </div>
 
-          {/* Dept filter */}
-          <select
-            value={deptFilter}
-            onChange={(e) => setDeptFilter(e.target.value)}
-            className="input-field text-sm w-full sm:w-auto"
-          >
-            <option value="">Barcha bo'limlar</option>
-            {(departments as any[]).map((d: any) => (
-              <option key={d.id} value={d.id}>{d.name}</option>
-            ))}
-          </select>
+          {view === "grafik" && (
+            <>
+              {/* Month nav */}
+              <div className="flex items-center gap-1 card px-2 py-1">
+                <button onClick={() => navMonth(-1)} className="btn-ghost p-1.5">
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="px-3 text-sm font-medium text-[var(--text-primary)] min-w-32 text-center">
+                  {dayjs(`${year}-${String(month).padStart(2, "0")}-01`).format("MMMM YYYY")}
+                </span>
+                <button onClick={() => navMonth(1)} className="btn-ghost p-1.5">
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
 
-          {/* Stats mini chips */}
-          {(schedules as any[]).length > 0 && (
-            <div className="flex gap-2 text-xs">
-              <span className="badge-blue px-2 py-1">K: {stats.day}</span>
-              <span className="badge-purple px-2 py-1">Tu: {stats.night}</span>
-              <span className="px-2 py-1 rounded-full bg-[var(--bg-hover)] text-[var(--text-muted)]">○ {stats.dayOff}</span>
-            </div>
+              {/* Dept filter */}
+              <select
+                value={deptFilter}
+                onChange={(e) => setDeptFilter(e.target.value)}
+                className="input-field text-sm w-full sm:w-auto"
+              >
+                <option value="">Barcha bo'limlar</option>
+                {(departments as any[]).map((d: any) => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+
+              {/* Stats mini chips */}
+              {(schedules as any[]).length > 0 && (
+                <div className="flex gap-2 text-xs">
+                  <span className="badge-blue px-2 py-1">K: {stats.day}</span>
+                  <span className="badge-purple px-2 py-1">Tu: {stats.night}</span>
+                  <span className="px-2 py-1 rounded-full bg-[var(--bg-hover)] text-[var(--text-muted)]">○ {stats.dayOff}</span>
+                </div>
+              )}
+
+              <button onClick={() => setModalOpen(true)} className="btn-primary gap-2 ml-auto">
+                <Zap className="w-4 h-4" /> Grafik yaratish
+              </button>
+            </>
           )}
-
-          <button onClick={() => setModalOpen(true)} className="btn-primary gap-2 ml-auto">
-            <Zap className="w-4 h-4" /> Grafik yaratish
-          </button>
         </div>
 
+        {/* Smenlar view */}
+        {view === "smenlar" && (
+          <ShiftsView targetHospitalId={targetHospitalId} />
+        )}
+
         {/* Calendar table */}
+        {view === "grafik" && (
         <div className="card overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
@@ -590,6 +870,7 @@ export default function SchedulesPage() {
             </span>
           </div>
         </div>
+        )}
       </div>
 
       {/* Modals */}
