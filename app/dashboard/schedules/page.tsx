@@ -394,10 +394,13 @@ function GenerateModal({
     departmentId: "",
     employeeId: "",
   });
-  // Single mode: aniq shift tanlash
-  const [singleShiftId, setSingleShiftId] = useState<string>("");
   // Ish kunlari — default: Du–Ju (1–5)
   const [workDays, setWorkDays] = useState<number[]>([1, 2, 3, 4, 5]);
+  // Single mode: manual vaqt
+  const [singleType, setSingleType] = useState<"DAYTIME" | "NIGHTTIME">("DAYTIME");
+  const [singleStart, setSingleStart] = useState("08:00");
+  const [singleEnd, setSingleEnd]     = useState("20:00");
+  const [submitting, setSubmitting]   = useState(false);
 
   const toggleDay = (d: number) =>
     setWorkDays((prev) =>
@@ -406,32 +409,77 @@ function GenerateModal({
 
   const isRotating = !form.pattern.startsWith("FIXED");
 
-  // Single mode: tanlangan shift asosida pattern va startsWith aniqlanadi
-  const selectedShift = (shifts as any[]).find((s: any) => s.id === singleShiftId);
-  const singlePattern = selectedShift?.type === "NIGHTTIME" ? "FIXED_NIGHT" : "FIXED_DAY";
-  const singleStartsWith = selectedShift?.type === "NIGHTTIME" ? "NIGHTTIME" : "DAYTIME";
+  // Davomiylik hisobi
+  const singleDuration = useMemo(() => {
+    const [sh, sm] = singleStart.split(":").map(Number);
+    const [eh, em] = singleEnd.split(":").map(Number);
+    let mins = (eh * 60 + em) - (sh * 60 + sm);
+    if (mins <= 0) mins += 24 * 60;
+    return Math.round(mins / 60);
+  }, [singleStart, singleEnd]);
 
-  const mutation = useMutation({
+  const singleIsOvernight = useMemo(() => {
+    const [sh, sm] = singleStart.split(":").map(Number);
+    const [eh, em] = singleEnd.split(":").map(Number);
+    return (eh * 60 + em) < (sh * 60 + sm);
+  }, [singleStart, singleEnd]);
+
+  const handleSingleGenerate = async () => {
+    if (!form.employeeId) return;
+    setSubmitting(true);
+    try {
+      // 1) Bazada o'sha turdagi va startTime ga mos shift bormi?
+      let shiftId: string | undefined;
+      const existing = (shifts as any[]).find(
+        (s: any) => s.type === singleType && s.startTime === singleStart
+      );
+      if (existing) {
+        shiftId = existing.id;
+      } else {
+        // 2) Yangi shift yaratamiz
+        const newShift = await shiftsApi.create({
+          name: `${singleType === "DAYTIME" ? "Kunduzgi" : "Kechki"} ${singleStart}`,
+          type: singleType,
+          startTime: singleStart,
+          endTime: singleEnd,
+          durationH: singleDuration,
+          isOvernight: singleIsOvernight,
+          graceMinutes: 15,
+        }, targetHospitalId ? { targetHospitalId } : undefined);
+        shiftId = newShift.id;
+        qc.invalidateQueries({ queryKey: ["shifts"] });
+      }
+      // 3) Grafik yaratamiz
+      const res = await schedulesApi.generate({
+        employeeId: form.employeeId,
+        month: form.month,
+        year: form.year,
+        pattern: singleType === "NIGHTTIME" ? "FIXED_NIGHT" : "FIXED_DAY",
+        startsWith: singleType,
+        workDays,
+        shiftId,
+      });
+      qc.invalidateQueries({ queryKey: ["schedules-monthly"] });
+      toast.success(`Grafik yaratildi: ${res.created ?? ""} ta`);
+      onClose();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Xatolik");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const bulkMutation = useMutation({
     mutationFn: () =>
-      mode === "bulk"
-        ? schedulesApi.bulkGenerate({
-            month: form.month,
-            year: form.year,
-            pattern: form.pattern,
-            startsWith: form.startsWith,
-            workDays,
-            departmentId: form.departmentId || undefined,
-            ...(targetHospitalId && { targetHospitalId }),
-          })
-        : schedulesApi.generate({
-            employeeId: form.employeeId,
-            month: form.month,
-            year: form.year,
-            pattern: singlePattern,
-            startsWith: singleStartsWith,
-            workDays,
-            shiftId: singleShiftId || undefined,
-          }),
+      schedulesApi.bulkGenerate({
+        month: form.month,
+        year: form.year,
+        pattern: form.pattern,
+        startsWith: form.startsWith,
+        workDays,
+        departmentId: form.departmentId || undefined,
+        ...(targetHospitalId && { targetHospitalId }),
+      }),
     onSuccess: (res: any) => {
       qc.invalidateQueries({ queryKey: ["schedules-monthly"] });
       const count = Array.isArray(res) ? res.length : (res.created ?? "");
@@ -442,9 +490,6 @@ function GenerateModal({
   });
 
   if (!open) return null;
-
-  const dayShifts = (shifts as any[]).filter((s: any) => s.type === "DAYTIME");
-  const nightShifts = (shifts as any[]).filter((s: any) => s.type === "NIGHTTIME");
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
@@ -564,68 +609,68 @@ function GenerateModal({
             </p>
           </div>
 
-          {/* Single mode: aniq shift tanlash */}
+          {/* Single mode: sman turi + manual vaqt */}
           {mode === "single" && (
-            <div>
-              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Smen tanlash</label>
-              {(shifts as any[]).length === 0 ? (
-                <p className="text-xs text-amber-400 px-3 py-2 bg-amber-500/10 rounded-lg">
-                  ⚠️ Smenlar topilmadi. Avval Smenlar bo'limida smenlar yarating.
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {dayShifts.length > 0 && (
-                    <div>
-                      <p className="text-[10px] text-[var(--text-muted)] mb-1 flex items-center gap-1">
-                        <Sun className="w-3 h-3 text-yellow-400" /> Kunduzgi smenlar
-                      </p>
-                      <div className="space-y-1">
-                        {dayShifts.map((s: any) => (
-                          <button
-                            key={s.id}
-                            type="button"
-                            onClick={() => setSingleShiftId(s.id)}
-                            className={cn(
-                              "w-full flex items-center justify-between px-3 py-2.5 rounded-lg border text-sm transition-colors text-left",
-                              singleShiftId === s.id
-                                ? "bg-yellow-500/15 border-yellow-500/50 text-yellow-300"
-                                : "border-[var(--border)] text-[var(--text-muted)] hover:border-yellow-500/40 hover:bg-yellow-500/5"
-                            )}
-                          >
-                            <span className="font-medium">{s.name}</span>
-                            <span className="text-xs opacity-80">{s.startTime} – {s.endTime} · {s.durationH}h</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {nightShifts.length > 0 && (
-                    <div>
-                      <p className="text-[10px] text-[var(--text-muted)] mb-1 flex items-center gap-1">
-                        <Moon className="w-3 h-3 text-indigo-400" /> Kechki smenlar
-                      </p>
-                      <div className="space-y-1">
-                        {nightShifts.map((s: any) => (
-                          <button
-                            key={s.id}
-                            type="button"
-                            onClick={() => setSingleShiftId(s.id)}
-                            className={cn(
-                              "w-full flex items-center justify-between px-3 py-2.5 rounded-lg border text-sm transition-colors text-left",
-                              singleShiftId === s.id
-                                ? "bg-indigo-500/15 border-indigo-500/50 text-indigo-300"
-                                : "border-[var(--border)] text-[var(--text-muted)] hover:border-indigo-500/40 hover:bg-indigo-500/5"
-                            )}
-                          >
-                            <span className="font-medium">{s.name}</span>
-                            <span className="text-xs opacity-80">{s.startTime} – {s.endTime} · {s.durationH}h{s.isOvernight ? " 🌙" : ""}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+            <div className="space-y-3">
+              {/* Tur toggle */}
+              <div>
+                <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Smen turi</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setSingleType("DAYTIME"); setSingleStart("08:00"); setSingleEnd("20:00"); }}
+                    className={cn(
+                      "flex items-center justify-center gap-2 py-2.5 rounded-lg border text-sm font-medium transition-colors",
+                      singleType === "DAYTIME"
+                        ? "bg-yellow-500/15 border-yellow-500/50 text-yellow-300"
+                        : "border-[var(--border)] text-[var(--text-muted)] hover:border-yellow-500/40"
+                    )}
+                  >
+                    <Sun className="w-4 h-4" /> Kunduzgi
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setSingleType("NIGHTTIME"); setSingleStart("20:00"); setSingleEnd("08:00"); }}
+                    className={cn(
+                      "flex items-center justify-center gap-2 py-2.5 rounded-lg border text-sm font-medium transition-colors",
+                      singleType === "NIGHTTIME"
+                        ? "bg-indigo-500/15 border-indigo-500/50 text-indigo-300"
+                        : "border-[var(--border)] text-[var(--text-muted)] hover:border-indigo-500/40"
+                    )}
+                  >
+                    <Moon className="w-4 h-4" /> Kechki
+                  </button>
                 </div>
-              )}
+              </div>
+
+              {/* Vaqt */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Boshlanish vaqti</label>
+                  <input
+                    type="time"
+                    value={singleStart}
+                    onChange={(e) => setSingleStart(e.target.value)}
+                    className="input-field"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Tugash vaqti</label>
+                  <input
+                    type="time"
+                    value={singleEnd}
+                    onChange={(e) => setSingleEnd(e.target.value)}
+                    className="input-field"
+                  />
+                </div>
+              </div>
+
+              {/* Davomiylik preview */}
+              <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[var(--bg-hover)] text-xs text-[var(--text-muted)]">
+                <Clock className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>Davomiylik: <b className="text-[var(--text-primary)]">{singleDuration} soat</b></span>
+                {singleIsOvernight && <span className="text-amber-400 ml-auto">🌙 Tungi (keyingi kun)</span>}
+              </div>
             </div>
           )}
 
@@ -662,15 +707,15 @@ function GenerateModal({
           <div className="flex gap-3 pt-2">
             <button onClick={onClose} className="btn-secondary flex-1">Bekor</button>
             <button
-              onClick={() => mutation.mutate()}
+              onClick={() => mode === "single" ? handleSingleGenerate() : bulkMutation.mutate()}
               disabled={
-                mutation.isPending ||
-                (mode === "single" && (!form.employeeId || !singleShiftId))
+                submitting || bulkMutation.isPending ||
+                (mode === "single" && !form.employeeId)
               }
               className="btn-primary flex-1 gap-2"
             >
               <Zap className="w-4 h-4" />
-              {mutation.isPending ? "Yaratilmoqda..." : "Grafik yaratish"}
+              {(submitting || bulkMutation.isPending) ? "Yaratilmoqda..." : "Grafik yaratish"}
             </button>
           </div>
         </div>
