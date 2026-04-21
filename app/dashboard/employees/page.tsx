@@ -342,6 +342,12 @@ export default function EmployeesPage() {
     return () => observer.disconnect();
   }, [handleObserver]);
 
+  // Kasalxona o'zgarganda filtrlni tozalaymiz (eski bo'lim IDsi yangi kasalxonada yo'q)
+  useEffect(() => {
+    setDeptFilter("");
+    setSearch("");
+  }, [targetHospitalId]);
+
   // Reset scroll when filters change
   useEffect(() => { window.scrollTo(0, 0); }, [search, deptFilter, targetHospitalId]);
 

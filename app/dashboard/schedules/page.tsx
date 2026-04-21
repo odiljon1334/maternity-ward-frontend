@@ -736,20 +736,25 @@ export default function SchedulesPage() {
   const { selectedHospital } = useAuthStore();
   const targetHospitalId = selectedHospital?.id;
 
+  // Kasalxona o'zgarganda bo'lim filtri reset bo'lsin
+  useEffect(() => {
+    setDeptFilter("");
+  }, [targetHospitalId]);
+
   // Monthly schedules — barcha hodimlar uchun bir oylik grafik
-  const { data: schedules = [], isLoading } = useQuery({
+  const { data: schedules = [], isLoading: schedLoading } = useQuery({
     queryKey: ["schedules-monthly", month, year, targetHospitalId],
     queryFn: () =>
       schedulesApi.monthly({ month, year, ...(targetHospitalId && { targetHospitalId }) }),
   });
 
-  const { data: employeesResp } = useQuery({
+  const { data: employeesResp, isLoading: empLoading } = useQuery({
     queryKey: ["employees-all", targetHospitalId],
-    queryFn: () => employeesApi.list({ limit: 500, ...(targetHospitalId && { targetHospitalId }) }),
+    queryFn: () => employeesApi.list({ limit: 500, ...(targetHospitalId ? { targetHospitalId } : {}) }),
+    staleTime: 30_000,
   });
-  const allEmployees: any[] = Array.isArray(employeesResp)
-    ? employeesResp
-    : ((employeesResp as any)?.data ?? []);
+  // ResponseInterceptor: { success, data: [...], meta: {...} }
+  const allEmployees: any[] = (employeesResp as any)?.data ?? [];
 
   const { data: shifts = [] } = useQuery({
     queryKey: ["shifts", targetHospitalId],
@@ -780,6 +785,7 @@ export default function SchedulesPage() {
     [allEmployees, deptFilter]
   );
 
+  const isLoading = schedLoading || empLoading;
   const daysInMonth = dayjs(`${year}-${String(month).padStart(2, "0")}-01`).daysInMonth();
 
   // Statistika
