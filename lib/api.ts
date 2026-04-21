@@ -204,6 +204,8 @@ export const hospitalsApi = {
   delete: (id: string) => api.delete(`/hospitals/${id}`).then((r) => r.data.data),
   createDirector: (hospitalId: string, data: any) =>
     api.post(`/hospitals/${hospitalId}/directors`, data).then((r) => r.data.data),
+  updateDirector: (hospitalId: string, data: any) =>
+    api.patch(`/hospitals/${hospitalId}/directors`, data).then((r) => r.data.data),
   block: (id: string) => api.patch(`/hospitals/${id}/block`).then((r) => r.data.data),
   unblock: (id: string) => api.patch(`/hospitals/${id}/unblock`).then((r) => r.data.data),
 };

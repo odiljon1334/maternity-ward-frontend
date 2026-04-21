@@ -83,25 +83,42 @@ function HospitalModal({ open, onClose, hospital }: {
 }
 
 // ── Director Form Modal ─────────────────────────
-type DirForm = { username: string; password: string; fullName: string; phone?: string };
+type DirCreateForm = { username: string; password: string; fullName: string; phone?: string };
+type DirEditForm = { fullName: string; phone?: string; password?: string };
 
-function DirectorModal({ open, onClose, hospitalId, hospitalName }: {
+function DirectorModal({ open, onClose, hospitalId, hospitalName, director }: {
   open: boolean; onClose: () => void; hospitalId: string; hospitalName: string;
+  director?: { id: string; username: string; name: string; phone?: string } | null;
 }) {
   const qc = useQueryClient();
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<DirForm>();
+  const isEdit = !!director;
+
+  const createForm = useForm<DirCreateForm>();
+  const editForm = useForm<DirEditForm>();
 
   useEffect(() => {
-    if (open) reset({ username: "", password: "", fullName: "", phone: "" });
-  }, [open, reset]);
+    if (open) {
+      if (isEdit && director) {
+        editForm.reset({ fullName: director.name, phone: director.phone || "", password: "" });
+      } else {
+        createForm.reset({ username: "", password: "", fullName: "", phone: "" });
+      }
+    }
+  }, [open, isEdit, director]);
 
-  const mutation = useMutation({
-    mutationFn: (data: DirForm) => hospitalsApi.createDirector(hospitalId, data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["hospitals"] });
-      toast.success("Direktor yaratildi");
-      onClose();
+  const createMut = useMutation({
+    mutationFn: (data: DirCreateForm) => hospitalsApi.createDirector(hospitalId, data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["hospitals"] }); toast.success("Direktor yaratildi"); onClose(); },
+    onError: (e: any) => toast.error(e?.response?.data?.message || "Xatolik"),
+  });
+
+  const editMut = useMutation({
+    mutationFn: (data: DirEditForm) => {
+      const payload: any = { fullName: data.fullName, phone: data.phone || undefined };
+      if (data.password) payload.password = data.password;
+      return hospitalsApi.updateDirector(hospitalId, payload);
     },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["hospitals"] }); toast.success("Direktor yangilandi"); onClose(); },
     onError: (e: any) => toast.error(e?.response?.data?.message || "Xatolik"),
   });
 
@@ -112,38 +129,76 @@ function DirectorModal({ open, onClose, hospitalId, hospitalName }: {
       <div className="relative card w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)] sticky top-0 bg-[var(--bg-card)] z-10">
           <div>
-            <h2 className="font-semibold text-[var(--text-primary)]">Direktor yaratish</h2>
+            <h2 className="font-semibold text-[var(--text-primary)]">
+              {isEdit ? "Direktori tahrirlash" : "Direktor yaratish"}
+            </h2>
             <p className="text-xs text-[var(--text-muted)] mt-0.5">{hospitalName}</p>
           </div>
           <button onClick={onClose} className="btn-ghost p-1.5"><X className="w-4 h-4" /></button>
         </div>
-        <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="p-6 space-y-4">
+
+        {/* EDIT mode */}
+        {isEdit && (
+          <form onSubmit={editForm.handleSubmit((d) => editMut.mutate(d))} className="p-6 space-y-4">
+            {director?.username && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--bg-hover)] text-xs text-[var(--text-muted)]">
+                Login: <span className="font-mono font-medium text-[var(--text-primary)]">{director.username}</span>
+                <span className="ml-1 opacity-60">(o'zgartirib bo'lmaydi)</span>
+              </div>
+            )}
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">F.I.O *</label>
+              <input {...editForm.register("fullName", { required: "Ism shart" })} className="input-field" />
+              {editForm.formState.errors.fullName && <p className="text-xs text-red-400 mt-1">{editForm.formState.errors.fullName.message}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Telefon</label>
+              <input {...editForm.register("phone")} className="input-field" placeholder="+998901234567" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Yangi parol <span className="font-normal opacity-60">(bo'sh qoldirsa o'zgarmaydi)</span></label>
+              <input {...editForm.register("password", { minLength: { value: 6, message: "Kamida 6 belgi" } })} type="password" className="input-field" placeholder="••••••••" />
+              {editForm.formState.errors.password && <p className="text-xs text-red-400 mt-1">{editForm.formState.errors.password.message}</p>}
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button type="button" onClick={onClose} className="btn-secondary flex-1">Bekor qilish</button>
+              <button type="submit" disabled={editMut.isPending} className="btn-primary flex-1">
+                {editMut.isPending ? "Saqlanmoqda..." : "Saqlash"}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* CREATE mode */}
+        {!isEdit && (
+        <form onSubmit={createForm.handleSubmit((d) => createMut.mutate(d))} className="p-6 space-y-4">
           <div>
             <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">F.I.O *</label>
-            <input {...register("fullName", { required: "Ism shart" })} className="input-field" placeholder="Aziz Karimov" />
-            {errors.fullName && <p className="text-xs text-red-400 mt-1">{errors.fullName.message}</p>}
+            <input {...createForm.register("fullName", { required: "Ism shart" })} className="input-field" placeholder="Aziz Karimov" />
+            {createForm.formState.errors.fullName && <p className="text-xs text-red-400 mt-1">{createForm.formState.errors.fullName.message}</p>}
           </div>
           <div>
             <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Login *</label>
-            <input {...register("username", { required: "Login shart", minLength: { value: 4, message: "Kamida 4 belgi" } })} className="input-field" placeholder="director4" />
-            {errors.username && <p className="text-xs text-red-400 mt-1">{errors.username.message}</p>}
+            <input {...createForm.register("username", { required: "Login shart", minLength: { value: 4, message: "Kamida 4 belgi" } })} className="input-field" placeholder="director4" />
+            {createForm.formState.errors.username && <p className="text-xs text-red-400 mt-1">{createForm.formState.errors.username.message}</p>}
           </div>
           <div>
             <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Parol *</label>
-            <input {...register("password", { required: "Parol shart", minLength: { value: 6, message: "Kamida 6 belgi" } })} type="password" className="input-field" placeholder="••••••••" />
-            {errors.password && <p className="text-xs text-red-400 mt-1">{errors.password.message}</p>}
+            <input {...createForm.register("password", { required: "Parol shart", minLength: { value: 6, message: "Kamida 6 belgi" } })} type="password" className="input-field" placeholder="••••••••" />
+            {createForm.formState.errors.password && <p className="text-xs text-red-400 mt-1">{createForm.formState.errors.password.message}</p>}
           </div>
           <div>
             <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Telefon</label>
-            <input {...register("phone")} className="input-field" placeholder="+998901234567" />
+            <input {...createForm.register("phone")} className="input-field" placeholder="+998901234567" />
           </div>
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose} className="btn-secondary flex-1">Bekor qilish</button>
-            <button type="submit" disabled={mutation.isPending} className="btn-primary flex-1">
-              {mutation.isPending ? "Yaratilmoqda..." : "Yaratish"}
+            <button type="submit" disabled={createMut.isPending} className="btn-primary flex-1">
+              {createMut.isPending ? "Yaratilmoqda..." : "Yaratish"}
             </button>
           </div>
         </form>
+        )}
       </div>
     </div>
   );
@@ -155,7 +210,7 @@ export default function HospitalsPage() {
   const { setSelectedHospital } = useAuthStore();
   const [modalOpen, setModalOpen] = useState(false);
   const [editHosp, setEditHosp] = useState<any>(null);
-  const [dirModal, setDirModal] = useState<{ open: boolean; hospital: any }>({ open: false, hospital: null });
+  const [dirModal, setDirModal] = useState<{ open: boolean; hospital: any; director?: any }>({ open: false, hospital: null });
   const [downloading, setDownloading] = useState<string | null>(null);
 
   const { data: hospitals = [], isLoading } = useQuery({
@@ -372,11 +427,20 @@ export default function HospitalsPage() {
                     <Edit2 className="w-3.5 h-3.5" />
                   </button>
                   <button
-                    onClick={() => setDirModal({ open: true, hospital: h })}
+                    onClick={() => setDirModal({
+                      open: true,
+                      hospital: h,
+                      director: (h as any).directorId
+                        ? { id: (h as any).directorId, username: (h as any).directorUsername, name: (h as any).directorName, phone: (h as any).directorPhone }
+                        : undefined,
+                    })}
                     className="btn-ghost text-xs px-3 justify-center gap-1.5"
-                    title="Direktor yaratish"
+                    title={(h as any).directorId ? "Direktori tahrirlash" : "Direktor yaratish"}
                   >
-                    <UserPlus className="w-3.5 h-3.5" />
+                    {(h as any).directorId
+                      ? <Edit2 className="w-3.5 h-3.5 text-indigo-400" />
+                      : <UserPlus className="w-3.5 h-3.5" />
+                    }
                   </button>
                 </div>
 
@@ -440,6 +504,7 @@ export default function HospitalsPage() {
         onClose={() => setDirModal({ open: false, hospital: null })}
         hospitalId={dirModal.hospital?.id || ""}
         hospitalName={dirModal.hospital?.name || ""}
+        director={dirModal.director}
       />
     </div>
   );
