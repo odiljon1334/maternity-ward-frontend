@@ -106,7 +106,7 @@ export const shiftsApi = {
 // ─── Employees ──────────────────────────────────
 export const employeesApi = {
   list: (params?: any) =>
-    api.get("/employees", { params }).then((r) => r.data.data),
+    api.get("/employees", { params }).then((r) => r.data),
   get: (id: string, params?: { targetHospitalId?: string }) =>
     api.get(`/employees/${id}`, { params }).then((r) => r.data.data),
   create: (data: any, params?: { targetHospitalId?: string }) =>
