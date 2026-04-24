@@ -424,6 +424,14 @@ function GenerateModal({
   // Bulk mode: ish kunlari — default: Du–Ju (1–5)
   const [workDays, setWorkDays] = useState<number[]>([1, 2, 3, 4, 5]);
 
+  // Single mode: sana oralig'i (hafta yoki ixtiyoriy)
+  const [singleStartDate, setSingleStartDate] = useState(
+    dayjs().startOf("week").add(1, "day").format("YYYY-MM-DD")
+  );
+  const [singleEndDate, setSingleEndDate] = useState(
+    dayjs().startOf("week").add(7, "day").format("YYYY-MM-DD")
+  );
+
   // Single mode: haftalik shablon
   const [weekTemplate, setWeekTemplate] = useState<Record<number, WeekDayConfig>>({
     0: { mode: "off" },
@@ -500,15 +508,15 @@ function GenerateModal({
         }
       }
 
-      // 2) Oyning barcha kunlari uchun entries yaratish
-      const daysCount = dayjs(`${form.year}-${String(form.month).padStart(2, "0")}-01`).daysInMonth();
+      // 2) Sana oralig'i uchun entries yaratish
       const entries: Array<{ date: string; shiftId?: string; status: string }> = [];
-
-      for (let d = 1; d <= daysCount; d++) {
-        const date = `${form.year}-${String(form.month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-        const weekday = dayjs(date).day();
-        const resolved = resolvedTemplate[weekday];
+      let cur = dayjs(singleStartDate);
+      const endD = dayjs(singleEndDate);
+      while (cur.isBefore(endD) || cur.isSame(endD, "day")) {
+        const date = cur.format("YYYY-MM-DD");
+        const resolved = resolvedTemplate[cur.day()];
         if (resolved) entries.push({ date, ...resolved });
+        cur = cur.add(1, "day");
       }
 
       // 3) bulkManual API chaqirish
@@ -573,31 +581,57 @@ function GenerateModal({
             ))}
           </div>
 
-          {/* Oy / Yil */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Oy</label>
-              <select
-                value={form.month}
-                onChange={(e) => setForm((f) => ({ ...f, month: +e.target.value }))}
-                className="input-field"
-              >
-                {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                  <option key={m} value={m}>{dayjs().month(m - 1).format("MMMM")}</option>
-                ))}
-              </select>
+          {/* Bulk: Oy / Yil */}
+          {mode === "bulk" && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Oy</label>
+                <select
+                  value={form.month}
+                  onChange={(e) => setForm((f) => ({ ...f, month: +e.target.value }))}
+                  className="input-field"
+                >
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                    <option key={m} value={m}>{dayjs().month(m - 1).format("MMMM")}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Yil</label>
+                <select
+                  value={form.year}
+                  onChange={(e) => setForm((f) => ({ ...f, year: +e.target.value }))}
+                  className="input-field"
+                >
+                  {[2025, 2026, 2027].map((y) => <option key={y} value={y}>{y}</option>)}
+                </select>
+              </div>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Yil</label>
-              <select
-                value={form.year}
-                onChange={(e) => setForm((f) => ({ ...f, year: +e.target.value }))}
-                className="input-field"
-              >
-                {[2025, 2026, 2027].map((y) => <option key={y} value={y}>{y}</option>)}
-              </select>
+          )}
+
+          {/* Single: Sana oralig'i */}
+          {mode === "single" && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Boshlanish</label>
+                <input
+                  type="date"
+                  value={singleStartDate}
+                  onChange={(e) => setSingleStartDate(e.target.value)}
+                  className="input-field text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Tugash</label>
+                <input
+                  type="date"
+                  value={singleEndDate}
+                  onChange={(e) => setSingleEndDate(e.target.value)}
+                  className="input-field text-sm"
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Bo'lim (bulk) */}
           {mode === "bulk" && (
