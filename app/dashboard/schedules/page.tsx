@@ -528,12 +528,12 @@ function GenerateModal({
   // Bulk mode: ish kunlari — default: Du–Ju (1–5)
   const [workDays, setWorkDays] = useState<number[]>([1, 2, 3, 4, 5]);
 
-  // Single mode: sana oralig'i (hafta yoki ixtiyoriy)
+  // Single mode: sana oralig'i — bugundan boshlanadi
   const [singleStartDate, setSingleStartDate] = useState(
-    dayjs().startOf("week").add(1, "day").format("YYYY-MM-DD")
+    dayjs().format("YYYY-MM-DD")
   );
   const [singleEndDate, setSingleEndDate] = useState(
-    dayjs().startOf("week").add(7, "day").format("YYYY-MM-DD")
+    dayjs().add(6, "day").format("YYYY-MM-DD")
   );
 
   // Single mode: haftalik shablon (≥15 kun uchun takrorlanuvchi)
