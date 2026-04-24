@@ -153,6 +153,7 @@ export const schedulesApi = {
     api.get(`/schedules/employee/${id}`, { params }).then((r) => r.data.data),
   generate: (data: any) => api.post("/schedules/generate", data).then((r) => r.data.data),
   bulkGenerate: (data: any) => api.post("/schedules/bulk-generate", data).then((r) => r.data.data),
+  bulkManual: (data: any) => api.post("/schedules/manual", data).then((r) => r.data.data),
   update: (id: string, data: any) => api.put(`/schedules/${id}`, data).then((r) => r.data.data),
 };
 

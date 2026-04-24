@@ -30,6 +30,14 @@ const PATTERNS = [
 ];
 
 // ─── Shift types ─────────────────────────────────────────────────────────────
+type WeekDayConfig = {
+  mode: "off" | "shift" | "custom";
+  shiftId?: string;
+  shiftType?: "DAYTIME" | "NIGHTTIME";
+  startTime?: string;
+  endTime?: string;
+};
+
 type ShiftForm = {
   name: string;
   type: "DAYTIME" | "NIGHTTIME" | "CUSTOM";
@@ -280,9 +288,27 @@ function CellBadge({ sch }: { sch?: any }) {
   if (!sch) return <span className="text-gray-700 text-[10px]">—</span>;
   if (sch.status === "DAY_OFF") return <span className="text-gray-600 text-[10px]">○</span>;
   const type = sch.shift?.type;
-  if (type === "DAYTIME")   return <span className="badge-blue  px-1 py-0.5 text-[10px]">K</span>;
-  if (type === "NIGHTTIME") return <span className="badge-purple px-1 py-0.5 text-[10px]">Tu</span>;
-  return <span className="text-indigo-400 text-[10px]">✓</span>;
+  const timeStr = sch.shift?.startTime && sch.shift?.endTime
+    ? `${sch.shift.startTime.substring(0, 2)}–${sch.shift.endTime.substring(0, 2)}`
+    : null;
+  if (type === "DAYTIME") return (
+    <div className="flex flex-col items-center gap-[1px]">
+      <span className="badge-blue px-1 py-0.5 text-[10px] leading-none">K</span>
+      {timeStr && <span className="text-[8px] text-blue-400/60 leading-none">{timeStr}</span>}
+    </div>
+  );
+  if (type === "NIGHTTIME") return (
+    <div className="flex flex-col items-center gap-[1px]">
+      <span className="badge-purple px-1 py-0.5 text-[10px] leading-none">Tu</span>
+      {timeStr && <span className="text-[8px] text-purple-400/60 leading-none">{timeStr}</span>}
+    </div>
+  );
+  return (
+    <div className="flex flex-col items-center gap-[1px]">
+      <span className="text-indigo-400 text-[10px] leading-none">✓</span>
+      {timeStr && <span className="text-[8px] text-indigo-400/60 leading-none">{timeStr}</span>}
+    </div>
+  );
 }
 
 // ─── Cell Edit Modal ──────────────────────────────────────────────────────────
@@ -394,73 +420,101 @@ function GenerateModal({
     departmentId: "",
     employeeId: "",
   });
-  // Ish kunlari — default: Du–Ju (1–5)
+
+  // Bulk mode: ish kunlari — default: Du–Ju (1–5)
   const [workDays, setWorkDays] = useState<number[]>([1, 2, 3, 4, 5]);
-  // Single mode: manual vaqt
-  const [singleType, setSingleType] = useState<"DAYTIME" | "NIGHTTIME">("DAYTIME");
-  const [singleStart, setSingleStart] = useState("08:00");
-  const [singleEnd, setSingleEnd]     = useState("20:00");
-  const [submitting, setSubmitting]   = useState(false);
+
+  // Single mode: haftalik shablon
+  const [weekTemplate, setWeekTemplate] = useState<Record<number, WeekDayConfig>>({
+    0: { mode: "off" },
+    1: { mode: "custom", shiftType: "DAYTIME", startTime: "08:00", endTime: "20:00" },
+    2: { mode: "custom", shiftType: "DAYTIME", startTime: "08:00", endTime: "20:00" },
+    3: { mode: "custom", shiftType: "DAYTIME", startTime: "08:00", endTime: "20:00" },
+    4: { mode: "custom", shiftType: "DAYTIME", startTime: "08:00", endTime: "20:00" },
+    5: { mode: "custom", shiftType: "DAYTIME", startTime: "08:00", endTime: "20:00" },
+    6: { mode: "off" },
+  });
+
+  const [submitting, setSubmitting] = useState(false);
 
   const toggleDay = (d: number) =>
     setWorkDays((prev) =>
       prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort()
     );
 
+  const updateWeekDay = (dayValue: number, patch: Partial<WeekDayConfig>) => {
+    setWeekTemplate((prev) => {
+      const cur = prev[dayValue];
+      let updated: WeekDayConfig = { ...cur, ...patch };
+      if (patch.mode === "custom" && !updated.startTime) {
+        updated = { ...updated, shiftType: "DAYTIME", startTime: "08:00", endTime: "20:00" };
+      }
+      return { ...prev, [dayValue]: updated };
+    });
+  };
+
   const isRotating = !form.pattern.startsWith("FIXED");
 
-  // Davomiylik hisobi
-  const singleDuration = useMemo(() => {
-    const [sh, sm] = singleStart.split(":").map(Number);
-    const [eh, em] = singleEnd.split(":").map(Number);
-    let mins = (eh * 60 + em) - (sh * 60 + sm);
-    if (mins <= 0) mins += 24 * 60;
-    return Math.round(mins / 60);
-  }, [singleStart, singleEnd]);
-
-  const singleIsOvernight = useMemo(() => {
-    const [sh, sm] = singleStart.split(":").map(Number);
-    const [eh, em] = singleEnd.split(":").map(Number);
-    return (eh * 60 + em) < (sh * 60 + sm);
-  }, [singleStart, singleEnd]);
-
-  const handleSingleGenerate = async () => {
+  const handleWeeklyGenerate = async () => {
     if (!form.employeeId) return;
     setSubmitting(true);
     try {
-      // 1) Bazada o'sha turdagi va startTime ga mos shift bormi?
-      let shiftId: string | undefined;
-      const existing = (shifts as any[]).find(
-        (s: any) => s.type === singleType && s.startTime === singleStart
-      );
-      if (existing) {
-        shiftId = existing.id;
-      } else {
-        // 2) Yangi shift yaratamiz
-        const newShift = await shiftsApi.create({
-          name: `${singleType === "DAYTIME" ? "Kunduzgi" : "Kechki"} ${singleStart}`,
-          type: singleType,
-          startTime: singleStart,
-          endTime: singleEnd,
-          durationH: singleDuration,
-          isOvernight: singleIsOvernight,
-          graceMinutes: 15,
-        }, targetHospitalId ? { targetHospitalId } : undefined);
-        shiftId = newShift.id;
-        qc.invalidateQueries({ queryKey: ["shifts"] });
+      // 1) Har bir "custom" mode kun uchun shift topish yoki yaratish
+      const shiftCache = new Map<string, string>();
+      const resolvedTemplate: Record<number, { status: string; shiftId?: string }> = {};
+
+      for (const [dayNum, cfg] of Object.entries(weekTemplate)) {
+        if (cfg.mode === "off") {
+          resolvedTemplate[Number(dayNum)] = { status: "DAY_OFF" };
+        } else if (cfg.mode === "shift" && cfg.shiftId) {
+          resolvedTemplate[Number(dayNum)] = { status: "WORKING", shiftId: cfg.shiftId };
+        } else if (cfg.mode === "custom" && cfg.startTime && cfg.endTime) {
+          const key = `${cfg.shiftType}|${cfg.startTime}`;
+          let shiftId = shiftCache.get(key);
+          if (!shiftId) {
+            const existing = (shifts as any[]).find(
+              (s: any) => s.type === cfg.shiftType && s.startTime === cfg.startTime
+            );
+            if (existing) {
+              shiftId = existing.id;
+            } else {
+              const [sh, sm] = cfg.startTime.split(":").map(Number);
+              const [eh, em] = cfg.endTime.split(":").map(Number);
+              let mins = (eh * 60 + em) - (sh * 60 + sm);
+              if (mins <= 0) mins += 24 * 60;
+              const newShift = await shiftsApi.create({
+                name: `${cfg.shiftType === "DAYTIME" ? "Kunduzgi" : "Kechki"} ${cfg.startTime}`,
+                type: cfg.shiftType,
+                startTime: cfg.startTime,
+                endTime: cfg.endTime,
+                durationH: Math.round(mins / 60),
+                isOvernight: (eh * 60 + em) < (sh * 60 + sm),
+                graceMinutes: 15,
+              }, targetHospitalId ? { targetHospitalId } : undefined);
+              shiftId = newShift.id;
+              qc.invalidateQueries({ queryKey: ["shifts"] });
+            }
+            shiftCache.set(key, shiftId!);
+          }
+          resolvedTemplate[Number(dayNum)] = { status: "WORKING", shiftId };
+        }
       }
-      // 3) Grafik yaratamiz
-      const res = await schedulesApi.generate({
-        employeeId: form.employeeId,
-        month: form.month,
-        year: form.year,
-        pattern: singleType === "NIGHTTIME" ? "FIXED_NIGHT" : "FIXED_DAY",
-        startsWith: singleType,
-        workDays,
-        shiftId,
-      });
+
+      // 2) Oyning barcha kunlari uchun entries yaratish
+      const daysCount = dayjs(`${form.year}-${String(form.month).padStart(2, "0")}-01`).daysInMonth();
+      const entries: Array<{ date: string; shiftId?: string; status: string }> = [];
+
+      for (let d = 1; d <= daysCount; d++) {
+        const date = `${form.year}-${String(form.month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+        const weekday = dayjs(date).day();
+        const resolved = resolvedTemplate[weekday];
+        if (resolved) entries.push({ date, ...resolved });
+      }
+
+      // 3) bulkManual API chaqirish
+      const res = await schedulesApi.bulkManual({ employeeId: form.employeeId, entries });
       qc.invalidateQueries({ queryKey: ["schedules-monthly"] });
-      toast.success(`Grafik yaratildi: ${res.created ?? ""} ta`);
+      toast.success(`Grafik yaratildi: ${res?.created ?? entries.filter((e) => e.status === "WORKING").length} ta`);
       onClose();
     } catch (e: any) {
       toast.error(e?.response?.data?.message || "Xatolik");
@@ -548,13 +602,13 @@ function GenerateModal({
           {/* Bo'lim (bulk) */}
           {mode === "bulk" && (
             <div>
-              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Bo'lim (ixtiyoriy)</label>
+              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Bo&apos;lim (ixtiyoriy)</label>
               <select
                 value={form.departmentId}
                 onChange={(e) => setForm((f) => ({ ...f, departmentId: e.target.value }))}
                 className="input-field"
               >
-                <option value="">Barcha bo'limlar</option>
+                <option value="">Barcha bo&apos;limlar</option>
                 {departments.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
               </select>
             </div>
@@ -577,104 +631,152 @@ function GenerateModal({
             </div>
           )}
 
-          {/* Ish kunlari */}
-          <div>
-            <label className="block text-xs font-medium text-[var(--text-muted)] mb-2">
-              Ish kunlari
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {WEEK_DAYS.map((d) => {
-                const active = workDays.includes(d.value);
-                return (
-                  <button
-                    key={d.value}
-                    type="button"
-                    onClick={() => toggleDay(d.value)}
-                    className={cn(
-                      "w-10 h-10 rounded-lg text-sm font-medium border transition-colors",
-                      active
-                        ? "bg-indigo-600 text-white border-indigo-600"
-                        : d.value === 0 || d.value === 6
-                        ? "border-red-900/40 text-red-400/70 hover:border-red-600/50"
-                        : "border-[var(--border)] text-[var(--text-muted)] hover:border-indigo-500"
-                    )}
-                  >
-                    {d.label}
-                  </button>
-                );
-              })}
+          {/* Bulk: Ish kunlari */}
+          {mode === "bulk" && (
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-muted)] mb-2">Ish kunlari</label>
+              <div className="flex flex-wrap gap-2">
+                {WEEK_DAYS.map((d) => {
+                  const active = workDays.includes(d.value);
+                  return (
+                    <button
+                      key={d.value}
+                      type="button"
+                      onClick={() => toggleDay(d.value)}
+                      className={cn(
+                        "w-10 h-10 rounded-lg text-sm font-medium border transition-colors",
+                        active
+                          ? "bg-indigo-600 text-white border-indigo-600"
+                          : d.value === 0 || d.value === 6
+                          ? "border-red-900/40 text-red-400/70 hover:border-red-600/50"
+                          : "border-[var(--border)] text-[var(--text-muted)] hover:border-indigo-500"
+                      )}
+                    >
+                      {d.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-[var(--text-muted)] mt-1.5">
+                ✅ Tanlangan kunlar = ish kuni | ☐ Tanlanmagan = dam olish
+              </p>
             </div>
-            <p className="text-[11px] text-[var(--text-muted)] mt-1.5">
-              ✅ Tanlangan kunlar = ish kuni | ☐ Tanlanmagan = dam olish
-            </p>
-          </div>
+          )}
 
-          {/* Single mode: sman turi + manual vaqt */}
+          {/* Single: Haftalik shablon */}
           {mode === "single" && (
-            <div className="space-y-3">
-              {/* Tur toggle */}
-              <div>
-                <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Smen turi</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => { setSingleType("DAYTIME"); setSingleStart("08:00"); setSingleEnd("20:00"); }}
-                    className={cn(
-                      "flex items-center justify-center gap-2 py-2.5 rounded-lg border text-sm font-medium transition-colors",
-                      singleType === "DAYTIME"
-                        ? "bg-yellow-500/15 border-yellow-500/50 text-yellow-300"
-                        : "border-[var(--border)] text-[var(--text-muted)] hover:border-yellow-500/40"
-                    )}
-                  >
-                    <Sun className="w-4 h-4" /> Kunduzgi
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setSingleType("NIGHTTIME"); setSingleStart("20:00"); setSingleEnd("08:00"); }}
-                    className={cn(
-                      "flex items-center justify-center gap-2 py-2.5 rounded-lg border text-sm font-medium transition-colors",
-                      singleType === "NIGHTTIME"
-                        ? "bg-indigo-500/15 border-indigo-500/50 text-indigo-300"
-                        : "border-[var(--border)] text-[var(--text-muted)] hover:border-indigo-500/40"
-                    )}
-                  >
-                    <Moon className="w-4 h-4" /> Kechki
-                  </button>
-                </div>
-              </div>
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-muted)] mb-2">
+                Haftalik shablon
+              </label>
+              <div className="rounded-lg border border-[var(--border)] divide-y divide-[var(--border)]">
+                {WEEK_DAYS.map((day) => {
+                  const cfg = weekTemplate[day.value];
+                  return (
+                    <div key={day.value} className="p-2.5 space-y-2">
+                      {/* Day label + mode buttons */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={cn(
+                          "w-8 text-xs font-semibold flex-shrink-0",
+                          day.value === 0 || day.value === 6 ? "text-red-400" : "text-[var(--text-primary)]"
+                        )}>
+                          {day.label}
+                        </span>
+                        <div className="flex gap-1">
+                          {([
+                            { v: "off",    l: "Dam" },
+                            { v: "shift",  l: "Smen" },
+                            { v: "custom", l: "Vaqt" },
+                          ] as const).map((m) => (
+                            <button
+                              key={m.v}
+                              type="button"
+                              onClick={() => updateWeekDay(day.value, { mode: m.v })}
+                              className={cn(
+                                "px-2 py-1 rounded text-[11px] font-medium border transition-colors",
+                                cfg.mode === m.v
+                                  ? m.v === "off"
+                                    ? "bg-gray-700 border-gray-600 text-gray-200"
+                                    : "bg-indigo-600 border-indigo-600 text-white"
+                                  : "border-[var(--border)] text-[var(--text-muted)] hover:border-indigo-500"
+                              )}
+                            >
+                              {m.l}
+                            </button>
+                          ))}
+                        </div>
+                        {cfg.mode === "custom" && cfg.startTime && (
+                          <span className="text-[11px] text-[var(--text-muted)] ml-auto">
+                            {cfg.shiftType === "DAYTIME" ? "☀️" : "🌙"} {cfg.startTime}–{cfg.endTime}
+                          </span>
+                        )}
+                        {cfg.mode === "shift" && cfg.shiftId && (
+                          <span className="text-[11px] text-indigo-400 ml-auto truncate max-w-24">
+                            {(shifts as any[]).find((s: any) => s.id === cfg.shiftId)?.name ?? ""}
+                          </span>
+                        )}
+                      </div>
 
-              {/* Vaqt */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Boshlanish vaqti</label>
-                  <input
-                    type="time"
-                    value={singleStart}
-                    onChange={(e) => setSingleStart(e.target.value)}
-                    className="input-field"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Tugash vaqti</label>
-                  <input
-                    type="time"
-                    value={singleEnd}
-                    onChange={(e) => setSingleEnd(e.target.value)}
-                    className="input-field"
-                  />
-                </div>
-              </div>
+                      {/* Shift dropdown */}
+                      {cfg.mode === "shift" && (
+                        <div className="ml-10">
+                          <select
+                            value={cfg.shiftId ?? ""}
+                            onChange={(e) => updateWeekDay(day.value, { shiftId: e.target.value })}
+                            className="input-field text-xs"
+                          >
+                            <option value="">Tanlang</option>
+                            {(shifts as any[]).map((s: any) => (
+                              <option key={s.id} value={s.id}>
+                                {s.name} ({s.startTime}–{s.endTime})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
 
-              {/* Davomiylik preview */}
-              <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-[var(--bg-hover)] text-xs text-[var(--text-muted)]">
-                <Clock className="w-3.5 h-3.5 flex-shrink-0" />
-                <span>Davomiylik: <b className="text-[var(--text-primary)]">{singleDuration} soat</b></span>
-                {singleIsOvernight && <span className="text-amber-400 ml-auto">🌙 Tungi (keyingi kun)</span>}
+                      {/* Custom time inputs */}
+                      {cfg.mode === "custom" && (
+                        <div className="ml-10 flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => updateWeekDay(day.value, {
+                              shiftType: cfg.shiftType === "DAYTIME" ? "NIGHTTIME" : "DAYTIME",
+                              startTime: cfg.shiftType === "DAYTIME" ? "20:00" : "08:00",
+                              endTime:   cfg.shiftType === "DAYTIME" ? "08:00" : "20:00",
+                            })}
+                            className={cn(
+                              "flex items-center gap-1 px-2 py-1.5 rounded border text-xs font-medium transition-colors flex-shrink-0",
+                              cfg.shiftType === "DAYTIME"
+                                ? "bg-yellow-500/10 border-yellow-500/40 text-yellow-400"
+                                : "bg-indigo-500/10 border-indigo-500/40 text-indigo-400"
+                            )}
+                          >
+                            {cfg.shiftType === "DAYTIME" ? <Sun className="w-3 h-3" /> : <Moon className="w-3 h-3" />}
+                          </button>
+                          <input
+                            type="time"
+                            value={cfg.startTime ?? "08:00"}
+                            onChange={(e) => updateWeekDay(day.value, { startTime: e.target.value })}
+                            className="input-field text-xs flex-1"
+                          />
+                          <span className="text-[var(--text-muted)] text-xs flex-shrink-0">–</span>
+                          <input
+                            type="time"
+                            value={cfg.endTime ?? "20:00"}
+                            onChange={(e) => updateWeekDay(day.value, { endTime: e.target.value })}
+                            className="input-field text-xs flex-1"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
 
-          {/* Bulk mode: smen pattern */}
+          {/* Bulk: Smen pattern */}
           {mode === "bulk" && (
             <>
               <div>
@@ -707,7 +809,7 @@ function GenerateModal({
           <div className="flex gap-3 pt-2">
             <button onClick={onClose} className="btn-secondary flex-1">Bekor</button>
             <button
-              onClick={() => mode === "single" ? handleSingleGenerate() : bulkMutation.mutate()}
+              onClick={() => mode === "single" ? handleWeeklyGenerate() : bulkMutation.mutate()}
               disabled={
                 submitting || bulkMutation.isPending ||
                 (mode === "single" && !form.employeeId)
