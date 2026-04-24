@@ -19,7 +19,7 @@ const mainNavItems = [
   { href: "/dashboard/employees",   label: "Xodimlar",           icon: Users,           roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/schedules",   label: "Grafik",             icon: CalendarDays,    roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/attendance",  label: "Davomat",            icon: ClipboardList,   roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
-  { href: "/dashboard/cameras",    label: "Kameralar",          icon: Video,           roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR"] },
+  { href: "/dashboard/cameras",    label: "Kameralar",          icon: Video,           roles: ["MINISTRY"] },
   { href: "/dashboard/payroll",     label: "Maosh",              icon: DollarSign,      roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/reports",     label: "Hisobotlar",         icon: FileBarChart2,   roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/hospitals",   label: "Kasalxonalar",       icon: Building2,       roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN"] },
