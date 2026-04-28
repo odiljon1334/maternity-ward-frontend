@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { schedulesApi, employeesApi, shiftsApi, departmentsApi } from "@/lib/api";
 import { Topbar } from "@/components/layout/Topbar";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Zap, X, Edit3, Check, Clock, Sun, Moon, Plus, Edit2, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Zap, X, Edit3, Check, Clock, Sun, Moon, Plus, Edit2, Trash2, Search } from "lucide-react";
 import dayjs from "dayjs";
 import { useForm } from "react-hook-form";
 import { useAuthStore } from "@/stores/auth";
@@ -956,11 +956,25 @@ function GenerateModal({
   );
 }
 
+// ─── Lotin / Kirill normalizer ────────────────────────────────────────────────
+function normalizeStr(str: string): string {
+  const cyr: Record<string, string> = {
+    'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'yo','ж':'j','з':'z',
+    'и':'i','й':'y','к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r',
+    'с':'s','т':'t','у':'u','ф':'f','х':'x','ц':'c','ч':'ch','ш':'sh',
+    'ъ':"'",'ь':"'",'э':'e','ю':'yu','я':'ya',
+    'ғ':'g','қ':'q','ҳ':'h','ў':'o',
+  };
+  return str.toLowerCase().split('').map(c => cyr[c] || c).join('');
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function SchedulesPage() {
   const [month, setMonth] = useState(dayjs().month() + 1);
   const [year, setYear] = useState(dayjs().year());
   const [deptFilter, setDeptFilter] = useState("");
+  const [empSearch, setEmpSearch] = useState("");
+  const [scheduleFilter, setScheduleFilter] = useState<"all" | "with" | "without">("all");
   const [modalOpen, setModalOpen] = useState(false);
   const [editEntry, setEditEntry] = useState<any>(null);
   const [view, setView] = useState<"grafik" | "smenlar">("grafik");
@@ -968,9 +982,11 @@ export default function SchedulesPage() {
   const { selectedHospital } = useAuthStore();
   const targetHospitalId = selectedHospital?.id;
 
-  // Kasalxona o'zgarganda bo'lim filtri reset bo'lsin
+  // Kasalxona o'zgarganda barcha filtrlar reset bo'lsin
   useEffect(() => {
     setDeptFilter("");
+    setEmpSearch("");
+    setScheduleFilter("all");
   }, [targetHospitalId]);
 
   // Monthly schedules — barcha hodimlar uchun bir oylik grafik
@@ -1008,14 +1024,31 @@ export default function SchedulesPage() {
     return map;
   }, [schedules]);
 
-  // Bo'lim bo'yicha filter
-  const employees = useMemo(
-    () =>
-      deptFilter
-        ? allEmployees.filter((e) => e.department?.id === deptFilter || e.departmentId === deptFilter)
-        : allEmployees,
+  // Filtrlar: bo'lim + grafik holati + ism qidiruv
+  const employees = useMemo(() => {
+    let list = deptFilter
+      ? allEmployees.filter((e) => e.department?.id === deptFilter || e.departmentId === deptFilter)
+      : [...allEmployees];
+    if (scheduleFilter === "with")
+      list = list.filter((e) => scheduleMap.has(e.id));
+    else if (scheduleFilter === "without")
+      list = list.filter((e) => !scheduleMap.has(e.id));
+    if (empSearch.trim()) {
+      const q = normalizeStr(empSearch.trim());
+      list = list.filter((e) => normalizeStr(e.fullName).includes(q));
+    }
+    return list;
+  }, [allEmployees, deptFilter, scheduleFilter, empSearch, scheduleMap]);
+
+  // Statistika uchun sof bo'lim filtri (scheduleFilter/search ta'sir qilmaydi)
+  const deptFilteredEmployees = useMemo(
+    () => deptFilter
+      ? allEmployees.filter((e) => e.department?.id === deptFilter || e.departmentId === deptFilter)
+      : allEmployees,
     [allEmployees, deptFilter]
   );
+  const withScheduleCount    = deptFilteredEmployees.filter((e) => scheduleMap.has(e.id)).length;
+  const withoutScheduleCount = deptFilteredEmployees.length - withScheduleCount;
 
   const isLoading = schedLoading || empLoading;
   const daysInMonth = dayjs(`${year}-${String(month).padStart(2, "0")}-01`).daysInMonth();
@@ -1107,6 +1140,74 @@ export default function SchedulesPage() {
             </>
           )}
         </div>
+
+        {/* ── Filter qatori: qidiruv + grafik holati ── */}
+        {view === "grafik" && (
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Ism qidiruv (Lotin / Kirill) */}
+            <div className="relative flex-1 min-w-44 max-w-xs">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--text-muted)] pointer-events-none" />
+              <input
+                value={empSearch}
+                onChange={(e) => setEmpSearch(e.target.value)}
+                placeholder="Ism, familiya..."
+                className="input-field pl-9 text-sm h-9"
+              />
+              {empSearch && (
+                <button onClick={() => setEmpSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Grafik holati filtrlari */}
+            <div className="flex items-center gap-1.5">
+              {([
+                { v: "all",     l: "Barchasi",   count: deptFilteredEmployees.length,   cls: "indigo" },
+                { v: "with",    l: "✓ Grafik bor", count: withScheduleCount,             cls: "green"  },
+                { v: "without", l: "○ Grafiksiz", count: withoutScheduleCount,           cls: "amber"  },
+              ] as const).map((f) => (
+                <button
+                  key={f.v}
+                  onClick={() => setScheduleFilter(f.v)}
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors whitespace-nowrap",
+                    scheduleFilter === f.v
+                      ? f.v === "without"
+                        ? "bg-amber-500/20 border-amber-500/40 text-amber-300"
+                        : f.v === "with"
+                        ? "bg-green-500/20 border-green-500/40 text-green-300"
+                        : "bg-indigo-600 border-indigo-600 text-white"
+                      : "border-[var(--border)] text-[var(--text-muted)] hover:border-indigo-500 hover:text-[var(--text-primary)]"
+                  )}
+                >
+                  {f.l}
+                  <span className={cn(
+                    "text-[10px] px-1.5 py-0.5 rounded-full font-semibold",
+                    scheduleFilter === f.v ? "bg-white/20 text-inherit" : "bg-[var(--bg-hover)]"
+                  )}>
+                    {f.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {/* Ko'rsatilayotgan son + tozalash */}
+            <div className="ml-auto flex items-center gap-3 text-xs text-[var(--text-muted)]">
+              {(empSearch || scheduleFilter !== "all") && (
+                <>
+                  <span className="text-indigo-400 font-medium">{employees.length} ta topildi</span>
+                  <button
+                    onClick={() => { setEmpSearch(""); setScheduleFilter("all"); }}
+                    className="flex items-center gap-1 hover:text-[var(--text-primary)] transition-colors"
+                  >
+                    <X className="w-3 h-3" /> Tozalash
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Smenlar view */}
         {view === "smenlar" && (

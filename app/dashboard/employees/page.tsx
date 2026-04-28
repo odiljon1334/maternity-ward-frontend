@@ -16,6 +16,18 @@ import { useForm } from "react-hook-form";
 
 const LIMIT = 20;
 
+// ─── Kirill → Lotin normalizer ────────────────────────────────────────────────
+function normalizeStr(str: string): string {
+  const cyr: Record<string, string> = {
+    'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'yo','ж':'j','з':'z',
+    'и':'i','й':'y','к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r',
+    'с':'s','т':'t','у':'u','ф':'f','х':'x','ц':'c','ч':'ch','ш':'sh',
+    'ъ':"'",'ь':"'",'э':'e','ю':'yu','я':'ya',
+    'ғ':'g','қ':'q','ҳ':'h','ў':'o',
+  };
+  return str.toLowerCase().split('').map(c => cyr[c] || c).join('');
+}
+
 type EmpForm = {
   fullName:     string;
   gender:       "MALE" | "FEMALE";
@@ -283,8 +295,10 @@ export default function EmployeesPage() {
     : undefined;
   const params = targetHospitalId ? { targetHospitalId } : undefined;
 
-  const [search, setSearch]       = useState("");
-  const [deptFilter, setDeptFilter] = useState("");
+  const [searchInput, setSearchInput] = useState("");  // foydalanuvchi kiritgan (Lotin/Kirill)
+  const [search, setSearch]           = useState("");  // API ga ketadigan (normallashtirilgan)
+  const [deptFilter, setDeptFilter]   = useState("");
+  const [photoFilter, setPhotoFilter] = useState<"all" | "with" | "without">("all");
   const [modalOpen, setModalOpen] = useState(false);
   const [editEmp, setEditEmp]     = useState<any>(null);
   const [uploadingEmpId, setUploadingEmpId] = useState<string | null>(null);
@@ -304,6 +318,7 @@ export default function EmployeesPage() {
     isLoading,
   } = useInfiniteQuery({
     queryKey: ["employees", search, deptFilter, targetHospitalId],
+
     queryFn: ({ pageParam = 1 }) =>
       employeesApi.list({
         search,
@@ -321,8 +336,20 @@ export default function EmployeesPage() {
   });
 
   // Flatten all pages
-  const employees = data?.pages.flatMap((p: any) => p?.data ?? []) ?? [];
-  const total     = data?.pages[0]?.meta?.total ?? 0;
+  const allLoaded  = data?.pages.flatMap((p: any) => p?.data ?? []) ?? [];
+  const total      = data?.pages[0]?.meta?.total ?? 0;
+
+  // Photo filter (client-side)
+  const employees = photoFilter === "with"
+    ? allLoaded.filter((e: any) => !!e.photoUrl)
+    : photoFilter === "without"
+    ? allLoaded.filter((e: any) => !e.photoUrl)
+    : allLoaded;
+
+  // Photo stats
+  const photoWithCount    = allLoaded.filter((e: any) => !!e.photoUrl).length;
+  const photoWithoutCount = allLoaded.length - photoWithCount;
+  const photoPct          = allLoaded.length > 0 ? Math.round((photoWithCount / allLoaded.length) * 100) : 0;
 
   // ── IntersectionObserver for infinite scroll ─
   const handleObserver = useCallback(
@@ -345,8 +372,16 @@ export default function EmployeesPage() {
   // Kasalxona o'zgarganda filtrlni tozalaymiz (eski bo'lim IDsi yangi kasalxonada yo'q)
   useEffect(() => {
     setDeptFilter("");
+    setSearchInput("");
     setSearch("");
+    setPhotoFilter("all");
   }, [targetHospitalId]);
+
+  // Search input o'zgarganda normalize qilib API ga yuborish (debounce yo'q — API side)
+  const handleSearchChange = (val: string) => {
+    setSearchInput(val);
+    setSearch(normalizeStr(val));
+  };
 
   // Reset scroll when filters change
   useEffect(() => { window.scrollTo(0, 0); }, [search, deptFilter, targetHospitalId]);
@@ -471,15 +506,23 @@ export default function EmployeesPage() {
         {/* ── Toolbar ── */}
         <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3">
           <div className="flex gap-2 sm:contents">
-            {/* Search — icon ichkarida, to'g'ri joylashgan */}
+            {/* Search — Lotin/Kirill qidiruv */}
             <div className="relative flex-1 sm:flex-1 sm:min-w-48">
               <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)] z-10" />
               <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Qidirish (ism, ID)..."
+                value={searchInput}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                placeholder="Ism, familiya, ID..."
                 className="input-field pl-9 w-full"
               />
+              {searchInput && (
+                <button
+                  onClick={() => handleSearchChange("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
             <select
               value={deptFilter}
@@ -540,6 +583,59 @@ export default function EmployeesPage() {
         <p className="text-xs text-[var(--text-muted)] hidden sm:block">
           CSV ustunlar: <code className="font-mono bg-[var(--bg-hover)] px-1 rounded">ism_familiya, jinsi, bolim_kodi, lavozim, telefon</code>
         </p>
+
+        {/* ── Photo stats progress ── */}
+        {!isLoading && allLoaded.length > 0 && (
+          <div className="card p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-[var(--text-primary)]">Profil rasmi holati</span>
+                {allLoaded.length < total && (
+                  <span className="text-[10px] text-[var(--text-muted)] bg-[var(--bg-hover)] px-1.5 py-0.5 rounded-full">
+                    {allLoaded.length}/{total} yuklandi
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5">
+                {([
+                  { v: "all",     l: "Barchasi",    count: allLoaded.length,    color: "text-[var(--text-muted)]" },
+                  { v: "with",    l: "✓ Rasmli",    count: photoWithCount,      color: "text-green-400"           },
+                  { v: "without", l: "✕ Rasmsiz",   count: photoWithoutCount,   color: "text-amber-400"           },
+                ] as const).map((f) => (
+                  <button
+                    key={f.v}
+                    onClick={() => setPhotoFilter(f.v)}
+                    className={cn(
+                      "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors",
+                      photoFilter === f.v
+                        ? f.v === "without"
+                          ? "bg-amber-500/20 border-amber-500/40 text-amber-300"
+                          : f.v === "with"
+                          ? "bg-green-500/20 border-green-500/40 text-green-300"
+                          : "bg-[var(--bg-hover)] border-[var(--border)] text-[var(--text-primary)]"
+                        : "border-transparent text-[var(--text-muted)] hover:border-[var(--border)]"
+                    )}
+                  >
+                    <span className={photoFilter !== f.v ? f.color : ""}>{f.l}</span>
+                    <span className="font-semibold">{f.count}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            {/* Progress bar */}
+            <div className="h-2.5 bg-[var(--bg-hover)] rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-500 bg-gradient-to-r from-green-600 to-green-400"
+                style={{ width: `${photoPct}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-[10px] text-[var(--text-muted)] mt-1.5">
+              <span className="text-green-400 font-medium">{photoWithCount} ta rasmli</span>
+              <span className="font-semibold text-[var(--text-primary)]">{photoPct}%</span>
+              <span className="text-amber-400 font-medium">{photoWithoutCount} ta rasmsiz</span>
+            </div>
+          </div>
+        )}
 
         {/* ── Mobile cards ── */}
         <div className="sm:hidden space-y-3">
