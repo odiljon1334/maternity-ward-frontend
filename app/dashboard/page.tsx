@@ -252,25 +252,33 @@ export default function DashboardPage() {
                 <p className="text-xs text-[var(--text-muted)]">Bu oylik holat</p>
               </div>
             </div>
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={deptData} barCategoryGap="30%">
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                <XAxis
-                  dataKey="name"
-                  tick={{ fill: "var(--text-muted)", fontSize: 11 }}
-                  tickLine={false}
-                  axisLine={false}
-                  interval={0}
-                  tickFormatter={(v: string) => v.length > 12 ? v.slice(0, 12) + "…" : v}
-                />
-                <YAxis tick={{ fill: "var(--text-muted)", fontSize: 11 }} tickLine={false} axisLine={false} />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend wrapperStyle={{ fontSize: 12, color: "var(--text-muted)" }} />
-                <Bar dataKey="present"    name="Keldi"    fill="#6366f1" radius={[3, 3, 0, 0]} />
-                <Bar dataKey="late"       name="Kechikdi" fill="#fbbf24" radius={[3, 3, 0, 0]} />
-                <Bar dataKey="absent"     name="Kelmadi"  fill="#f87171" radius={[3, 3, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {/* Horizontal scroll when many departments */}
+            <div className="overflow-x-auto">
+              <div style={{ minWidth: Math.max(560, deptData.length * 32) }}>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={deptData} barCategoryGap="30%" margin={{ bottom: 8 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                    <XAxis
+                      dataKey="name"
+                      tick={{ fill: "var(--text-muted)", fontSize: 10 }}
+                      tickLine={false}
+                      axisLine={false}
+                      interval={0}
+                      angle={-40}
+                      textAnchor="end"
+                      height={90}
+                      tickFormatter={(v: string) => v.length > 16 ? v.slice(0, 16) + "…" : v}
+                    />
+                    <YAxis tick={{ fill: "var(--text-muted)", fontSize: 11 }} tickLine={false} axisLine={false} width={32} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend wrapperStyle={{ fontSize: 12, color: "var(--text-muted)" }} />
+                    <Bar dataKey="present" name="Keldi"    fill="#6366f1" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="late"    name="Kechikdi" fill="#fbbf24" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="absent"  name="Kelmadi"  fill="#f87171" radius={[3, 3, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           </div>
           );
         })()}
