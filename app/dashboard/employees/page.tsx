@@ -339,17 +339,36 @@ export default function EmployeesPage() {
   const allLoaded  = data?.pages.flatMap((p: any) => p?.data ?? []) ?? [];
   const total      = data?.pages[0]?.meta?.total ?? 0;
 
-  // Photo filter (client-side)
+  // ── Photo stats — alohida to'liq query (scroll ta'sir qilmaydi) ──
+  const { data: statsRaw, isLoading: statsLoading } = useQuery({
+    queryKey: ["employees-photo-stats", deptFilter, targetHospitalId],
+    queryFn: () => employeesApi.list({
+      limit: 2000,
+      page: 1,
+      departmentId: deptFilter || undefined,
+      ...(params || {}),
+    }),
+    staleTime: 60_000,
+    select: (d: any) => {
+      const list: any[] = d?.data ?? [];
+      const withPhoto = list.filter((e) => !!e.photoUrl).length;
+      return {
+        total:       d?.meta?.total ?? list.length,
+        withPhoto,
+        withoutPhoto: list.length - withPhoto,
+        pct: list.length > 0 ? Math.round((withPhoto / list.length) * 100) : 0,
+      };
+    },
+  });
+
+  const photoStats = statsRaw ?? { total: 0, withPhoto: 0, withoutPhoto: 0, pct: 0 };
+
+  // Photo filter (client-side, faqat yuklangan sahifalar ichida)
   const employees = photoFilter === "with"
     ? allLoaded.filter((e: any) => !!e.photoUrl)
     : photoFilter === "without"
     ? allLoaded.filter((e: any) => !e.photoUrl)
     : allLoaded;
-
-  // Photo stats
-  const photoWithCount    = allLoaded.filter((e: any) => !!e.photoUrl).length;
-  const photoWithoutCount = allLoaded.length - photoWithCount;
-  const photoPct          = allLoaded.length > 0 ? Math.round((photoWithCount / allLoaded.length) * 100) : 0;
 
   // ── IntersectionObserver for infinite scroll ─
   const handleObserver = useCallback(
@@ -585,22 +604,20 @@ export default function EmployeesPage() {
         </p>
 
         {/* ── Photo stats progress ── */}
-        {!isLoading && allLoaded.length > 0 && (
+        {(statsLoading || photoStats.total > 0) && (
           <div className="card p-4">
             <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold text-[var(--text-primary)]">Profil rasmi holati</span>
-                {allLoaded.length < total && (
-                  <span className="text-[10px] text-[var(--text-muted)] bg-[var(--bg-hover)] px-1.5 py-0.5 rounded-full">
-                    {allLoaded.length}/{total} yuklandi
-                  </span>
+                {statsLoading && (
+                  <span className="text-[10px] text-[var(--text-muted)] animate-pulse">yuklanmoqda...</span>
                 )}
               </div>
               <div className="flex items-center gap-1.5">
                 {([
-                  { v: "all",     l: "Barchasi",    count: allLoaded.length,    color: "text-[var(--text-muted)]" },
-                  { v: "with",    l: "✓ Rasmli",    count: photoWithCount,      color: "text-green-400"           },
-                  { v: "without", l: "✕ Rasmsiz",   count: photoWithoutCount,   color: "text-amber-400"           },
+                  { v: "all",     l: "Barchasi",  count: photoStats.total,        color: "text-[var(--text-muted)]" },
+                  { v: "with",    l: "✓ Rasmli",  count: photoStats.withPhoto,    color: "text-green-400"           },
+                  { v: "without", l: "✕ Rasmsiz", count: photoStats.withoutPhoto, color: "text-amber-400"           },
                 ] as const).map((f) => (
                   <button
                     key={f.v}
@@ -625,14 +642,17 @@ export default function EmployeesPage() {
             {/* Progress bar */}
             <div className="h-2.5 bg-[var(--bg-hover)] rounded-full overflow-hidden">
               <div
-                className="h-full rounded-full transition-all duration-500 bg-gradient-to-r from-green-600 to-green-400"
-                style={{ width: `${photoPct}%` }}
+                className={cn(
+                  "h-full rounded-full transition-all duration-700",
+                  statsLoading ? "animate-pulse bg-[var(--bg-hover)] w-full" : "bg-gradient-to-r from-green-600 to-green-400"
+                )}
+                style={statsLoading ? {} : { width: `${photoStats.pct}%` }}
               />
             </div>
             <div className="flex justify-between text-[10px] text-[var(--text-muted)] mt-1.5">
-              <span className="text-green-400 font-medium">{photoWithCount} ta rasmli</span>
-              <span className="font-semibold text-[var(--text-primary)]">{photoPct}%</span>
-              <span className="text-amber-400 font-medium">{photoWithoutCount} ta rasmsiz</span>
+              <span className="text-green-400 font-medium">{photoStats.withPhoto} ta rasmli</span>
+              <span className="font-semibold text-[var(--text-primary)]">{photoStats.pct}%</span>
+              <span className="text-amber-400 font-medium">{photoStats.withoutPhoto} ta rasmsiz</span>
             </div>
           </div>
         )}
