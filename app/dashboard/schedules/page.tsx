@@ -523,6 +523,10 @@ function GenerateModal({
     startsWith: "DAYTIME",
     departmentId: "",
     employeeId: "",
+    dayStartTime:   "08:00",
+    dayEndTime:     "20:00",
+    nightStartTime: "20:00",
+    nightEndTime:   "08:00",
   });
 
   // Bulk mode: ish kunlari — default: Du–Ju (1–5)
@@ -683,25 +687,94 @@ function GenerateModal({
     }
   };
 
-  const bulkMutation = useMutation({
-    mutationFn: () =>
-      schedulesApi.bulkGenerate({
+  // Bulk uchun vaqt bo'yicha shift topish yoki yaratish
+  const resolveBulkShifts = async (): Promise<{ dayShiftId?: string; nightShiftId?: string }> => {
+    const needsDay   = form.pattern !== "FIXED_NIGHT";
+    const needsNight = form.pattern !== "FIXED_DAY";
+    const shiftList  = shifts as any[];
+    const apiParams  = targetHospitalId ? { targetHospitalId } : undefined;
+
+    let dayShiftId: string | undefined;
+    let nightShiftId: string | undefined;
+
+    if (needsDay) {
+      const found = shiftList.find(
+        (s) => s.type === "DAYTIME" && s.startTime === form.dayStartTime
+      );
+      if (found) {
+        dayShiftId = found.id;
+      } else {
+        const overnight = false;
+        const d = calcDuration(form.dayStartTime, form.dayEndTime, overnight);
+        const s = await shiftsApi.create({
+          name: `Kunduzgi ${form.dayStartTime}–${form.dayEndTime}`,
+          type: "DAYTIME",
+          startTime: form.dayStartTime,
+          endTime: form.dayEndTime,
+          durationH: d,
+          isOvernight: overnight,
+          graceMinutes: 15,
+        }, apiParams);
+        dayShiftId = s.id;
+        qc.invalidateQueries({ queryKey: ["shifts"] });
+      }
+    }
+
+    if (needsNight) {
+      const [nh, nm] = form.nightEndTime.split(":").map(Number);
+      const [sh, sm] = form.nightStartTime.split(":").map(Number);
+      const isOvn = (nh * 60 + nm) < (sh * 60 + sm);
+      const found = shiftList.find(
+        (s) => s.type === "NIGHTTIME" && s.startTime === form.nightStartTime
+      );
+      if (found) {
+        nightShiftId = found.id;
+      } else {
+        const d = calcDuration(form.nightStartTime, form.nightEndTime, isOvn);
+        const s = await shiftsApi.create({
+          name: `Kechki ${form.nightStartTime}–${form.nightEndTime}`,
+          type: "NIGHTTIME",
+          startTime: form.nightStartTime,
+          endTime: form.nightEndTime,
+          durationH: d,
+          isOvernight: isOvn,
+          graceMinutes: 15,
+        }, apiParams);
+        nightShiftId = s.id;
+        qc.invalidateQueries({ queryKey: ["shifts"] });
+      }
+    }
+
+    return { dayShiftId, nightShiftId };
+  };
+
+  const [bulkSubmitting, setBulkSubmitting] = useState(false);
+
+  const handleBulkGenerate = async () => {
+    setBulkSubmitting(true);
+    try {
+      const { dayShiftId, nightShiftId } = await resolveBulkShifts();
+      const res = await schedulesApi.bulkGenerate({
         month: form.month,
         year: form.year,
         pattern: form.pattern,
         startsWith: form.startsWith,
         workDays,
         departmentId: form.departmentId || undefined,
+        dayShiftId,
+        nightShiftId,
         ...(targetHospitalId && { targetHospitalId }),
-      }),
-    onSuccess: (res: any) => {
+      });
       qc.invalidateQueries({ queryKey: ["schedules-monthly"] });
-      const count = Array.isArray(res) ? res.length : (res.created ?? "");
+      const count = Array.isArray(res) ? res.filter((r: any) => !r.error).length : (res as any)?.created ?? "";
       toast.success(`Grafik yaratildi: ${count} ta`);
       onClose();
-    },
-    onError: (e: any) => toast.error(e?.response?.data?.message || "Xatolik"),
-  });
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Xatolik");
+    } finally {
+      setBulkSubmitting(false);
+    }
+  };
 
   if (!open) return null;
 
@@ -933,21 +1006,109 @@ function GenerateModal({
                   </select>
                 </div>
               )}
+
+              {/* ── Ish vaqtlari ── */}
+              <div className="rounded-xl border border-[var(--border)] overflow-hidden">
+                <div className="px-3.5 py-2.5 bg-[var(--bg-primary)] border-b border-[var(--border)]">
+                  <p className="text-xs font-semibold text-[var(--text-muted)]">⏰ Ish vaqtlari</p>
+                </div>
+
+                {/* Kunduzgi vaqt */}
+                {form.pattern !== "FIXED_NIGHT" && (
+                  <div className="p-3.5 space-y-2">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Sun className="w-3.5 h-3.5 text-yellow-400 flex-shrink-0" />
+                      <span className="text-xs font-medium text-yellow-400">Kunduzgi smen</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] text-[var(--text-muted)] mb-1">Boshlanish</label>
+                        <input
+                          type="time"
+                          value={form.dayStartTime}
+                          onChange={(e) => setForm((f) => ({ ...f, dayStartTime: e.target.value }))}
+                          className="input-field text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-[var(--text-muted)] mb-1">Tugash</label>
+                        <input
+                          type="time"
+                          value={form.dayEndTime}
+                          onChange={(e) => setForm((f) => ({ ...f, dayEndTime: e.target.value }))}
+                          className="input-field text-sm"
+                        />
+                      </div>
+                    </div>
+                    {form.dayStartTime && form.dayEndTime && (
+                      <p className="text-[10px] text-[var(--text-muted)]">
+                        ⏱ {calcDuration(form.dayStartTime, form.dayEndTime, false)} soat
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Divider agar ikkala vaqt ko'rsatilsa */}
+                {form.pattern !== "FIXED_NIGHT" && form.pattern !== "FIXED_DAY" && (
+                  <div className="border-t border-[var(--border)]" />
+                )}
+
+                {/* Kechki vaqt */}
+                {form.pattern !== "FIXED_DAY" && (
+                  <div className="p-3.5 space-y-2">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Moon className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0" />
+                      <span className="text-xs font-medium text-indigo-400">Kechki smen</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] text-[var(--text-muted)] mb-1">Boshlanish</label>
+                        <input
+                          type="time"
+                          value={form.nightStartTime}
+                          onChange={(e) => setForm((f) => ({ ...f, nightStartTime: e.target.value }))}
+                          className="input-field text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-[var(--text-muted)] mb-1">Tugash</label>
+                        <input
+                          type="time"
+                          value={form.nightEndTime}
+                          onChange={(e) => setForm((f) => ({ ...f, nightEndTime: e.target.value }))}
+                          className="input-field text-sm"
+                        />
+                      </div>
+                    </div>
+                    {form.nightStartTime && form.nightEndTime && (() => {
+                      const [nh, nm] = form.nightEndTime.split(":").map(Number);
+                      const [sh, sm] = form.nightStartTime.split(":").map(Number);
+                      const isOvn = (nh * 60 + nm) < (sh * 60 + sm);
+                      return (
+                        <p className="text-[10px] text-[var(--text-muted)]">
+                          ⏱ {calcDuration(form.nightStartTime, form.nightEndTime, isOvn)} soat
+                          {isOvn && <span className="text-amber-400 ml-1">🌙 keyingi kun</span>}
+                        </p>
+                      );
+                    })()}
+                  </div>
+                )}
+              </div>
             </>
           )}
 
           <div className="flex gap-3 pt-2">
             <button onClick={onClose} className="btn-secondary flex-1">Bekor</button>
             <button
-              onClick={() => mode === "single" ? handleWeeklyGenerate() : bulkMutation.mutate()}
+              onClick={() => mode === "single" ? handleWeeklyGenerate() : handleBulkGenerate()}
               disabled={
-                submitting || bulkMutation.isPending ||
+                submitting || bulkSubmitting ||
                 (mode === "single" && !form.employeeId)
               }
               className="btn-primary flex-1 gap-2"
             >
               <Zap className="w-4 h-4" />
-              {(submitting || bulkMutation.isPending) ? "Yaratilmoqda..." : "Grafik yaratish"}
+              {(submitting || bulkSubmitting) ? "Yaratilmoqda..." : "Grafik yaratish"}
             </button>
           </div>
         </div>
