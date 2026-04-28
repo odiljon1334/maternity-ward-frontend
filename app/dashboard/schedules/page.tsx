@@ -1304,15 +1304,16 @@ export default function SchedulesPage() {
 
         {/* ── Filter qatori: qidiruv + grafik holati ── */}
         {view === "grafik" && (
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Ism qidiruv (Lotin / Kirill) */}
-            <div className="relative flex-1 min-w-44 max-w-xs">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
+            {/* Ism qidiruv (Lotin / Kirill) — full width on mobile */}
+            <div className="relative sm:flex-1 sm:min-w-44 sm:max-w-xs">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--text-muted)] pointer-events-none" />
               <input
                 value={empSearch}
                 onChange={(e) => setEmpSearch(e.target.value)}
                 placeholder="Ism, familiya..."
-                className="input-field pl-9 text-sm h-9"
+                className="input-field w-full text-sm h-9"
+                style={{ paddingLeft: '2.25rem' }}
               />
               {empSearch && (
                 <button onClick={() => setEmpSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)]">

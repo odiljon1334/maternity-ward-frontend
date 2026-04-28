@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef, useCallback, memo } from "react";
+import { useState, useEffect, useRef, useCallback, memo, useMemo } from "react";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -396,11 +396,19 @@ export default function EmployeesPage() {
     setPhotoFilter("all");
   }, [targetHospitalId]);
 
-  // Search input o'zgarganda normalize qilib API ga yuborish (debounce yo'q — API side)
+  // Debounce ref
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // Search: kiritishni ko'rsatadi, 350ms kutib API ga normallashtirilgan yuboradi
   const handleSearchChange = (val: string) => {
     setSearchInput(val);
-    setSearch(normalizeStr(val));
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setSearch(normalizeStr(val));
+    }, 350);
   };
+
+  useEffect(() => () => clearTimeout(debounceRef.current), []);
 
   // Reset scroll when filters change
   useEffect(() => { window.scrollTo(0, 0); }, [search, deptFilter, targetHospitalId]);
@@ -523,79 +531,82 @@ export default function EmployeesPage() {
         )}
 
         {/* ── Toolbar ── */}
-        <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3">
-          <div className="flex gap-2 sm:contents">
-            {/* Search — Lotin/Kirill qidiruv */}
-            <div className="relative flex-1 sm:flex-1 sm:min-w-48">
-              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)] z-10" />
-              <input
-                value={searchInput}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder="Ism, familiya, ID..."
-                className="input-field pl-9 w-full"
-              />
-              {searchInput && (
-                <button
-                  onClick={() => handleSearchChange("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
+          {/* Search — full width on mobile, flex-1 on sm+ */}
+          <div className="relative sm:flex-1 sm:min-w-48">
+            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)] z-10" />
+            <input
+              value={searchInput}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              placeholder="Ism, familiya, ID..."
+              className="input-field w-full"
+              style={{ paddingLeft: '2.25rem' }}
+            />
+            {searchInput && (
+              <button
+                onClick={() => handleSearchChange("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Row 2 on mobile: dept select + action buttons (sm:contents unwraps into outer flex-row) */}
+          <div className="flex flex-wrap items-center gap-2 sm:contents">
             <select
               value={deptFilter}
               onChange={(e) => setDeptFilter(e.target.value)}
-              className="input-field w-40 sm:w-44 flex-shrink-0"
+              className="input-field flex-1 sm:w-44 sm:flex-none sm:flex-shrink-0"
             >
               <option value="">Barcha bo'limlar</option>
               {(departments as any[]).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
-          </div>
 
-          <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
-            <button
-              onClick={async () => {
-                try {
-                  const res = await employeesApi.csvTemplate();
-                  downloadBlob(res.data, "hodimlar_shablon.csv");
-                } catch { toast.error("Shablon yuklab bo'lmadi"); }
-              }}
-              className="btn-ghost gap-1.5 text-xs"
-              title="CSV shablon"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Shablon</span>
-            </button>
+            <div className="flex flex-wrap items-center gap-2 ml-auto sm:ml-auto">
+              <button
+                onClick={async () => {
+                  try {
+                    const res = await employeesApi.csvTemplate();
+                    downloadBlob(res.data, "hodimlar_shablon.csv");
+                  } catch { toast.error("Shablon yuklab bo'lmadi"); }
+                }}
+                className="btn-ghost gap-1.5 text-xs"
+                title="CSV shablon"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Shablon</span>
+              </button>
 
-            <button
-              onClick={() => csvInputRef.current?.click()}
-              disabled={importing}
-              className="btn-secondary gap-1.5 text-xs sm:text-sm"
-            >
-              <Upload className="w-4 h-4" />
-              {importing ? "Import..." : <><span className="hidden sm:inline">Import </span>CSV</>}
-            </button>
+              <button
+                onClick={() => csvInputRef.current?.click()}
+                disabled={importing}
+                className="btn-secondary gap-1.5 text-xs sm:text-sm"
+              >
+                <Upload className="w-4 h-4" />
+                {importing ? "Import..." : <><span className="hidden sm:inline">Import </span>CSV</>}
+              </button>
 
-            <button
-              onClick={handleFixNumbers}
-              disabled={fixing}
-              className="btn-secondary gap-1.5 text-xs sm:text-sm"
-              title="Terminal IDlarni tuzatish"
-            >
-              <span className="font-mono">#</span>
-              <span className="hidden sm:inline">{fixing ? "Tuzatilmoqda..." : "ID tuzatish"}</span>
-            </button>
+              <button
+                onClick={handleFixNumbers}
+                disabled={fixing}
+                className="btn-secondary gap-1.5 text-xs sm:text-sm"
+                title="Terminal IDlarni tuzatish"
+              >
+                <span className="font-mono">#</span>
+                <span className="hidden sm:inline">{fixing ? "Tuzatilmoqda..." : "ID tuzatish"}</span>
+              </button>
 
-            <button onClick={handleExcel} className="btn-secondary gap-1.5 text-xs sm:text-sm">
-              <FileSpreadsheet className="w-4 h-4" />
-              <span className="hidden sm:inline">Excel</span>
-            </button>
+              <button onClick={handleExcel} className="btn-secondary gap-1.5 text-xs sm:text-sm">
+                <FileSpreadsheet className="w-4 h-4" />
+                <span className="hidden sm:inline">Excel</span>
+              </button>
 
-            <button onClick={() => { setEditEmp(null); setModalOpen(true); }} className="btn-primary gap-1.5 text-xs sm:text-sm">
-              <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">Xodim</span> qo&apos;shish
-            </button>
+              <button onClick={() => { setEditEmp(null); setModalOpen(true); }} className="btn-primary gap-1.5 text-xs sm:text-sm">
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">Xodim</span> qo&apos;shish
+              </button>
+            </div>
           </div>
         </div>
 
