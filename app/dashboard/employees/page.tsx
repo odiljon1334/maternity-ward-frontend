@@ -404,7 +404,7 @@ export default function EmployeesPage() {
     setSearchInput(val);
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      setSearch(normalizeStr(val));
+      setSearch(val.trim()); // raw input — normalizatsiya backend tomonida
     }, 350);
   };
 
