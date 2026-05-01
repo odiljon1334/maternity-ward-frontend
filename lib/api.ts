@@ -211,6 +211,7 @@ export const hospitalsApi = {
     api.patch(`/hospitals/${hospitalId}/directors`, data).then((r) => r.data.data),
   block: (id: string) => api.patch(`/hospitals/${id}/block`).then((r) => r.data.data),
   unblock: (id: string) => api.patch(`/hospitals/${id}/unblock`).then((r) => r.data.data),
+  resetTelegramSubs: (id: string) => api.delete(`/hospitals/${id}/telegram-subs`).then((r) => r.data),
 };
 
 // ─── Telegram ───────────────────────────────────

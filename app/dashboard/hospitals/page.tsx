@@ -248,6 +248,17 @@ export default function HospitalsPage() {
     onError: (e: any) => toast.error(e?.response?.data?.message || "Xatolik"),
   });
 
+  const handleResetTelegram = async (h: any) => {
+    if (!confirm(`"${h.name}" kasalxonasining Telegram obunalarini o'chirasizmi?\n\nEski direktor bilan bog'liq barcha obunalar o'chiriladi. Yangi direktor /start orqali qayta ulana oladi.`)) return;
+    try {
+      const res = await hospitalsApi.resetTelegramSubs(h.id);
+      toast.success(res?.message || "Telegram obunalar o'chirildi");
+      qc.invalidateQueries({ queryKey: ["hospitals"] });
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Xatolik");
+    }
+  };
+
   const handleEnrollPic = async (h: any) => {
     setDownloading(h.id);
     try {
@@ -469,6 +480,13 @@ export default function HospitalsPage() {
                       ? <ShieldCheck className="w-3.5 h-3.5" />
                       : <ShieldOff className="w-3.5 h-3.5" />
                     }
+                  </button>
+                  <button
+                    onClick={() => handleResetTelegram(h)}
+                    className="btn-ghost text-xs px-3 text-sky-400 hover:text-sky-300 hover:bg-sky-500/10 justify-center"
+                    title="Eski direktor Telegram obunasini o'chirish"
+                  >
+                    <span className="text-base leading-none">✈️</span>
                   </button>
                   <button
                     onClick={() => handleDelete(h)}
