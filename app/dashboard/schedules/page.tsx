@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { schedulesApi, employeesApi, shiftsApi, departmentsApi } from "@/lib/api";
 import { Topbar } from "@/components/layout/Topbar";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Zap, X, Edit3, Check, Clock, Sun, Moon, Plus, Edit2, Trash2, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Zap, X, Edit3, Check, Clock, Sun, Moon, Plus, Edit2, Trash2, Search, Copy } from "lucide-react";
 import dayjs from "dayjs";
 import { useForm } from "react-hook-form";
 import { useAuthStore } from "@/stores/auth";
@@ -1139,9 +1139,11 @@ export default function SchedulesPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editEntry, setEditEntry] = useState<any>(null);
   const [view, setView] = useState<"grafik" | "smenlar">("grafik");
+  const [rollingOver, setRollingOver] = useState(false);
 
   const { selectedHospital } = useAuthStore();
   const targetHospitalId = selectedHospital?.id;
+  const qc = useQueryClient();
 
   // Kasalxona o'zgarganda barcha filtrlar reset bo'lsin
   useEffect(() => {
@@ -1230,6 +1232,35 @@ export default function SchedulesPage() {
     setYear(next.year());
   };
 
+  // Oldingi oydan joriy oyga grafik ko'chirish
+  const handleRollover = async () => {
+    const cur  = dayjs(`${year}-${String(month).padStart(2, "0")}-01`);
+    const prev = cur.subtract(1, "month");
+    const fromMonth = prev.month() + 1;
+    const fromYear  = prev.year();
+    const toMonth   = month;
+    const toYear    = year;
+
+    const confirm = window.confirm(
+      `${prev.format("MMMM YYYY")} oyidagi grafiklarni ${cur.format("MMMM YYYY")} oyiga ko'chirasizmi?\n\n` +
+      `Allaqachon grafigi bor xodimlar o'tkazib yuboriladi.`
+    );
+    if (!confirm) return;
+
+    setRollingOver(true);
+    const tid = toast.loading("Grafiklar ko'chirilmoqda...");
+    try {
+      const params = targetHospitalId ? { targetHospitalId } : undefined;
+      const res = await schedulesApi.rollover({ fromMonth, fromYear, toMonth, toYear }, params);
+      toast.success(res?.message || `${res?.rolled ?? 0} ta xodim grafigi ko'chirildi`, { id: tid });
+      qc.invalidateQueries({ queryKey: ["schedules"] });
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Ko'chirishda xatolik", { id: tid });
+    } finally {
+      setRollingOver(false);
+    }
+  };
+
   return (
     <div>
       <Topbar title="Grafik" subtitle="Oylik ish grafigi" />
@@ -1294,6 +1325,17 @@ export default function SchedulesPage() {
                   <span className="px-2 py-1 rounded-full bg-[var(--bg-hover)] text-[var(--text-muted)]">○ {stats.dayOff}</span>
                 </div>
               )}
+
+              {/* Oldingi oydan grafik ko'chirish */}
+              <button
+                onClick={handleRollover}
+                disabled={rollingOver}
+                className="btn-secondary gap-1.5 text-xs sm:text-sm"
+                title="Oldingi oyning grafigini shu oyga ko'chirish"
+              >
+                <Copy className="w-4 h-4" />
+                <span className="hidden sm:inline">{rollingOver ? "Ko'chirilmoqda..." : "Avvalgi oy"}</span>
+              </button>
 
               <button onClick={() => setModalOpen(true)} className="btn-primary gap-2 ml-auto">
                 <Zap className="w-4 h-4" /> Grafik yaratish

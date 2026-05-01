@@ -155,6 +155,8 @@ export const schedulesApi = {
   bulkGenerate: (data: any) => api.post("/schedules/bulk-generate", data).then((r) => r.data.data),
   bulkManual: (data: any) => api.post("/schedules/manual", data).then((r) => r.data.data),
   update: (id: string, data: any) => api.put(`/schedules/${id}`, data).then((r) => r.data.data),
+  rollover: (data: { fromMonth: number; fromYear: number; toMonth: number; toYear: number }, params?: { targetHospitalId?: string }) =>
+    api.post("/schedules/rollover", data, { params }).then((r) => r.data),
 };
 
 // ─── Attendance ─────────────────────────────────
