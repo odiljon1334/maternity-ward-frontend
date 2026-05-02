@@ -91,24 +91,39 @@ function DirectorModal({ open, onClose, hospitalId, hospitalName, director }: {
   director?: { id: string; username: string; name: string; phone?: string } | null;
 }) {
   const qc = useQueryClient();
-  const isEdit = !!director;
+  const hasDirector = !!director;
+  // replaceMode=true bo'lsa — mavjud direktor bo'lsa ham yangi direktor yaratish formi ko'rsatiladi
+  const [replaceMode, setReplaceMode] = useState(false);
+
+  const showCreateForm = !hasDirector || replaceMode;
 
   const createForm = useForm<DirCreateForm>();
   const editForm = useForm<DirEditForm>();
 
   useEffect(() => {
     if (open) {
-      if (isEdit && director) {
+      setReplaceMode(false);
+      if (hasDirector && director) {
         editForm.reset({ fullName: director.name, phone: director.phone || "", password: "" });
       } else {
         createForm.reset({ username: "", password: "", fullName: "", phone: "" });
       }
     }
-  }, [open, isEdit, director]);
+  }, [open, hasDirector, director]);
+
+  useEffect(() => {
+    if (replaceMode) {
+      createForm.reset({ username: "", password: "", fullName: "", phone: "" });
+    }
+  }, [replaceMode]);
 
   const createMut = useMutation({
     mutationFn: (data: DirCreateForm) => hospitalsApi.createDirector(hospitalId, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["hospitals"] }); toast.success("Direktor yaratildi"); onClose(); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["hospitals"] });
+      toast.success(replaceMode ? "Direktor almashtirildi. Eski direktor EMPLOYEE sifatida saqlanib qoldi." : "Direktor yaratildi");
+      onClose();
+    },
     onError: (e: any) => toast.error(e?.response?.data?.message || "Xatolik"),
   });
 
@@ -118,7 +133,11 @@ function DirectorModal({ open, onClose, hospitalId, hospitalName, director }: {
       if (data.password) payload.password = data.password;
       return hospitalsApi.updateDirector(hospitalId, payload);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["hospitals"] }); toast.success("Direktor yangilandi"); onClose(); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["hospitals"] });
+      toast.success("Direktor yangilandi");
+      onClose();
+    },
     onError: (e: any) => toast.error(e?.response?.data?.message || "Xatolik"),
   });
 
@@ -130,15 +149,77 @@ function DirectorModal({ open, onClose, hospitalId, hospitalName, director }: {
         <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)] sticky top-0 bg-[var(--bg-card)] z-10">
           <div>
             <h2 className="font-semibold text-[var(--text-primary)]">
-              {isEdit ? "Direktori tahrirlash" : "Direktor yaratish"}
+              {replaceMode ? "Direktor almashtirish" : hasDirector ? "Direktori tahrirlash" : "Direktor yaratish"}
             </h2>
             <p className="text-xs text-[var(--text-muted)] mt-0.5">{hospitalName}</p>
           </div>
-          <button onClick={onClose} className="btn-ghost p-1.5"><X className="w-4 h-4" /></button>
+          <div className="flex items-center gap-2">
+            {/* Direktor bor bo'lsa — almashtirish tugmasi */}
+            {hasDirector && !replaceMode && (
+              <button
+                type="button"
+                onClick={() => setReplaceMode(true)}
+                className="text-xs px-2.5 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/30 hover:bg-amber-500/20 transition-colors"
+                title="Yangi direktor tayinlash (eski EMPLOYEE bo'lib qoladi)"
+              >
+                Almashtirish
+              </button>
+            )}
+            {replaceMode && (
+              <button
+                type="button"
+                onClick={() => setReplaceMode(false)}
+                className="text-xs px-2.5 py-1.5 rounded-lg bg-[var(--bg-hover)] text-[var(--text-muted)] border border-[var(--border)] hover:bg-[var(--bg-card)] transition-colors"
+              >
+                Orqaga
+              </button>
+            )}
+            <button onClick={onClose} className="btn-ghost p-1.5"><X className="w-4 h-4" /></button>
+          </div>
         </div>
 
+        {/* REPLACE / CREATE mode */}
+        {showCreateForm && (
+          <form onSubmit={createForm.handleSubmit((d) => createMut.mutate(d))} className="p-6 space-y-4">
+            {replaceMode && director && (
+              <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300">
+                <span className="mt-0.5">⚠️</span>
+                <span>
+                  <b>{director.name}</b> ({director.username}) — roli <b>EMPLOYEE</b> ga o'zgartiriladi.
+                  Davomat va jadval ma'lumotlari saqlanib qoladi.
+                </span>
+              </div>
+            )}
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">F.I.O *</label>
+              <input {...createForm.register("fullName", { required: "Ism shart" })} className="input-field" placeholder="Aziz Karimov" />
+              {createForm.formState.errors.fullName && <p className="text-xs text-red-400 mt-1">{createForm.formState.errors.fullName.message}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Login *</label>
+              <input {...createForm.register("username", { required: "Login shart", minLength: { value: 4, message: "Kamida 4 belgi" } })} className="input-field" placeholder="director4" />
+              {createForm.formState.errors.username && <p className="text-xs text-red-400 mt-1">{createForm.formState.errors.username.message}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Parol *</label>
+              <input {...createForm.register("password", { required: "Parol shart", minLength: { value: 6, message: "Kamida 6 belgi" } })} type="password" className="input-field" placeholder="••••••••" />
+              {createForm.formState.errors.password && <p className="text-xs text-red-400 mt-1">{createForm.formState.errors.password.message}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Telefon</label>
+              <input {...createForm.register("phone")} className="input-field" placeholder="+998901234567" />
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button type="button" onClick={onClose} className="btn-secondary flex-1">Bekor qilish</button>
+              <button type="submit" disabled={createMut.isPending} className="btn-primary flex-1">
+                {createMut.isPending ? (replaceMode ? "Almashtirilmoqda..." : "Yaratilmoqda...") : (replaceMode ? "Almashtirish" : "Yaratish")}
+              </button>
+            </div>
+          </form>
+        )}
+
         {/* EDIT mode */}
-        {isEdit && (
+        {!showCreateForm && (
           <form onSubmit={editForm.handleSubmit((d) => editMut.mutate(d))} className="p-6 space-y-4">
             {director?.username && (
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--bg-hover)] text-xs text-[var(--text-muted)]">
@@ -167,37 +248,6 @@ function DirectorModal({ open, onClose, hospitalId, hospitalName, director }: {
               </button>
             </div>
           </form>
-        )}
-
-        {/* CREATE mode */}
-        {!isEdit && (
-        <form onSubmit={createForm.handleSubmit((d) => createMut.mutate(d))} className="p-6 space-y-4">
-          <div>
-            <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">F.I.O *</label>
-            <input {...createForm.register("fullName", { required: "Ism shart" })} className="input-field" placeholder="Aziz Karimov" />
-            {createForm.formState.errors.fullName && <p className="text-xs text-red-400 mt-1">{createForm.formState.errors.fullName.message}</p>}
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Login *</label>
-            <input {...createForm.register("username", { required: "Login shart", minLength: { value: 4, message: "Kamida 4 belgi" } })} className="input-field" placeholder="director4" />
-            {createForm.formState.errors.username && <p className="text-xs text-red-400 mt-1">{createForm.formState.errors.username.message}</p>}
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Parol *</label>
-            <input {...createForm.register("password", { required: "Parol shart", minLength: { value: 6, message: "Kamida 6 belgi" } })} type="password" className="input-field" placeholder="••••••••" />
-            {createForm.formState.errors.password && <p className="text-xs text-red-400 mt-1">{createForm.formState.errors.password.message}</p>}
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Telefon</label>
-            <input {...createForm.register("phone")} className="input-field" placeholder="+998901234567" />
-          </div>
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="btn-secondary flex-1">Bekor qilish</button>
-            <button type="submit" disabled={createMut.isPending} className="btn-primary flex-1">
-              {createMut.isPending ? "Yaratilmoqda..." : "Yaratish"}
-            </button>
-          </div>
-        </form>
         )}
       </div>
     </div>
