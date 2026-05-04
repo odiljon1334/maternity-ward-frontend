@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { attendanceApi, departmentsApi, photoUrl as buildPhotoUrl } from "@/lib/api";
 import { Topbar } from "@/components/layout/Topbar";
@@ -16,13 +17,24 @@ const STATUS_MAP: Record<string, { label: string; cls: string }> = {
   LATE_EARLY:  { label: "Kech+Erta",  cls: "badge-purple" },
 };
 
+type StatusFilter = "ALL" | "PRESENT" | "LATE" | "ABSENT";
+
+const FILTER_TABS: { key: StatusFilter; label: string }[] = [
+  { key: "ALL",     label: "Jami" },
+  { key: "PRESENT", label: "Kelganlar" },
+  { key: "LATE",    label: "Kechikkanlar" },
+  { key: "ABSENT",  label: "Kelmaganlar" },
+];
+
 export default function AttendancePage() {
+  const router = useRouter();
   const { user, selectedHospital } = useAuthStore();
   const targetHospitalId = isSuperLike(user?.role) ? (selectedHospital?.id || undefined) : undefined;
   const params = targetHospitalId ? { targetHospitalId } : undefined;
 
   const [date, setDate] = useState(dayjs().format("YYYY-MM-DD"));
   const [deptFilter, setDeptFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
 
   const { data: records = [], isLoading } = useQuery({
     queryKey: ["attendance-daily", date, deptFilter, targetHospitalId],
@@ -44,6 +56,14 @@ export default function AttendancePage() {
     lunchLate: records.filter((r: any) => (r.lunchLateMin ?? 0) > 0).length,
     total:   records.length,
   };
+
+  const filteredRecords = (records as any[]).filter((r: any) => {
+    if (statusFilter === "ALL")     return true;
+    if (statusFilter === "PRESENT") return ["PRESENT","EARLY_LEAVE","LATE","LATE_EARLY"].includes(r.status);
+    if (statusFilter === "LATE")    return r.status === "LATE" || r.status === "LATE_EARLY";
+    if (statusFilter === "ABSENT")  return r.status === "ABSENT";
+    return true;
+  });
 
   return (
     <div>
@@ -70,6 +90,32 @@ export default function AttendancePage() {
             <option value="">Barcha bo'limlar</option>
             {departments.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
+        </div>
+
+        {/* Filter tabs */}
+        <div className="flex gap-2 flex-wrap">
+          {FILTER_TABS.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setStatusFilter(tab.key)}
+              className={cn(
+                "px-4 py-1.5 rounded-full text-sm font-medium transition-colors",
+                statusFilter === tab.key
+                  ? "bg-[var(--accent)] text-white"
+                  : "bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] border border-[var(--border)]"
+              )}
+            >
+              {tab.label}
+              {tab.key !== "ALL" && (
+                <span className="ml-1.5 text-xs opacity-70">
+                  ({tab.key === "PRESENT" ? summary.present : tab.key === "LATE" ? summary.late : summary.absent})
+                </span>
+              )}
+              {tab.key === "ALL" && (
+                <span className="ml-1.5 text-xs opacity-70">({summary.total})</span>
+              )}
+            </button>
+          ))}
         </div>
 
         {/* Summary cards */}
@@ -101,16 +147,18 @@ export default function AttendancePage() {
               </div>
             </div>
           ))}
-          {!isLoading && records.length === 0 && (
+          {!isLoading && filteredRecords.length === 0 && (
             <div className="card p-8 text-center text-[var(--text-muted)] text-sm">
               {date} kuni uchun ma'lumot yo'q
             </div>
           )}
-          {!isLoading && (records as any[]).map((r: any) => {
+          {!isLoading && filteredRecords.map((r: any) => {
             const st = STATUS_MAP[r.status] || { label: r.status, cls: "badge-gray" };
             const shiftHour = r.expectedCheckIn ? dayjs(r.expectedCheckIn).hour() : null;
             return (
-              <div key={r.id} className="card p-4 space-y-3">
+              <div key={r.id} className="card p-4 space-y-3 cursor-pointer active:opacity-70"
+                onClick={() => r.employee?.id && router.push(`/dashboard/employees/${r.employee.id}`)}>
+
                 {/* Header: avatar + name + status */}
                 <div className="flex items-center gap-3">
                   <div className="flex-shrink-0">
@@ -203,11 +251,14 @@ export default function AttendancePage() {
                     ))}
                   </tr>
                 ))}
-                {!isLoading && (records as any[]).map((r: any) => {
+                {!isLoading && filteredRecords.map((r: any) => {
                   const st = STATUS_MAP[r.status] || { label: r.status, cls: "badge-gray" };
                   const shiftHour = r.expectedCheckIn ? dayjs(r.expectedCheckIn).hour() : 0;
                   return (
-                    <tr key={r.id} className="border-b border-[var(--border)] table-row-hover">
+                    <tr key={r.id}
+                      className="border-b border-[var(--border)] table-row-hover cursor-pointer"
+                      onClick={() => r.employee?.id && router.push(`/dashboard/employees/${r.employee.id}`)}>
+
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
                           <div className="flex-shrink-0">
@@ -268,7 +319,7 @@ export default function AttendancePage() {
                     </tr>
                   );
                 })}
-                {!isLoading && records.length === 0 && (
+                {!isLoading && filteredRecords.length === 0 && (
                   <tr>
                     <td colSpan={9} className="px-5 py-12 text-center text-[var(--text-muted)] text-sm">
                       {date} kuni uchun davomat ma'lumoti yo'q
