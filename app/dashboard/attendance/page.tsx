@@ -19,13 +19,6 @@ const STATUS_MAP: Record<string, { label: string; cls: string }> = {
 
 type StatusFilter = "ALL" | "PRESENT" | "LATE" | "ABSENT";
 
-const FILTER_TABS: { key: StatusFilter; label: string }[] = [
-  { key: "ALL",     label: "Jami" },
-  { key: "PRESENT", label: "Kelganlar" },
-  { key: "LATE",    label: "Kechikkanlar" },
-  { key: "ABSENT",  label: "Kelmaganlar" },
-];
-
 export default function AttendancePage() {
   const router = useRouter();
   const { user, selectedHospital } = useAuthStore();
@@ -92,42 +85,24 @@ export default function AttendancePage() {
           </select>
         </div>
 
-        {/* Filter tabs */}
-        <div className="flex gap-2 flex-wrap">
-          {FILTER_TABS.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setStatusFilter(tab.key)}
-              className={cn(
-                "px-4 py-1.5 rounded-full text-sm font-medium transition-colors",
-                statusFilter === tab.key
-                  ? "bg-[var(--accent)] text-white"
-                  : "bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] border border-[var(--border)]"
-              )}
-            >
-              {tab.label}
-              {tab.key !== "ALL" && (
-                <span className="ml-1.5 text-xs opacity-70">
-                  ({tab.key === "PRESENT" ? summary.present : tab.key === "LATE" ? summary.late : summary.absent})
-                </span>
-              )}
-              {tab.key === "ALL" && (
-                <span className="ml-1.5 text-xs opacity-70">({summary.total})</span>
-              )}
-            </button>
-          ))}
-        </div>
-
-        {/* Summary cards */}
+        {/* Summary cards — clickable filters */}
         <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-4">
           {[
-            { label: "Jami",    value: summary.total,     cls: "text-[var(--text-primary)]" },
-            { label: "Keldi",   value: summary.present,   cls: "text-emerald-400" },
-            { label: "Kelmadi", value: summary.absent,    cls: "text-red-400" },
-            { label: "Kechikdi",value: summary.late,      cls: "text-yellow-400" },
-            { label: "Tushlik", value: summary.lunchLate, cls: "text-orange-400" },
+            { key: "ALL"     as StatusFilter, label: "Jami",     value: summary.total,     cls: "text-[var(--text-primary)]" },
+            { key: "PRESENT" as StatusFilter, label: "Keldi",    value: summary.present,   cls: "text-emerald-400" },
+            { key: "ABSENT"  as StatusFilter, label: "Kelmadi",  value: summary.absent,    cls: "text-red-400" },
+            { key: "LATE"    as StatusFilter, label: "Kechikdi", value: summary.late,      cls: "text-yellow-400" },
+            { key: "ALL"     as StatusFilter, label: "Tushlik",  value: summary.lunchLate, cls: "text-orange-400", noFilter: true },
           ].map((s) => (
-            <div key={s.label} className="card p-3 sm:p-4 text-center">
+            <div
+              key={s.label}
+              onClick={() => !s.noFilter && setStatusFilter(s.key)}
+              className={cn(
+                "card p-3 sm:p-4 text-center transition-all",
+                !s.noFilter && "cursor-pointer hover:ring-2 hover:ring-[var(--accent)]/40",
+                !s.noFilter && statusFilter === s.key && "ring-2 ring-[var(--accent)] bg-[var(--accent)]/5"
+              )}
+            >
               <p className={`text-xl sm:text-2xl font-bold ${s.cls}`}>{s.value}</p>
               <p className="text-[10px] sm:text-xs text-[var(--text-muted)] mt-1">{s.label}</p>
             </div>
