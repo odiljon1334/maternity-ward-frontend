@@ -1216,11 +1216,29 @@ function ImportModal({
           </div>
 
           {result && (
-            <div className="rounded-lg bg-[var(--bg-hover)] p-3 text-xs space-y-1">
-              <p className="text-emerald-400 font-medium">{result.message}</p>
+            <div className="rounded-lg bg-[var(--bg-hover)] p-3 text-xs space-y-2">
+              <p className="text-emerald-400 font-semibold">✓ Import yakunlandi</p>
+              <div className="grid grid-cols-2 gap-1.5">
+                <div className="rounded bg-[var(--bg-card)] px-2 py-1.5 text-center">
+                  <p className="text-lg font-bold text-[var(--text-primary)]">{result.employeesCount ?? "—"}</p>
+                  <p className="text-[var(--text-muted)]">Hodim</p>
+                </div>
+                <div className="rounded bg-[var(--bg-card)] px-2 py-1.5 text-center">
+                  <p className="text-lg font-bold text-[var(--text-primary)]">{(result.created ?? 0) + (result.updated ?? 0)}</p>
+                  <p className="text-[var(--text-muted)]">Grafik yozuvi</p>
+                </div>
+                <div className="rounded bg-emerald-500/10 px-2 py-1.5 text-center">
+                  <p className="text-lg font-bold text-emerald-400">{result.created ?? 0}</p>
+                  <p className="text-[var(--text-muted)]">Yangi</p>
+                </div>
+                <div className="rounded bg-indigo-500/10 px-2 py-1.5 text-center">
+                  <p className="text-lg font-bold text-indigo-400">{result.updated ?? 0}</p>
+                  <p className="text-[var(--text-muted)]">Yangilandi</p>
+                </div>
+              </div>
               {result.unmatched?.length > 0 && (
                 <div>
-                  <p className="text-amber-400 mt-1.5">Topilmagan xodimlar ({result.unmatched.length}):</p>
+                  <p className="text-amber-400 font-medium">Topilmagan xodimlar ({result.unmatched.length}):</p>
                   <div className="mt-1 max-h-24 overflow-y-auto space-y-0.5">
                     {result.unmatched.map((n: string, i: number) => (
                       <p key={i} className="text-[var(--text-muted)] truncate">• {n}</p>
