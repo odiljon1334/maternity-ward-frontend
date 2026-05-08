@@ -157,6 +157,11 @@ export const schedulesApi = {
   update: (id: string, data: any) => api.put(`/schedules/${id}`, data).then((r) => r.data.data),
   rollover: (data: { fromMonth: number; fromYear: number; toMonth: number; toYear: number }, params?: { targetHospitalId?: string }) =>
     api.post("/schedules/rollover", data, { params }).then((r) => r.data),
+  importXlsx: (formData: FormData, params?: { targetHospitalId?: string }) =>
+    api.post("/schedules/import-xlsx", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+      params,
+    }).then((r) => r.data.data ?? r.data),
 };
 
 // ─── Attendance ─────────────────────────────────

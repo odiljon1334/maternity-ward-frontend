@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { schedulesApi, employeesApi, shiftsApi, departmentsApi } from "@/lib/api";
 import { Topbar } from "@/components/layout/Topbar";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Zap, X, Edit3, Check, Clock, Sun, Moon, Plus, Edit2, Trash2, Search, Copy } from "lucide-react";
+import { ChevronLeft, ChevronRight, Zap, X, Edit3, Check, Clock, Sun, Moon, Plus, Edit2, Trash2, Search, Copy, Upload, FileSpreadsheet } from "lucide-react";
 import dayjs from "dayjs";
 import { useForm } from "react-hook-form";
 import { useAuthStore } from "@/stores/auth";
@@ -512,22 +512,34 @@ function DayConfigRow({ label, isWeekend, cfg, shifts, onChange }: {
 
 // ─── Generate Modal ───────────────────────────────────────────────────────────
 function GenerateModal({
-  open, onClose, employees, shifts, departments, targetHospitalId,
+  open, onClose, employees, shifts, departments, targetHospitalId, preEmployeeId, onMonthChange,
 }: any) {
   const qc = useQueryClient();
-  const [mode, setMode] = useState<"bulk" | "single">("bulk");
+  // Xodim oldindan tanlangan bo'lsa — "single" modeda ochilsin
+  const [mode, setMode] = useState<"bulk" | "single">(preEmployeeId ? "single" : "bulk");
   const [form, setForm] = useState({
     month: dayjs().month() + 1,
     year: dayjs().year(),
     pattern: "FIXED_DAY",
     startsWith: "DAYTIME",
     departmentId: "",
-    employeeId: "",
+    employeeId: preEmployeeId ?? "",
     dayStartTime:   "08:00",
     dayEndTime:     "20:00",
     nightStartTime: "20:00",
     nightEndTime:   "08:00",
   });
+
+  // preEmployeeId o'zgarganda form yangilansin
+  useEffect(() => {
+    if (preEmployeeId) {
+      setMode("single");
+      setForm((f) => ({ ...f, employeeId: preEmployeeId }));
+    } else {
+      setMode("bulk");
+      setForm((f) => ({ ...f, employeeId: "" }));
+    }
+  }, [preEmployeeId, open]);
 
   // Bulk mode: ish kunlari — default: Du–Ju (1–5)
   const [workDays, setWorkDays] = useState<number[]>([1, 2, 3, 4, 5]);
@@ -679,7 +691,7 @@ function GenerateModal({
       const res = await schedulesApi.bulkManual({ employeeId: form.employeeId, entries });
       qc.invalidateQueries({ queryKey: ["schedules-monthly"] });
       toast.success(`Grafik yaratildi: ${res?.created ?? entries.filter((e) => e.status === "WORKING").length} ta`);
-      onClose();
+      onClose(); // single uchun month/year yo'q, manual entries sanaga bog'liq
     } catch (e: any) {
       toast.error(e?.response?.data?.message || "Xatolik");
     } finally {
@@ -768,6 +780,7 @@ function GenerateModal({
       qc.invalidateQueries({ queryKey: ["schedules-monthly"] });
       const count = Array.isArray(res) ? res.filter((r: any) => !r.error).length : (res as any)?.created ?? "";
       toast.success(`Grafik yaratildi: ${count} ta`);
+      onMonthChange?.(form.month, form.year); // oy/yil o'zgarganda parent'ni xabardor qilish
       onClose();
     } catch (e: any) {
       toast.error(e?.response?.data?.message || "Xatolik");
@@ -1117,6 +1130,124 @@ function GenerateModal({
   );
 }
 
+// ─── XLSX Import Modal ───────────────────────────────────────────────────────
+function ImportModal({
+  open, onClose, month, year, targetHospitalId, onSuccess,
+}: {
+  open: boolean; onClose: () => void; month: number; year: number;
+  targetHospitalId?: string; onSuccess?: () => void;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [importMonth, setImportMonth] = useState(month);
+  const [importYear, setImportYear] = useState(year);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<any>(null);
+
+  const handleSubmit = async () => {
+    if (!file) return;
+    setLoading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("month", String(importMonth));
+      fd.append("year", String(importYear));
+      const res = await schedulesApi.importXlsx(fd, targetHospitalId ? { targetHospitalId } : undefined);
+      setResult(res);
+      onSuccess?.();
+      toast.success(res?.message || "Import yakunlandi");
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Import xatolik");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative card w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
+          <div className="flex items-center gap-2">
+            <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+            <h2 className="font-semibold text-[var(--text-primary)]">XLSX Import</h2>
+          </div>
+          <button onClick={onClose} className="btn-ghost p-1.5"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="p-5 space-y-4">
+          <div className="rounded-lg bg-[var(--bg-hover)] p-3 text-xs text-[var(--text-muted)] space-y-1">
+            <p className="font-medium text-[var(--text-primary)]">Fayl formati:</p>
+            <p>• A ustun: Ism familya</p>
+            <p>• F–J ustunlar: Dushanba–Juma ish vaqti (masalan: <code className="text-emerald-400">08:00  16:30</code>)</p>
+            <p>• 7 ustun bo'lsa Shanba va Yakshanba ham qo'shiladi</p>
+            <p>• Bo'sh kataklar = dam olish</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Oy</label>
+              <select value={importMonth} onChange={(e) => setImportMonth(+e.target.value)} className="input-field text-sm">
+                {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                  <option key={m} value={m}>{dayjs().month(m - 1).format("MMMM")}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Yil</label>
+              <select value={importYear} onChange={(e) => setImportYear(+e.target.value)} className="input-field text-sm">
+                {[2025, 2026, 2027].map((y) => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-[var(--text-muted)] mb-1">Fayl (.xlsx)</label>
+            <label className={cn(
+              "flex flex-col items-center justify-center gap-2 p-6 rounded-lg border-2 border-dashed cursor-pointer transition-colors",
+              file ? "border-emerald-500/50 bg-emerald-500/5" : "border-[var(--border)] hover:border-indigo-500/50"
+            )}>
+              <Upload className={cn("w-6 h-6", file ? "text-emerald-400" : "text-[var(--text-muted)]")} />
+              <span className="text-sm text-center text-[var(--text-muted)]">
+                {file ? file.name : "Faylni tanlash yoki bu yerga tashlash"}
+              </span>
+              <input type="file" accept=".xlsx,.xls,.csv" className="hidden"
+                onChange={(e) => { setFile(e.target.files?.[0] ?? null); setResult(null); }} />
+            </label>
+          </div>
+
+          {result && (
+            <div className="rounded-lg bg-[var(--bg-hover)] p-3 text-xs space-y-1">
+              <p className="text-emerald-400 font-medium">{result.message}</p>
+              {result.unmatched?.length > 0 && (
+                <div>
+                  <p className="text-amber-400 mt-1.5">Topilmagan xodimlar ({result.unmatched.length}):</p>
+                  <div className="mt-1 max-h-24 overflow-y-auto space-y-0.5">
+                    {result.unmatched.map((n: string, i: number) => (
+                      <p key={i} className="text-[var(--text-muted)] truncate">• {n}</p>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-1">
+            <button onClick={onClose} className="btn-secondary flex-1 text-sm">Yopish</button>
+            <button
+              onClick={handleSubmit}
+              disabled={!file || loading}
+              className="btn-primary flex-1 text-sm gap-2"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              {loading ? "Yuklanmoqda..." : "Import qilish"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Lotin / Kirill normalizer ────────────────────────────────────────────────
 function normalizeStr(str: string): string {
   const cyr: Record<string, string> = {
@@ -1137,9 +1268,11 @@ export default function SchedulesPage() {
   const [empSearch, setEmpSearch] = useState("");
   const [scheduleFilter, setScheduleFilter] = useState<"all" | "with" | "without">("all");
   const [modalOpen, setModalOpen] = useState(false);
+  const [generateEmpId, setGenerateEmpId] = useState<string | undefined>(undefined); // xodim row klik
   const [editEntry, setEditEntry] = useState<any>(null);
   const [view, setView] = useState<"grafik" | "smenlar">("grafik");
   const [rollingOver, setRollingOver] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   const { selectedHospital } = useAuthStore();
   const targetHospitalId = selectedHospital?.id;
@@ -1230,6 +1363,13 @@ export default function SchedulesPage() {
     const next = dayjs(`${year}-${String(month).padStart(2, "0")}-01`).add(dir, "month");
     setMonth(next.month() + 1);
     setYear(next.year());
+  };
+
+  // Generate modal yakunlanganda oy/yilga o'tish
+  const handleMonthChange = (m: number, y: number) => {
+    setMonth(m);
+    setYear(y);
+    qc.invalidateQueries({ queryKey: ["schedules-monthly"] });
   };
 
   // Oldingi oydan joriy oyga grafik ko'chirish
@@ -1337,9 +1477,15 @@ export default function SchedulesPage() {
                 <span className="hidden sm:inline">{rollingOver ? "Ko'chirilmoqda..." : "Avvalgi oy"}</span>
               </button>
 
-              <button onClick={() => setModalOpen(true)} className="btn-primary gap-2 ml-auto">
-                <Zap className="w-4 h-4" /> Grafik yaratish
-              </button>
+              <div className="flex gap-2 ml-auto">
+                <button onClick={() => setImportOpen(true)} className="btn-secondary gap-1.5 text-xs sm:text-sm" title="XLSX fayldan grafik import qilish">
+                  <Upload className="w-4 h-4" />
+                  <span className="hidden sm:inline">Import</span>
+                </button>
+                <button onClick={() => { setGenerateEmpId(undefined); setModalOpen(true); }} className="btn-primary gap-2">
+                  <Zap className="w-4 h-4" /> Grafik yaratish
+                </button>
+              </div>
             </>
           )}
         </div>
@@ -1480,8 +1626,14 @@ export default function SchedulesPage() {
                     return (
                       <tr key={emp.id} className="border-b border-[var(--border)] group hover:bg-[var(--bg-hover)] transition-colors">
                         <td className="sticky left-0 bg-[var(--bg-card)] group-hover:bg-[var(--bg-hover)] z-10 px-4 py-2.5 transition-colors">
-                          <p className="font-medium text-[var(--text-primary)] truncate max-w-44">{emp.fullName}</p>
-                          <p className="text-[10px] text-[var(--text-muted)] truncate">{emp.department?.name}</p>
+                          <div
+                            className="cursor-pointer hover:text-indigo-400 transition-colors"
+                            title="Grafik yaratish / tahrirlash"
+                            onClick={() => { setGenerateEmpId(emp.id); setModalOpen(true); }}
+                          >
+                            <p className="font-medium text-[var(--text-primary)] truncate max-w-44 group-hover:text-indigo-400">{emp.fullName}</p>
+                            <p className="text-[10px] text-[var(--text-muted)] truncate">{emp.department?.name}</p>
+                          </div>
                         </td>
                         {Array.from({ length: daysInMonth }, (_, i) => {
                           const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(i + 1).padStart(2, "0")}`;
@@ -1546,17 +1698,28 @@ export default function SchedulesPage() {
       {/* Modals */}
       <GenerateModal
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
+        onClose={() => { setModalOpen(false); setGenerateEmpId(undefined); }}
         employees={allEmployees}
         shifts={shifts}
         departments={departments}
         targetHospitalId={targetHospitalId}
+        preEmployeeId={generateEmpId}
+        onMonthChange={handleMonthChange}
       />
 
       <CellEditModal
         entry={editEntry}
         shifts={shifts as any[]}
         onClose={() => setEditEntry(null)}
+      />
+
+      <ImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        month={month}
+        year={year}
+        targetHospitalId={targetHospitalId}
+        onSuccess={() => qc.invalidateQueries({ queryKey: ["schedules-monthly"] })}
       />
     </div>
   );

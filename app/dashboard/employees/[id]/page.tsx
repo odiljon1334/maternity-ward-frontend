@@ -120,7 +120,7 @@ function AttendanceTab({ employeeId }: { employeeId: string }) {
         <table className="w-full text-sm min-w-[640px]">
           <thead>
             <tr className="border-b border-[var(--border)]">
-              {["Sana", "Kelishi kerak", "Keldi", "Ketdi", "Tushlik", "Kechikish", "Holat"].map(h => (
+              {["Sana", "Kelishi kerak", "Ketishi kerak", "Keldi", "Ketdi", "Tushlik", "Kechikish", "Holat"].map(h => (
                 <th key={h} className="text-left px-4 py-3 text-xs font-medium text-[var(--text-muted)] uppercase tracking-wide whitespace-nowrap">{h}</th>
               ))}
             </tr>
@@ -128,7 +128,7 @@ function AttendanceTab({ employeeId }: { employeeId: string }) {
           <tbody>
             {isLoading && [...Array(8)].map((_, i) => (
               <tr key={i} className="border-b border-[var(--border)]">
-                {[...Array(7)].map((_, j) => (
+                {[...Array(8)].map((_, j) => (
                   <td key={j} className="px-4 py-3"><div className="h-4 rounded bg-[var(--bg-hover)] animate-pulse" /></td>
                 ))}
               </tr>
@@ -141,6 +141,8 @@ function AttendanceTab({ employeeId }: { employeeId: string }) {
                 ? fmt(new Date(new Date(r.checkIn).getTime() - (r.lateMinutes * 60 * 1000)))
                 : null;
               const shiftStart = shiftStartApi ?? shiftStartComputed;
+              const shiftEnd = fmtTimeVal(r.schedule?.shift?.endTime ?? r.shift?.endTime)
+                ?? (r.expectedCheckOut ? fmt(r.expectedCheckOut) : null);
               const isLate = (r.lateMinutes ?? 0) > 0;
               return (
                 <tr key={r.id} className="border-b border-[var(--border)] table-row-hover">
@@ -152,6 +154,13 @@ function AttendanceTab({ employeeId }: { employeeId: string }) {
                   <td className="px-4 py-3 text-xs whitespace-nowrap">
                     {shiftStart
                       ? <span className="text-[var(--text-muted)]">{shiftStart}</span>
+                      : <span className="opacity-30 text-[var(--text-muted)]">—</span>
+                    }
+                  </td>
+                  {/* Shift end (Ketishi kerak) */}
+                  <td className="px-4 py-3 text-xs whitespace-nowrap">
+                    {shiftEnd
+                      ? <span className="text-[var(--text-muted)]">{shiftEnd}</span>
                       : <span className="opacity-30 text-[var(--text-muted)]">—</span>
                     }
                   </td>
@@ -200,7 +209,7 @@ function AttendanceTab({ employeeId }: { employeeId: string }) {
               );
             })}
             {!isLoading && arr.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-12 text-center text-sm text-[var(--text-muted)]">Bu oy uchun ma&apos;lumot yo&apos;q</td></tr>
+              <tr><td colSpan={8} className="px-4 py-12 text-center text-sm text-[var(--text-muted)]">Bu oy uchun ma&apos;lumot yo&apos;q</td></tr>
             )}
           </tbody>
         </table>
