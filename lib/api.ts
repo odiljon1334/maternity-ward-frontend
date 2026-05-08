@@ -161,6 +161,7 @@ export const schedulesApi = {
     api.post("/schedules/import-xlsx", formData, {
       headers: { "Content-Type": "multipart/form-data" },
       params,
+      timeout: 300000, // 5 daqiqa — katta import uchun
     }).then((r) => r.data.data ?? r.data),
 };
 
