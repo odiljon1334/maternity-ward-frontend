@@ -305,9 +305,10 @@ export default function EmployeesPage() {
   const [importing, setImporting] = useState(false);
   const [fixing, setFixing]       = useState(false);
 
-  const photoInputRef = useRef<HTMLInputElement>(null);
-  const csvInputRef   = useRef<HTMLInputElement>(null);
-  const sentinelRef   = useRef<HTMLDivElement>(null);
+  const photoInputRef      = useRef<HTMLInputElement>(null);
+  const csvInputRef        = useRef<HTMLInputElement>(null);
+  const sentinelRef        = useRef<HTMLDivElement>(null);
+  const tableContainerRef  = useRef<HTMLDivElement>(null);
 
   // ── Infinite query ───────────────────────────
   const {
@@ -383,7 +384,10 @@ export default function EmployeesPage() {
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el) return;
-    const observer = new IntersectionObserver(handleObserver, { threshold: 0.1 });
+    const observer = new IntersectionObserver(handleObserver, {
+      root: tableContainerRef.current,
+      threshold: 0.1,
+    });
     observer.observe(el);
     return () => observer.disconnect();
   }, [handleObserver]);
@@ -732,12 +736,12 @@ export default function EmployeesPage() {
 
         {/* ── Desktop table ── */}
         <div className="hidden sm:block card overflow-hidden">
-          <div className="overflow-x-auto">
+          <div ref={tableContainerRef} className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-240px)]">
             <table className="w-full text-sm">
-              <thead>
+              <thead className="sticky top-0 z-20">
                 <tr className="border-b border-[var(--border)]">
                   {["Xodim", "Bo'lim", "Lavozim", "Terminal ID", "Asosiy maosh", "Holat", ""].map((h) => (
-                    <th key={h} className="text-left px-5 py-3 text-xs font-medium text-[var(--text-muted)] uppercase tracking-wide whitespace-nowrap">
+                    <th key={h} className="bg-[var(--bg-card)] text-left px-5 py-3 text-xs font-medium text-[var(--text-muted)] uppercase tracking-wide whitespace-nowrap">
                       {h}
                     </th>
                   ))}
@@ -776,28 +780,28 @@ export default function EmployeesPage() {
                 )}
               </tbody>
             </table>
+
+            {/* Sentinel container ichida — IntersectionObserver root bilan ishlaydi */}
+            <div ref={sentinelRef} className="h-4" />
+            {isFetchingNextPage && (
+              <div className="flex justify-center py-3">
+                <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
+            {!hasNextPage && employees.length > 0 && !isLoading && (
+              <p className="text-center text-xs text-[var(--text-muted)] py-2">
+                Barcha {total} ta xodim yuklandi ✓
+              </p>
+            )}
           </div>
 
-          {/* Infinite scroll info */}
+          {/* Ko'rsatilmoqda footer */}
           {employees.length > 0 && (
-            <div className="px-5 py-3 border-t border-[var(--border)] text-xs text-[var(--text-muted)]">
+            <div className="px-5 py-2.5 border-t border-[var(--border)] text-xs text-[var(--text-muted)]">
               {employees.length} / {total} ta ko'rsatilmoqda
             </div>
           )}
         </div>
-
-        {/* ── Sentinel (infinite scroll trigger) ── */}
-        <div ref={sentinelRef} className="h-4" />
-        {isFetchingNextPage && (
-          <div className="flex justify-center py-4">
-            <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-          </div>
-        )}
-        {!hasNextPage && employees.length > 0 && !isLoading && (
-          <p className="text-center text-xs text-[var(--text-muted)] py-2">
-            Barcha {total} ta xodim yuklandi ✓
-          </p>
-        )}
       </div>
 
       <EmployeeModal

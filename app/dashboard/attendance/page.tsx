@@ -215,12 +215,12 @@ export default function AttendancePage() {
 
         {/* ── Desktop table ── */}
         <div className="hidden sm:block card overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-320px)]">
             <table className="w-full text-sm">
-              <thead>
+              <thead className="sticky top-0 z-20">
                 <tr className="border-b border-[var(--border)]">
                   {["Xodim", "Bo'lim", "Smen", "Keldi", "Ketdi", "Tushlik", "Holat", "Kechikish", "Overtime"].map((h) => (
-                    <th key={h} className="text-left px-5 py-3 text-xs font-medium text-[var(--text-muted)] uppercase tracking-wide whitespace-nowrap">
+                    <th key={h} className="bg-[var(--bg-card)] text-left px-5 py-3 text-xs font-medium text-[var(--text-muted)] uppercase tracking-wide whitespace-nowrap">
                       {h}
                     </th>
                   ))}
