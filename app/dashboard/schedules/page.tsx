@@ -1338,21 +1338,30 @@ export default function SchedulesPage() {
     return map;
   }, [schedules]);
 
+  // Faqat WORKING grafigi bor hodimlar ID seti (DAY_OFF hisobga olinmaydi)
+  const workingEmpIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of schedules as any[]) {
+      if (s.status === "WORKING") set.add(s.employeeId);
+    }
+    return set;
+  }, [schedules]);
+
   // Filtrlar: bo'lim + grafik holati + ism qidiruv
   const employees = useMemo(() => {
     let list = deptFilter
       ? allEmployees.filter((e) => e.department?.id === deptFilter || e.departmentId === deptFilter)
       : [...allEmployees];
     if (scheduleFilter === "with")
-      list = list.filter((e) => scheduleMap.has(e.id));
+      list = list.filter((e) => workingEmpIds.has(e.id));
     else if (scheduleFilter === "without")
-      list = list.filter((e) => !scheduleMap.has(e.id));
+      list = list.filter((e) => !workingEmpIds.has(e.id));
     if (empSearch.trim()) {
       const q = normalizeStr(empSearch.trim());
       list = list.filter((e) => normalizeStr(e.fullName).includes(q));
     }
     return list;
-  }, [allEmployees, deptFilter, scheduleFilter, empSearch, scheduleMap]);
+  }, [allEmployees, deptFilter, scheduleFilter, empSearch, workingEmpIds]);
 
   // Statistika uchun sof bo'lim filtri (scheduleFilter/search ta'sir qilmaydi)
   const deptFilteredEmployees = useMemo(
@@ -1361,7 +1370,7 @@ export default function SchedulesPage() {
       : allEmployees,
     [allEmployees, deptFilter]
   );
-  const withScheduleCount    = deptFilteredEmployees.filter((e) => scheduleMap.has(e.id)).length;
+  const withScheduleCount    = deptFilteredEmployees.filter((e) => workingEmpIds.has(e.id)).length;
   const withoutScheduleCount = deptFilteredEmployees.length - withScheduleCount;
 
   const isLoading = schedLoading || empLoading;
@@ -1585,11 +1594,11 @@ export default function SchedulesPage() {
         {/* Calendar table */}
         {view === "grafik" && (
         <div className="card overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-280px)]">
             <table className="w-full text-xs">
-              <thead>
+              <thead className="sticky top-0 z-20">
                 <tr className="border-b border-[var(--border)]">
-                  <th className="sticky left-0 bg-[var(--bg-card)] z-10 text-left px-4 py-3 text-xs font-medium text-[var(--text-muted)] uppercase min-w-48">
+                  <th className="sticky left-0 bg-[var(--bg-card)] z-30 text-left px-4 py-3 text-xs font-medium text-[var(--text-muted)] uppercase min-w-48">
                     Xodim
                   </th>
                   {Array.from({ length: daysInMonth }, (_, i) => {
@@ -1600,7 +1609,7 @@ export default function SchedulesPage() {
                       <th
                         key={i}
                         className={cn(
-                          "text-center py-2 px-0.5 font-medium min-w-9",
+                          "text-center py-2 px-0.5 font-medium min-w-9 bg-[var(--bg-card)]",
                           isWeekend ? "text-gray-600" : "text-[var(--text-muted)]",
                           isToday && "bg-indigo-950/30"
                         )}
