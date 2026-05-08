@@ -182,6 +182,11 @@ function AttendanceTab({ employeeId }: { employeeId: string }) {
                         {fmt(r.lunchOut)}–{fmt(r.lunchIn)}
                         {(r.lunchLateMin ?? 0) > 0 && <span className="ml-1 text-red-400">+{r.lunchLateMin}min</span>}
                       </span>
+                    ) : r.checkIn && (r.schedule?.shift?.lunchStart ?? r.shift?.lunchStart) ? (
+                      <span className="text-[var(--text-muted)] opacity-60 font-mono">
+                        {r.schedule?.shift?.lunchStart ?? r.shift?.lunchStart}–{r.schedule?.shift?.lunchEnd ?? r.shift?.lunchEnd}
+                        <span className="ml-1 text-[10px] opacity-60">rej.</span>
+                      </span>
                     ) : (
                       <span className="opacity-30 text-[var(--text-muted)]">—</span>
                     )}

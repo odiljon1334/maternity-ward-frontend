@@ -186,17 +186,27 @@ export default function AttendancePage() {
                       <span className="text-emerald-400">+{formatMinutes(r.overtimeMinutes)}</span>
                     </div>
                   )}
-                  {r.lunchOut && (
-                    <div className="col-span-2 flex items-center gap-1">
-                      <Coffee className="w-3 h-3 text-orange-400 flex-shrink-0" />
-                      <span className="text-orange-400 font-mono">
-                        {dayjs(r.lunchOut).format("HH:mm")}–{r.lunchIn ? dayjs(r.lunchIn).format("HH:mm") : "…"}
-                      </span>
-                      {(r.lunchLateMin ?? 0) > 0 && (
-                        <span className="text-red-400 font-semibold">+{r.lunchLateMin}min</span>
-                      )}
-                    </div>
-                  )}
+                  {(() => {
+                    const plannedStart = r.schedule?.shift?.lunchStart;
+                    const plannedEnd   = r.schedule?.shift?.lunchEnd;
+                    if (r.lunchOut) return (
+                      <div className="col-span-2 flex items-center gap-1">
+                        <Coffee className="w-3 h-3 text-orange-400 flex-shrink-0" />
+                        <span className="text-orange-400 font-mono">
+                          {dayjs(r.lunchOut).format("HH:mm")}–{r.lunchIn ? dayjs(r.lunchIn).format("HH:mm") : "…"}
+                        </span>
+                        {(r.lunchLateMin ?? 0) > 0 && <span className="text-red-400 font-semibold">+{r.lunchLateMin}min</span>}
+                      </div>
+                    );
+                    if (r.checkIn && plannedStart && plannedEnd) return (
+                      <div className="col-span-2 flex items-center gap-1">
+                        <Coffee className="w-3 h-3 text-[var(--text-muted)] flex-shrink-0" />
+                        <span className="text-[var(--text-muted)] font-mono opacity-60">{plannedStart}–{plannedEnd}</span>
+                        <span className="text-[10px] text-[var(--text-muted)] opacity-50">rej.</span>
+                      </div>
+                    );
+                    return null;
+                  })()}
                 </div>
               </div>
             );
@@ -275,6 +285,14 @@ export default function AttendancePage() {
                               {dayjs(r.lunchOut).format("HH:mm")}–{r.lunchIn ? dayjs(r.lunchIn).format("HH:mm") : "…"}
                             </span>
                             {(r.lunchLateMin ?? 0) > 0 && <span className="text-red-400 font-semibold ml-0.5">+{r.lunchLateMin}min</span>}
+                          </div>
+                        ) : r.checkIn && r.schedule?.shift?.lunchStart ? (
+                          <div className="flex items-center gap-1">
+                            <Coffee className="w-3 h-3 text-[var(--text-muted)] opacity-50" />
+                            <span className="text-[var(--text-muted)] font-mono opacity-60">
+                              {r.schedule.shift.lunchStart}–{r.schedule.shift.lunchEnd}
+                            </span>
+                            <span className="text-[10px] text-[var(--text-muted)] opacity-40">rej.</span>
                           </div>
                         ) : <span className="text-[var(--text-muted)] opacity-40">—</span>}
                       </td>
