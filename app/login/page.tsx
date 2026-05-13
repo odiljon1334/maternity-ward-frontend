@@ -35,7 +35,7 @@ export default function LoginPage() {
       setAuth(res.accessToken, res.user);
       localStorage.setItem("access_token", res.accessToken);
       toast.success("Xush kelibsiz!");
-      router.push("/dashboard");
+      window.location.href = "/dashboard";
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Login yoki parol noto'g'ri");
     } finally {

@@ -141,7 +141,7 @@ function EmployeeModal({
                 {photoFile ? photoFile.name.substring(0, 18) + "..." : "Rasm tanlash"}
               </button>
             </div>
-            <input ref={photoRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoSelect} />
+            <input ref={photoRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoSelect} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -308,6 +308,7 @@ export default function EmployeesPage() {
   const photoInputRef      = useRef<HTMLInputElement>(null);
   const csvInputRef        = useRef<HTMLInputElement>(null);
   const sentinelRef        = useRef<HTMLDivElement>(null);
+  const mobileSentinelRef  = useRef<HTMLDivElement>(null);
   const tableContainerRef  = useRef<HTMLDivElement>(null);
 
   // ── Infinite query ───────────────────────────
@@ -381,6 +382,7 @@ export default function EmployeesPage() {
     [fetchNextPage, hasNextPage, isFetchingNextPage],
   );
 
+  // Desktop: sentinel table container ichida — root = tableContainerRef
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el) return;
@@ -388,6 +390,15 @@ export default function EmployeesPage() {
       root: tableContainerRef.current,
       threshold: 0.1,
     });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [handleObserver]);
+
+  // Mobile: sentinel window da — root = null (viewport)
+  useEffect(() => {
+    const el = mobileSentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(handleObserver, { threshold: 0.1 });
     observer.observe(el);
     return () => observer.disconnect();
   }, [handleObserver]);
@@ -524,7 +535,7 @@ export default function EmployeesPage() {
       <Topbar title="Xodimlar" subtitle={`Jami ${total} nafar`} />
 
       <input ref={csvInputRef}   type="file" accept=".csv"    className="hidden" onChange={handleCsvChange} />
-      <input ref={photoInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoChange} />
+      <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
 
       <div className="p-4 lg:p-6 space-y-4">
         {isSuperLike(user?.role) && !selectedHospital && (
@@ -733,6 +744,14 @@ export default function EmployeesPage() {
             </div>
           ))}
         </div>
+
+        {/* Mobile sentinel — infinite scroll uchun */}
+        <div ref={mobileSentinelRef} className="h-4 sm:hidden" />
+        {isFetchingNextPage && (
+          <div className="flex justify-center py-3 sm:hidden">
+            <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+          </div>
+        )}
 
         {/* ── Desktop table ── */}
         <div className="hidden sm:block card overflow-hidden">
