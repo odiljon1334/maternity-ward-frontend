@@ -8,7 +8,7 @@ import { Topbar } from "@/components/layout/Topbar";
 import { getInitials, getAvatarColor, formatMoney, cn, isSuperLike } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth";
 import {
-  Plus, Search, Download, Upload, Camera,
+  Plus, Search, Download, Upload, Camera, ImageIcon,
   Trash2, X, FileSpreadsheet, Coffee,
 } from "lucide-react";
 import dayjs from "dayjs";
@@ -55,7 +55,9 @@ function EmployeeModal({
   });
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const photoRef = useRef<HTMLInputElement>(null);
+  const [showPhotoMenu, setShowPhotoMenu] = useState(false);
+  const photoRef       = useRef<HTMLInputElement>(null); // galereya
+  const photoRefCamera = useRef<HTMLInputElement>(null); // kamera
 
   useEffect(() => {
     if (employee) {
@@ -119,7 +121,7 @@ function EmployeeModal({
         <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="p-5 space-y-4">
           <div className="flex items-center gap-4">
             <div
-              onClick={() => photoRef.current?.click()}
+              onClick={() => setShowPhotoMenu(true)}
               className="w-16 h-16 rounded-full flex-shrink-0 overflow-hidden border-2 border-dashed border-[var(--border)] hover:border-indigo-500/60 cursor-pointer transition-colors flex items-center justify-center bg-[var(--bg-hover)]"
             >
               {photoPreview ? (
@@ -135,13 +137,14 @@ function EmployeeModal({
               <p className="text-xs text-[var(--text-muted)] mt-0.5">Ixtiyoriy · JPG, PNG</p>
               <button
                 type="button"
-                onClick={() => photoRef.current?.click()}
+                onClick={() => setShowPhotoMenu(true)}
                 className="btn-secondary text-xs px-3 py-1 mt-1.5"
               >
                 {photoFile ? photoFile.name.substring(0, 18) + "..." : "Rasm tanlash"}
               </button>
             </div>
-            <input ref={photoRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoSelect} />
+            <input ref={photoRef}       type="file" accept="image/*"                    className="hidden" onChange={handlePhotoSelect} />
+            <input ref={photoRefCamera} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoSelect} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -210,6 +213,27 @@ function EmployeeModal({
           </div>
         </form>
       </div>
+
+      {/* Rasm manbasi tanlash menyusi */}
+      {showPhotoMenu && (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center" onClick={() => setShowPhotoMenu(false)}>
+          <div className="w-full max-w-lg bg-[var(--bg-card)] rounded-t-2xl border-t border-[var(--border)] p-4 pb-8 space-y-1" onClick={e => e.stopPropagation()}>
+            <div className="w-10 h-1 rounded-full bg-[var(--border)] mx-auto mb-4" />
+            <button type="button"
+              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-[var(--bg-hover)] text-[var(--text-primary)] transition-colors"
+              onClick={() => { setShowPhotoMenu(false); photoRefCamera.current?.click(); }}>
+              <Camera className="w-5 h-5 text-indigo-400" />
+              <span className="font-medium">Kamera</span>
+            </button>
+            <button type="button"
+              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-[var(--bg-hover)] text-[var(--text-primary)] transition-colors"
+              onClick={() => { setShowPhotoMenu(false); photoRef.current?.click(); }}>
+              <ImageIcon className="w-5 h-5 text-indigo-400" />
+              <span className="font-medium">Galereya</span>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -301,11 +325,13 @@ export default function EmployeesPage() {
   const [photoFilter, setPhotoFilter] = useState<"all" | "with" | "without">("all");
   const [modalOpen, setModalOpen] = useState(false);
   const [editEmp, setEditEmp]     = useState<any>(null);
-  const [uploadingEmpId, setUploadingEmpId] = useState<string | null>(null);
+  const [uploadingEmpId, setUploadingEmpId]     = useState<string | null>(null);
+  const [showPhotoMenuMain, setShowPhotoMenuMain] = useState(false);
   const [importing, setImporting] = useState(false);
   const [fixing, setFixing]       = useState(false);
 
-  const photoInputRef      = useRef<HTMLInputElement>(null);
+  const photoInputRef      = useRef<HTMLInputElement>(null); // galereya
+  const photoInputCameraRef = useRef<HTMLInputElement>(null); // kamera
   const csvInputRef        = useRef<HTMLInputElement>(null);
   const sentinelRef        = useRef<HTMLDivElement>(null);
   const mobileSentinelRef  = useRef<HTMLDivElement>(null);
@@ -513,7 +539,7 @@ export default function EmployeesPage() {
   // ── Photo upload ─────────────────────────────
   const handlePhotoClick = (empId: string) => {
     setUploadingEmpId(empId);
-    photoInputRef.current?.click();
+    setShowPhotoMenuMain(true);
   };
 
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -534,8 +560,9 @@ export default function EmployeesPage() {
     <div>
       <Topbar title="Xodimlar" subtitle={`Jami ${total} nafar`} />
 
-      <input ref={csvInputRef}   type="file" accept=".csv"    className="hidden" onChange={handleCsvChange} />
-      <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
+      <input ref={csvInputRef}         type="file" accept=".csv"    className="hidden" onChange={handleCsvChange} />
+      <input ref={photoInputRef}       type="file" accept="image/*"                    className="hidden" onChange={handlePhotoChange} />
+      <input ref={photoInputCameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoChange} />
 
       <div className="p-4 lg:p-6 space-y-4">
         {isSuperLike(user?.role) && !selectedHospital && (
@@ -831,6 +858,27 @@ export default function EmployeesPage() {
         positions={positions}
         targetHospitalId={targetHospitalId}
       />
+
+      {/* Rasm manbasi — kamera yoki galereya */}
+      {showPhotoMenuMain && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={() => { setShowPhotoMenuMain(false); setUploadingEmpId(null); }}>
+          <div className="w-full max-w-lg bg-[var(--bg-card)] rounded-t-2xl border-t border-[var(--border)] p-4 pb-8 space-y-1" onClick={e => e.stopPropagation()}>
+            <div className="w-10 h-1 rounded-full bg-[var(--border)] mx-auto mb-4" />
+            <button type="button"
+              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-[var(--bg-hover)] text-[var(--text-primary)] transition-colors"
+              onClick={() => { setShowPhotoMenuMain(false); photoInputCameraRef.current?.click(); }}>
+              <Camera className="w-5 h-5 text-indigo-400" />
+              <span className="font-medium">Kamera</span>
+            </button>
+            <button type="button"
+              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-[var(--bg-hover)] text-[var(--text-primary)] transition-colors"
+              onClick={() => { setShowPhotoMenuMain(false); photoInputRef.current?.click(); }}>
+              <ImageIcon className="w-5 h-5 text-indigo-400" />
+              <span className="font-medium">Galereya</span>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
