@@ -8,6 +8,7 @@ import { formatMoney, formatMinutes, cn, isSuperLike, getInitials, getAvatarColo
 import {
   Download, RefreshCw, CheckCircle, ChevronLeft, ChevronRight,
   TrendingDown, TrendingUp, DollarSign, Users, Clock,
+  AlertTriangle, Info, X, Calculator,
 } from "lucide-react";
 import dayjs from "dayjs";
 import { useAuthStore } from "@/stores/auth";
@@ -17,6 +18,126 @@ const STATUS_MAP: Record<string, { label: string; cls: string }> = {
   APPROVED: { label: "Tasdiqlangan", cls: "badge-blue" },
   PAID:     { label: "To'langan",   cls: "badge-green" },
 };
+
+// ── Payroll Preview Modal ────────────────────────
+function PayrollPreviewModal({
+  open, onClose, onConfirm, isPending,
+  month, year, deptName,
+  records,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  isPending: boolean;
+  month: number;
+  year: number;
+  deptName?: string;
+  records: any[];
+}) {
+  if (!open) return null;
+
+  const hasExisting  = records.length > 0;
+  const totalNet     = records.reduce((s, r) => s + Number(r.netSalary      || 0), 0);
+  const totalDeduct  = records.reduce((s, r) => s + Number(r.lateDeduction   || 0)
+                                                  + Number(r.earlyLeaveDeduction || 0)
+                                                  + Number(r.absenceDeduction    || 0)
+                                                  + Number(r.manualDeduction     || 0), 0);
+  const totalBonus   = records.reduce((s, r) => s + Number(r.overtimeBonus || 0)
+                                                  + Number(r.manualBonus   || 0), 0);
+  const monthLabel   = dayjs().month(month - 1).format("MMMM");
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative card w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-indigo-600/20">
+              <Calculator className="w-4 h-4 text-indigo-400" />
+            </div>
+            <h2 className="font-semibold text-[var(--text-primary)]">Maosh hisoblash</h2>
+          </div>
+          <button onClick={onClose} className="btn-ghost p-1.5"><X className="w-4 h-4" /></button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {/* Period info */}
+          <div className="flex flex-wrap gap-2">
+            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--bg-hover)] text-sm font-medium text-[var(--text-primary)]">
+              📅 {year} yil, {monthLabel}
+            </span>
+            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--bg-hover)] text-sm text-[var(--text-muted)]">
+              🏥 {deptName || "Barcha bo'limlar"}
+            </span>
+          </div>
+
+          {/* Warning / Info banner */}
+          {hasExisting ? (
+            <div className="flex items-start gap-3 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25">
+              <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-amber-300">Mavjud yozuvlar qayta hisoblanadi</p>
+                <p className="text-xs text-amber-400/80 mt-0.5">
+                  {records.length} ta xodim yozuvi yangilanadi
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-start gap-3 p-3.5 rounded-xl bg-indigo-500/10 border border-indigo-500/25">
+              <Info className="w-4 h-4 text-indigo-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-indigo-300">Yangi hisoblash boshlanadi</p>
+                <p className="text-xs text-indigo-400/80 mt-0.5">
+                  Bu oy uchun hali hisoblangan maosh yo'q
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Current stats (only when existing records) */}
+          {hasExisting && (
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wide">Joriy holat</p>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: "Xodimlar",     value: `${records.length} ta`,      color: "" },
+                  { label: "Maosh fondi",  value: formatMoney(totalNet),        color: "text-emerald-400" },
+                  { label: "Jami kesim",   value: `−${formatMoney(totalDeduct)}`, color: "text-red-400" },
+                  { label: "Jami bonus",   value: `+${formatMoney(totalBonus)}`,  color: "text-violet-400" },
+                ].map((s) => (
+                  <div key={s.label} className="flex items-center justify-between px-3 py-2 rounded-lg bg-[var(--bg-hover)]">
+                    <span className="text-xs text-[var(--text-muted)]">{s.label}</span>
+                    <span className={cn("text-xs font-semibold", s.color || "text-[var(--text-primary)]")}>
+                      {s.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <p className="text-xs text-[var(--text-muted)]">
+            Davomat va jadval ma'lumotlari asosida maosh qayta hisoblanadi.
+          </p>
+        </div>
+
+        {/* Footer buttons */}
+        <div className="flex gap-3 px-5 pb-5">
+          <button onClick={onClose} className="btn-secondary flex-1">Bekor</button>
+          <button
+            onClick={onConfirm}
+            disabled={isPending}
+            className="btn-primary flex-1 gap-2"
+          >
+            <RefreshCw className={cn("w-4 h-4", isPending && "animate-spin")} />
+            {isPending ? "Hisoblanmoqda..." : "Ha, hisoblash"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function PayrollPage() {
   const qc = useQueryClient();
@@ -28,6 +149,7 @@ export default function PayrollPage() {
   const [year, setYear]   = useState(dayjs().year());
   const [deptFilter, setDeptFilter] = useState("");
   const [page, setPage] = useState(1);
+  const [showPreview, setShowPreview] = useState(false);
   const LIMIT = 15;
 
   const { data, isLoading } = useQuery({
@@ -44,7 +166,11 @@ export default function PayrollPage() {
 
   const generateMutation = useMutation({
     mutationFn: () => payrollApi.generate({ month, year, departmentId: deptFilter || undefined }, params),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["payroll"] }); toast.success("Maosh hisoblandi"); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["payroll"] });
+      toast.success("Maosh hisoblandi");
+      setShowPreview(false);
+    },
     onError: (e: any) => toast.error(e?.response?.data?.message || "Xatolik"),
   });
 
@@ -109,7 +235,7 @@ export default function PayrollPage() {
               <span className="hidden sm:inline">Excel</span>
             </button>
             <button
-              onClick={() => generateMutation.mutate()}
+              onClick={() => setShowPreview(true)}
               disabled={generateMutation.isPending}
               className="btn-primary gap-1.5 text-xs sm:text-sm"
             >
@@ -348,6 +474,17 @@ export default function PayrollPage() {
           </div>
         )}
       </div>
+
+      <PayrollPreviewModal
+        open={showPreview}
+        onClose={() => setShowPreview(false)}
+        onConfirm={() => generateMutation.mutate()}
+        isPending={generateMutation.isPending}
+        month={month}
+        year={year}
+        deptName={(departments as any[]).find((d) => d.id === deptFilter)?.name}
+        records={records}
+      />
     </div>
   );
 }
