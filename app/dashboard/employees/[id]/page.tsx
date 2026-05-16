@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { employeesApi, attendanceApi, payrollApi, photoUrl as buildPhotoUrl } from "@/lib/api";
 import { Topbar } from "@/components/layout/Topbar";
-import { getInitials, getAvatarColor, formatMoney, cn } from "@/lib/utils";
+import { getInitials, getAvatarColor, formatMoney, formatMinutes, cn } from "@/lib/utils";
 import {
   ArrowLeft, Phone, Hash, Briefcase, Building2, Calendar,
   Clock, TrendingUp, DollarSign, AlertTriangle, CheckCircle2,
@@ -82,8 +82,9 @@ function AttendanceTab({ employeeId }: { employeeId: string }) {
   const present      = serverStats?.present     ?? arr.filter((r: any) => r.status === "PRESENT").length;
   const late         = serverStats?.late        ?? arr.filter((r: any) => ["LATE","LATE_EARLY"].includes(r.status)).length;
   const absent       = serverStats?.absent      ?? arr.filter((r: any) => r.status === "ABSENT").length;
-  const totalLateMin = serverStats?.totalLateMin ?? arr.reduce((s: number, r: any) => s + (r.lateMinutes ?? 0), 0);
+  const totalLateMin   = serverStats?.totalLateMin ?? arr.reduce((s: number, r: any) => s + (r.lateMinutes ?? 0), 0);
   const totalLunchLate = arr.reduce((s: number, r: any) => s + (r.lunchLateMin ?? 0), 0);
+  const totalNetWorkMin = arr.reduce((s: number, r: any) => s + (r.netWorkMin ?? 0), 0);
 
   const UZ_MONTHS = ["","Yanvar","Fevral","Mart","Aprel","May","Iyun","Iyul","Avgust","Sentyabr","Oktyabr","Noyabr","Dekabr"];
   const monthName = `${UZ_MONTHS[month]} ${year}`;
@@ -100,12 +101,19 @@ function AttendanceTab({ employeeId }: { employeeId: string }) {
       </div>
 
       {/* Mini stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <StatCard label="Jami kun"    value={total}   icon={<Calendar    className="w-4 h-4 text-indigo-400" />}  color="bg-indigo-500/15" />
         <StatCard label="O'z vaqtida" value={present} icon={<CheckCircle2 className="w-4 h-4 text-emerald-400" />} color="bg-emerald-500/15" />
         <StatCard label="Kech keldi"  value={late}    sub={totalLateMin > 0 ? `${totalLateMin} daqiqa jami` : undefined}
           icon={<Clock className="w-4 h-4 text-yellow-400" />} color="bg-yellow-500/15" />
         <StatCard label="Kelmadi"     value={absent}  icon={<XCircle     className="w-4 h-4 text-red-400" />}     color="bg-red-500/15" />
+        <StatCard
+          label="Sof ish vaqti"
+          value={totalNetWorkMin > 0 ? formatMinutes(totalNetWorkMin) : "—"}
+          sub={totalNetWorkMin > 0 ? `${(totalNetWorkMin / 60).toFixed(1)} soat` : undefined}
+          icon={<TrendingUp className="w-4 h-4 text-violet-400" />}
+          color="bg-violet-500/15"
+        />
       </div>
 
       {totalLunchLate > 0 && (
@@ -120,7 +128,7 @@ function AttendanceTab({ employeeId }: { employeeId: string }) {
         <table className="w-full text-sm min-w-[640px]">
           <thead>
             <tr className="border-b border-[var(--border)]">
-              {["Sana", "Kelishi kerak", "Ketishi kerak", "Keldi", "Ketdi", "Tushlik", "Kechikish", "Holat"].map(h => (
+              {["Sana", "Kelishi kerak", "Ketishi kerak", "Keldi", "Ketdi", "Tushlik", "Ish vaqti", "Kechikish", "Holat"].map(h => (
                 <th key={h} className="text-left px-4 py-3 text-xs font-medium text-[var(--text-muted)] uppercase tracking-wide whitespace-nowrap">{h}</th>
               ))}
             </tr>
@@ -128,7 +136,7 @@ function AttendanceTab({ employeeId }: { employeeId: string }) {
           <tbody>
             {isLoading && [...Array(8)].map((_, i) => (
               <tr key={i} className="border-b border-[var(--border)]">
-                {[...Array(8)].map((_, j) => (
+                {[...Array(9)].map((_, j) => (
                   <td key={j} className="px-4 py-3"><div className="h-4 rounded bg-[var(--bg-hover)] animate-pulse" /></td>
                 ))}
               </tr>
@@ -191,6 +199,16 @@ function AttendanceTab({ employeeId }: { employeeId: string }) {
                       <span className="opacity-30 text-[var(--text-muted)]">—</span>
                     )}
                   </td>
+                  {/* Sof ish vaqti */}
+                  <td className="px-4 py-3 text-xs whitespace-nowrap">
+                    {(r.netWorkMin ?? 0) > 0 ? (
+                      <span className="text-violet-400 font-medium">
+                        {formatMinutes(r.netWorkMin)}
+                      </span>
+                    ) : (
+                      <span className="opacity-30 text-[var(--text-muted)]">—</span>
+                    )}
+                  </td>
                   {/* Late — kerak vaqt → kelgan vaqt + minutlar */}
                   <td className="px-4 py-3 text-xs whitespace-nowrap">
                     {isLate ? (
@@ -214,7 +232,7 @@ function AttendanceTab({ employeeId }: { employeeId: string }) {
               );
             })}
             {!isLoading && arr.length === 0 && (
-              <tr><td colSpan={8} className="px-4 py-12 text-center text-sm text-[var(--text-muted)]">Bu oy uchun ma&apos;lumot yo&apos;q</td></tr>
+              <tr><td colSpan={9} className="px-4 py-12 text-center text-sm text-[var(--text-muted)]">Bu oy uchun ma&apos;lumot yo&apos;q</td></tr>
             )}
           </tbody>
         </table>
