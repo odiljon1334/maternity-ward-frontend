@@ -84,24 +84,33 @@ export default function DashboardPage() {
     }
   }, [user?.role, router]);
 
+  // Tez-tez o'zgaradigan ma'lumotlar: 2 daqiqada bir yangilanadi
+  const FAST_REFRESH  = 2 * 60 * 1000;
+  // Kamroq o'zgaradigan ma'lumotlar: 10 daqiqada bir
+  const SLOW_REFRESH  = 10 * 60 * 1000;
+
   const { data: overview, isLoading } = useQuery({
     queryKey: ["dashboard-overview", today, targetHospitalId],
     queryFn: () => dashboardApi.overview({ date: today, targetHospitalId }),
+    refetchInterval: FAST_REFRESH,
   });
 
   const { data: trend } = useQuery({
     queryKey: ["dashboard-trend", targetHospitalId],
     queryFn: () => dashboardApi.trend({ days: 14, targetHospitalId }),
+    refetchInterval: SLOW_REFRESH,
   });
 
   const { data: topLate } = useQuery({
     queryKey: ["dashboard-top-late", targetHospitalId],
     queryFn: () => dashboardApi.topLate({ limit: 5, targetHospitalId }),
+    refetchInterval: SLOW_REFRESH,
   });
 
-  const { data: departments } = useQuery({
+  const { data: departments, dataUpdatedAt } = useQuery({
     queryKey: ["dashboard-departments", targetHospitalId],
     queryFn: () => dashboardApi.departments({ targetHospitalId }),
+    refetchInterval: SLOW_REFRESH,
   });
 
   if (isLoading) {
@@ -160,7 +169,14 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <Topbar title="Dashboard" subtitle={dayjs().format("DD MMMM YYYY, dddd")} />
+      <Topbar
+        title="Dashboard"
+        subtitle={
+          dataUpdatedAt
+            ? `${dayjs().format("DD MMMM YYYY")} · yangilandi: ${dayjs(dataUpdatedAt).format("HH:mm:ss")}`
+            : dayjs().format("DD MMMM YYYY, dddd")
+        }
+      />
 
       <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
         {/* ── Stats Cards (5 column grid) ── */}
