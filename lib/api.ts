@@ -179,6 +179,8 @@ export const attendanceApi = {
     api.get(`/attendance/weekly-stats/${employeeId}`, { params }).then((r) => r.data.data),
   manualCheckin: (data: any) =>
     api.post("/attendance/manual-checkin", data).then((r) => r.data.data),
+  my: (params?: { month?: number; year?: number }) =>
+    api.get("/attendance/my", { params }).then((r) => r.data),
 };
 
 // ─── Payroll ────────────────────────────────────

@@ -23,12 +23,18 @@ const NAV_ITEMS_MINISTRY = [
   { href: "/dashboard/cameras",  label: "Kameralar", icon: Eye },
 ];
 
+const NAV_ITEMS_EMPLOYEE = [
+  { href: "/dashboard/my-attendance", label: "Davomatim", icon: ClipboardList },
+];
+
 export function BottomNav() {
   const pathname = usePathname();
   const { user } = useAuthStore();
 
   const items =
-    user?.role === "MINISTRY" ? NAV_ITEMS_MINISTRY : NAV_ITEMS_DEFAULT;
+    user?.role === "MINISTRY" ? NAV_ITEMS_MINISTRY :
+    user?.role === "EMPLOYEE" ? NAV_ITEMS_EMPLOYEE :
+    NAV_ITEMS_DEFAULT;
 
   return (
     <nav className="sm:hidden fixed bottom-0 inset-x-0 z-40 bg-[var(--bg-card)] border-t border-[var(--border)] flex">

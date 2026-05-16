@@ -78,11 +78,10 @@ export default function DashboardPage() {
   const router = useRouter();
   const targetHospitalId = isSuperLike(user?.role) ? (selectedHospital?.id || undefined) : undefined;
 
-  // MINISTRY role faqat o'z paneliga kirishi kerak
+  // Rol bo'yicha yo'naltirish
   useEffect(() => {
-    if (user?.role === "MINISTRY") {
-      router.replace("/dashboard/ministry");
-    }
+    if (user?.role === "MINISTRY") router.replace("/dashboard/ministry");
+    if (user?.role === "EMPLOYEE") router.replace("/dashboard/my-attendance");
   }, [user?.role, router]);
 
   // Tez-tez o'zgaradigan ma'lumotlar: 2 daqiqada bir yangilanadi
