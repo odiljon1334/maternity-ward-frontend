@@ -1472,6 +1472,16 @@ export default function SchedulesPage() {
                 </button>
               </div>
 
+              {/* Buoy tugmasi — hozirgi oyda emasak ko'rsatiladi */}
+              {(month !== dayjs().month() + 1 || year !== dayjs().year()) && (
+                <button
+                  onClick={() => { setMonth(dayjs().month() + 1); setYear(dayjs().year()); }}
+                  className="btn-secondary text-xs px-3 py-1.5"
+                >
+                  Bu oy
+                </button>
+              )}
+
               {/* Dept filter */}
               <select
                 value={deptFilter}
