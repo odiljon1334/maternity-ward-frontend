@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { BottomNav } from "@/components/layout/BottomNav";
+import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 import { useAuthStore } from "@/stores/auth";
 import { MobileMenuContext } from "@/contexts/mobile-menu";
 
@@ -36,6 +37,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {children}
         </main>
         <BottomNav />
+        <InstallPrompt />
       </div>
     </MobileMenuContext.Provider>
   );
