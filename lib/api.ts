@@ -141,6 +141,10 @@ export const employeesApi = {
       params,
     }).then((r) => r.data.data);
   },
+  bulkDelete: (ids: string[], params?: { targetHospitalId?: string }) =>
+    api.post("/employees/bulk-delete", { ids }, { params }).then((r) => r.data),
+  bulkMoveDepartment: (ids: string[], departmentId: string, params?: { targetHospitalId?: string }) =>
+    api.put("/employees/bulk-department", { ids, departmentId }, { params }).then((r) => r.data),
 };
 
 // ─── Schedules ──────────────────────────────────

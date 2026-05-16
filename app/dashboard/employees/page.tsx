@@ -9,7 +9,7 @@ import { getInitials, getAvatarColor, formatMoney, cn, isSuperLike } from "@/lib
 import { useAuthStore } from "@/stores/auth";
 import {
   Plus, Search, Download, Upload, Camera, ImageIcon,
-  Trash2, X, FileSpreadsheet, Coffee,
+  Trash2, X, FileSpreadsheet, Coffee, Building2, CheckSquare, Square,
 } from "lucide-react";
 import dayjs from "dayjs";
 import { useForm } from "react-hook-form";
@@ -240,7 +240,7 @@ function EmployeeModal({
 
 // ── Memoized table row ────────────────────────────
 const EmpRow = memo(function EmpRow({
-  emp, lunchLate, onEdit, onDelete, onPhoto, uploadingId, router,
+  emp, lunchLate, onEdit, onDelete, onPhoto, uploadingId, router, selected, onSelect,
 }: {
   emp: any;
   lunchLate?: number;
@@ -249,9 +249,22 @@ const EmpRow = memo(function EmpRow({
   onPhoto: (id: string) => void;
   uploadingId: string | null;
   router: any;
+  selected: boolean;
+  onSelect: (id: string, checked: boolean) => void;
 }) {
   return (
-    <tr className="border-b border-[var(--border)] table-row-hover">
+    <tr className={cn("border-b border-[var(--border)] table-row-hover", selected && "bg-indigo-500/5")}>
+      <td className="pl-4 pr-2 py-3.5 w-8">
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onSelect(emp.id, !selected); }}
+          className="text-[var(--text-muted)] hover:text-indigo-400 transition-colors"
+        >
+          {selected
+            ? <CheckSquare className="w-4 h-4 text-indigo-400" />
+            : <Square className="w-4 h-4" />}
+        </button>
+      </td>
       <td className="px-5 py-3.5">
         <div className="flex items-center gap-3">
           <button onClick={(e) => { e.stopPropagation(); onPhoto(emp.id); }} className="relative group flex-shrink-0">
@@ -329,6 +342,11 @@ export default function EmployeesPage() {
   const [showPhotoMenuMain, setShowPhotoMenuMain] = useState(false);
   const [importing, setImporting] = useState(false);
   const [fixing, setFixing]       = useState(false);
+
+  // ── Bulk selection ───────────────────────────
+  const [selectedIds, setSelectedIds]   = useState<string[]>([]);
+  const [showBulkDept, setShowBulkDept] = useState(false);
+  const [bulkDeptId, setBulkDeptId]     = useState("");
 
   const photoInputRef      = useRef<HTMLInputElement>(null); // galereya
   const photoInputCameraRef = useRef<HTMLInputElement>(null); // kamera
@@ -435,6 +453,7 @@ export default function EmployeesPage() {
     setSearchInput("");
     setSearch("");
     setPhotoFilter("all");
+    setSelectedIds([]);
   }, [targetHospitalId]);
 
   // Debounce ref
@@ -485,6 +504,38 @@ export default function EmployeesPage() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["employees"] }); toast.success("Xodim o'chirildi"); },
     onError: (e: any) => toast.error(e?.response?.data?.message || "O'chirishda xatolik"),
   });
+
+  // ── Bulk mutations ───────────────────────────
+  const bulkDeleteMutation = useMutation({
+    mutationFn: () => employeesApi.bulkDelete(selectedIds, params),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["employees"] });
+      toast.success(`${selectedIds.length} ta xodim o'chirildi`);
+      setSelectedIds([]);
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message || "O'chirishda xatolik"),
+  });
+
+  const bulkDeptMutation = useMutation({
+    mutationFn: (deptId: string) => employeesApi.bulkMoveDepartment(selectedIds, deptId, params),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["employees"] });
+      toast.success(`${selectedIds.length} ta xodim bo'limi o'zgartirildi`);
+      setSelectedIds([]);
+      setShowBulkDept(false);
+      setBulkDeptId("");
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message || "Xatolik"),
+  });
+
+  // ── Bulk selection helpers ───────────────────
+  const toggleSelect = (id: string, checked: boolean) => {
+    setSelectedIds(prev => checked ? [...prev, id] : prev.filter(x => x !== id));
+  };
+  const isAllSelected = employees.length > 0 && employees.every((e: any) => selectedIds.includes(e.id));
+  const toggleSelectAll = () => {
+    setSelectedIds(isAllSelected ? [] : employees.map((e: any) => e.id));
+  };
 
   // ── Excel export ─────────────────────────────
   const handleExcel = async () => {
@@ -727,8 +778,17 @@ export default function EmployeesPage() {
             <div className="card p-8 text-center text-[var(--text-muted)] text-sm">Xodimlar topilmadi</div>
           )}
           {employees.map((emp: any) => (
-            <div key={emp.id} className="card p-4">
+            <div key={emp.id} className={cn("card p-4", selectedIds.includes(emp.id) && "ring-1 ring-indigo-500/40 bg-indigo-500/5")}>
               <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => toggleSelect(emp.id, !selectedIds.includes(emp.id))}
+                  className="text-[var(--text-muted)] hover:text-indigo-400 transition-colors flex-shrink-0"
+                >
+                  {selectedIds.includes(emp.id)
+                    ? <CheckSquare className="w-4 h-4 text-indigo-400" />
+                    : <Square className="w-4 h-4" />}
+                </button>
                 <button onClick={() => handlePhotoClick(emp.id)} className="relative group flex-shrink-0">
                   {emp.photoUrl
                     ? <img src={buildPhotoUrl(emp.photoUrl)} alt={emp.fullName} className="w-10 h-10 rounded-full object-cover" />
@@ -786,6 +846,15 @@ export default function EmployeesPage() {
             <table className="w-full text-sm">
               <thead className="sticky top-0 z-20">
                 <tr className="border-b border-[var(--border)]">
+                  <th className="bg-[var(--bg-card)] pl-4 pr-2 py-3 w-8">
+                    <button type="button" onClick={toggleSelectAll} className="text-[var(--text-muted)] hover:text-indigo-400 transition-colors">
+                      {isAllSelected
+                        ? <CheckSquare className="w-4 h-4 text-indigo-400" />
+                        : selectedIds.length > 0
+                        ? <Square className="w-4 h-4 text-indigo-400/60" />
+                        : <Square className="w-4 h-4" />}
+                    </button>
+                  </th>
                   {["Xodim", "Bo'lim", "Lavozim", "Terminal ID", "Asosiy maosh", "Holat", ""].map((h) => (
                     <th key={h} className="bg-[var(--bg-card)] text-left px-5 py-3 text-xs font-medium text-[var(--text-muted)] uppercase tracking-wide whitespace-nowrap">
                       {h}
@@ -796,7 +865,7 @@ export default function EmployeesPage() {
               <tbody>
                 {isLoading && [...Array(6)].map((_, i) => (
                   <tr key={i} className="border-b border-[var(--border)]">
-                    {[...Array(7)].map((_, j) => (
+                    {[...Array(8)].map((_, j) => (
                       <td key={j} className="px-5 py-4">
                         <div className="h-4 rounded bg-[var(--bg-hover)] animate-pulse" />
                       </td>
@@ -814,12 +883,14 @@ export default function EmployeesPage() {
                     onPhoto={handlePhotoClick}
                     uploadingId={uploadingEmpId}
                     router={router}
+                    selected={selectedIds.includes(emp.id)}
+                    onSelect={toggleSelect}
                   />
                 ))}
 
                 {!isLoading && employees.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-5 py-12 text-center text-[var(--text-muted)] text-sm">
+                    <td colSpan={8} className="px-5 py-12 text-center text-[var(--text-muted)] text-sm">
                       Xodimlar topilmadi
                     </td>
                   </tr>
@@ -858,6 +929,67 @@ export default function EmployeesPage() {
         positions={positions}
         targetHospitalId={targetHospitalId}
       />
+
+      {/* ── Bulk action bar ──────────────────────── */}
+      {selectedIds.length > 0 && (
+        <div className="fixed bottom-20 sm:bottom-6 inset-x-4 z-50 max-w-2xl mx-auto">
+          {/* Dept picker */}
+          {showBulkDept && (
+            <div className="mb-2 bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] p-3 shadow-2xl">
+              <p className="text-xs text-[var(--text-muted)] mb-2">Bo'lim tanlang</p>
+              <div className="flex gap-2">
+                <select
+                  className="input-field flex-1 text-sm"
+                  value={bulkDeptId}
+                  onChange={(e) => setBulkDeptId(e.target.value)}
+                >
+                  <option value="">Bo'lim tanlang</option>
+                  {(departments as any[]).map((d: any) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => bulkDeptId && bulkDeptMutation.mutate(bulkDeptId)}
+                  disabled={!bulkDeptId || bulkDeptMutation.isPending}
+                  className="btn-primary text-sm px-4"
+                >
+                  {bulkDeptMutation.isPending ? "..." : "Saqlash"}
+                </button>
+              </div>
+            </div>
+          )}
+          {/* Action bar */}
+          <div className="bg-indigo-600 rounded-2xl px-4 py-3 shadow-2xl flex items-center gap-3">
+            <span className="flex-1 text-white font-semibold text-sm">
+              {selectedIds.length} ta tanlandi
+            </span>
+            <button
+              onClick={() => { setShowBulkDept(v => !v); setBulkDeptId(""); }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-medium transition-colors"
+            >
+              <Building2 className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Bo'lim</span>
+            </button>
+            <button
+              onClick={() => {
+                if (confirm(`${selectedIds.length} ta xodimni o'chirasizmi? Bu amalni qaytarib bo'lmaydi.`))
+                  bulkDeleteMutation.mutate();
+              }}
+              disabled={bulkDeleteMutation.isPending}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/80 hover:bg-red-500 text-white text-xs font-medium transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              {bulkDeleteMutation.isPending ? "..." : <span className="hidden sm:inline">O'chirish</span>}
+            </button>
+            <button
+              onClick={() => { setSelectedIds([]); setShowBulkDept(false); }}
+              className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Rasm manbasi — kamera yoki galereya */}
       {showPhotoMenuMain && (
