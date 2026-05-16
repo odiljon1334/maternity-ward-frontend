@@ -4,10 +4,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { payrollApi, departmentsApi, downloadBlob, photoUrl as buildPhotoUrl } from "@/lib/api";
 import { Topbar } from "@/components/layout/Topbar";
-import { formatMoney, cn, isSuperLike, getInitials, getAvatarColor } from "@/lib/utils";
+import { formatMoney, formatMinutes, cn, isSuperLike, getInitials, getAvatarColor } from "@/lib/utils";
 import {
   Download, RefreshCw, CheckCircle, ChevronLeft, ChevronRight,
-  TrendingDown, TrendingUp, DollarSign, Users,
+  TrendingDown, TrendingUp, DollarSign, Users, Clock,
 } from "lucide-react";
 import dayjs from "dayjs";
 import { useAuthStore } from "@/stores/auth";
@@ -187,6 +187,14 @@ export default function PayrollPage() {
                     <span className="text-[var(--text-muted)]">Sof maosh</span>
                     <span className="font-bold text-[var(--text-primary)]">{formatMoney(r.netSalary)}</span>
                   </div>
+                  {r.totalNetWorkMin > 0 && (
+                    <div className="flex items-center justify-between col-span-2">
+                      <span className="text-[var(--text-muted)] flex items-center gap-1">
+                        <Clock className="w-3 h-3" /> Ish soati
+                      </span>
+                      <span className="text-indigo-400 font-medium">{formatMinutes(r.totalNetWorkMin)}</span>
+                    </div>
+                  )}
                   {deductions > 0 && (
                     <div className="flex items-center justify-between">
                       <span className="text-[var(--text-muted)]">Kesim</span>
@@ -221,7 +229,7 @@ export default function PayrollPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[var(--border)]">
-                  {["Xodim", "Bo'lim", "Asosiy maosh", "Kesimlar", "Bonuslar", "Sof maosh", "Holat", ""].map((h) => (
+                  {["Xodim", "Bo'lim", "Asosiy maosh", "Ish soati", "Kesimlar", "Bonuslar", "Sof maosh", "Holat", ""].map((h) => (
                     <th key={h} className="text-left px-5 py-3 text-xs font-medium text-[var(--text-muted)] uppercase tracking-wide whitespace-nowrap">
                       {h}
                     </th>
@@ -231,7 +239,7 @@ export default function PayrollPage() {
               <tbody>
                 {isLoading && [...Array(5)].map((_, i) => (
                   <tr key={i} className="border-b border-[var(--border)]">
-                    {[...Array(8)].map((_, j) => (
+                    {[...Array(9)].map((_, j) => (
                       <td key={j} className="px-5 py-4">
                         <div className="h-4 rounded bg-[var(--bg-hover)] animate-pulse" />
                       </td>
@@ -260,6 +268,16 @@ export default function PayrollPage() {
                       <td className="px-5 py-3.5 text-[var(--text-muted)]">{r.employee?.department?.name}</td>
                       <td className="px-5 py-3.5">{formatMoney(r.baseSalary)}</td>
                       <td className="px-5 py-3.5">
+                        {r.totalNetWorkMin > 0 ? (
+                          <span className="flex items-center gap-1 text-[var(--text-primary)]">
+                            <Clock className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0" />
+                            {formatMinutes(r.totalNetWorkMin)}
+                          </span>
+                        ) : (
+                          <span className="text-[var(--text-muted)]">—</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3.5">
                         {deductions > 0 ? <span className="text-red-400">−{formatMoney(deductions)}</span> : <span className="text-[var(--text-muted)]">—</span>}
                       </td>
                       <td className="px-5 py-3.5">
@@ -286,7 +304,7 @@ export default function PayrollPage() {
 
                 {!isLoading && records.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-5 py-12 text-center text-[var(--text-muted)]">
+                    <td colSpan={9} className="px-5 py-12 text-center text-[var(--text-muted)]">
                       <p className="text-sm">Maosh ma'lumotlari topilmadi</p>
                       <p className="text-xs mt-1">"Hisoblash" tugmasini bosib, maoshlarni hisoblang</p>
                     </td>
