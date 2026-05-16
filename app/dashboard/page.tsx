@@ -9,12 +9,27 @@ import {
   Users, UserCheck, TrendingUp, TrendingDown,
   DollarSign, AlertTriangle, Coffee,
 } from "lucide-react";
-import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, BarChart, Bar, Legend,
-} from "recharts";
+import dynamic from "next/dynamic";
 import dayjs from "dayjs";
 import { useAuthStore } from "@/stores/auth";
+
+// recharts faqat dashboard sahifasida yuklanadi (SSR o'chirilgan) — ~200KB bundle tejash
+const DashboardCharts = dynamic(
+  () => import("@/components/dashboard/DashboardCharts"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 lg:gap-4">
+        <div className="lg:col-span-2 card p-5 h-64 animate-pulse bg-[var(--bg-hover)]" />
+        <div className="card p-5 h-64 animate-pulse bg-[var(--bg-hover)]" />
+      </div>
+    ),
+  }
+);
+const DashboardDeptChart = dynamic(
+  () => import("@/components/dashboard/DashboardDeptChart"),
+  { ssr: false, loading: () => <div className="card p-5 h-80 animate-pulse bg-[var(--bg-hover)]" /> }
+);
 
 // ── Stat Card (screenshot stilida) ──────────────
 function StatCard({
@@ -56,20 +71,6 @@ function StatCard({
   );
 }
 
-// ── Custom Tooltip ───────────────────────────────
-function CustomTooltip({ active, payload, label }: any) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-[#1e2638] border border-[#2d3748] rounded-lg px-3 py-2 text-xs">
-      <p className="text-gray-400 mb-1">{label}</p>
-      {payload.map((p: any) => (
-        <p key={p.name} style={{ color: p.color }} className="font-medium">
-          {p.name}: {p.value}
-        </p>
-      ))}
-    </div>
-  );
-}
 
 export default function DashboardPage() {
   const today = dayjs().format("YYYY-MM-DD");
@@ -186,118 +187,13 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {/* ── Charts row ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 lg:gap-4">
-          {/* Attendance trend (2/3 width) */}
-          <div className="lg:col-span-2 card p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="font-semibold text-[var(--text-primary)]">Davomat trendi</h3>
-                <p className="text-xs text-[var(--text-muted)]">So'nggi 14 kun</p>
-              </div>
-            </div>
-            <ResponsiveContainer width="100%" height={200}>
-              <AreaChart data={trend || []}>
-                <defs>
-                  <linearGradient id="presentGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="absentGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f87171" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#f87171" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                <XAxis
-                  dataKey="date"
-                  tick={{ fill: "var(--text-muted)", fontSize: 11 }}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(v) => dayjs(v).format("DD/MM")}
-                />
-                <YAxis tick={{ fill: "var(--text-muted)", fontSize: 11 }} tickLine={false} axisLine={false} />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend wrapperStyle={{ fontSize: 12, color: "var(--text-muted)" }} />
-                <Area type="monotone" dataKey="present" name="Keldi" stroke="#6366f1" fill="url(#presentGrad)" strokeWidth={2} />
-                <Area type="monotone" dataKey="absent" name="Kelmadi" stroke="#f87171" fill="url(#absentGrad)" strokeWidth={2} />
-                <Area type="monotone" dataKey="late" name="Kechikdi" stroke="#fbbf24" strokeWidth={2} fill="none" strokeDasharray="4 2" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+        {/* ── Charts row (lazy-loaded) ── */}
+        <DashboardCharts trend={trend} topLate={topLate} />
 
-          {/* Top late employees (1/3 width) */}
-          <div className="card p-5">
-            <h3 className="font-semibold text-[var(--text-primary)] mb-1">Ko'p kechikkanlar</h3>
-            <p className="text-xs text-[var(--text-muted)] mb-4">Bu oy</p>
-            <div className="space-y-3">
-              {(topLate || []).slice(0, 5).map((emp: any, i: number) => (
-                <div key={emp.employeeId} className="flex items-center gap-3">
-                  <span className="text-xs text-[var(--text-muted)] w-4">{i + 1}</span>
-                  <div className="w-8 h-8 rounded-full bg-indigo-600/30 border border-indigo-500/30 flex items-center justify-center text-xs font-semibold text-indigo-400">
-                    {emp.name?.[0] ?? "?"}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-[var(--text-primary)] truncate">{emp.name}</p>
-                    <p className="text-xs text-[var(--text-muted)]">{emp.lateCount} marta kechikdi</p>
-                  </div>
-                  <span className="badge-yellow">{formatMinutes(emp.totalLateMin)}</span>
-                </div>
-              ))}
-              {(!topLate || topLate.length === 0) && (
-                <p className="text-sm text-[var(--text-muted)] text-center py-6">Ma'lumot yo'q</p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* ── Department comparison bar chart ── */}
-        {departments && departments.length > 0 && (() => {
-          // Backend { department: { name }, present, absent, late } → grafik uchun flat qilish
-          const deptData = departments.map((d: any) => ({
-            name: d.department?.name ?? d.name ?? "—",
-            present: d.present ?? 0,
-            late:    d.late    ?? 0,
-            absent:  d.absent  ?? 0,
-          }));
-          return (
-          <div className="card p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="font-semibold text-[var(--text-primary)]">Bo'limlar bo'yicha davomat</h3>
-                <p className="text-xs text-[var(--text-muted)]">Bu oylik holat</p>
-              </div>
-            </div>
-            {/* Horizontal scroll when many departments */}
-            <div className="overflow-x-auto">
-              <div style={{ minWidth: Math.max(560, deptData.length * 32) }}>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={deptData} barCategoryGap="30%" margin={{ bottom: 8 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                    <XAxis
-                      dataKey="name"
-                      tick={{ fill: "var(--text-muted)", fontSize: 10 }}
-                      tickLine={false}
-                      axisLine={false}
-                      interval={0}
-                      angle={-40}
-                      textAnchor="end"
-                      height={90}
-                      tickFormatter={(v: string) => v.length > 16 ? v.slice(0, 16) + "…" : v}
-                    />
-                    <YAxis tick={{ fill: "var(--text-muted)", fontSize: 11 }} tickLine={false} axisLine={false} width={32} />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Legend wrapperStyle={{ fontSize: 12, color: "var(--text-muted)" }} />
-                    <Bar dataKey="present" name="Keldi"    fill="#6366f1" radius={[3, 3, 0, 0]} />
-                    <Bar dataKey="late"    name="Kechikdi" fill="#fbbf24" radius={[3, 3, 0, 0]} />
-                    <Bar dataKey="absent"  name="Kelmadi"  fill="#f87171" radius={[3, 3, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
-          );
-        })()}
+        {/* ── Department comparison bar chart (lazy-loaded) ── */}
+        {departments && departments.length > 0 && (
+          <DashboardDeptChart departments={departments} />
+        )}
 
         {/* ── Today's attendance table ── */}
         <div className="card">
