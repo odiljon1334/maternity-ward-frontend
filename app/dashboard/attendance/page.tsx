@@ -79,6 +79,16 @@ export default function AttendancePage() {
             <button onClick={nextDay} className="btn-ghost p-1.5"><ChevronRight className="w-4 h-4" /></button>
           </div>
 
+          {/* Bugun tugmasi */}
+          {date !== dayjs().format("YYYY-MM-DD") && (
+            <button
+              onClick={() => setDate(dayjs().format("YYYY-MM-DD"))}
+              className="btn-secondary text-xs px-3 py-1.5"
+            >
+              Bugun
+            </button>
+          )}
+
           <select value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)} className="input-field flex-1 sm:w-44 sm:flex-none">
             <option value="">Barcha bo'limlar</option>
             {departments.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -108,6 +118,27 @@ export default function AttendancePage() {
             </div>
           ))}
         </div>
+
+        {/* Davomat % progress bar */}
+        {!isLoading && summary.total > 0 && (
+          <div className="card px-4 py-3 space-y-1.5">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-[var(--text-muted)]">Davomat darajasi</span>
+              <span className="font-semibold text-[var(--text-primary)]">
+                {Math.round((summary.present / summary.total) * 100)}%
+                <span className="text-[var(--text-muted)] font-normal ml-1">
+                  ({summary.present}/{summary.total})
+                </span>
+              </span>
+            </div>
+            <div className="h-2 rounded-full bg-[var(--bg-hover)] overflow-hidden">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-emerald-600 to-emerald-400 transition-all duration-500"
+                style={{ width: `${(summary.present / summary.total) * 100}%` }}
+              />
+            </div>
+          </div>
+        )}
 
         {/* ── Mobile card view ── */}
         <div className="sm:hidden space-y-3">
