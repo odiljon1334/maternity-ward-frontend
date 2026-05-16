@@ -33,11 +33,13 @@ export default function PayrollPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["payroll", month, year, deptFilter, page, targetHospitalId],
     queryFn: () => payrollApi.list({ month, year, departmentId: deptFilter || undefined, targetHospitalId }),
+    staleTime: 5 * 60_000, // 5 daqiqa — hisoblangandan so'ng o'zgarmaydi
   });
 
   const { data: departments = [] } = useQuery({
     queryKey: ["departments", targetHospitalId],
     queryFn: () => departmentsApi.list(params),
+    staleTime: 10 * 60_000,
   });
 
   const generateMutation = useMutation({

@@ -32,11 +32,14 @@ export default function AttendancePage() {
   const { data: records = [], isLoading } = useQuery({
     queryKey: ["attendance-daily", date, deptFilter, targetHospitalId],
     queryFn: () => attendanceApi.daily({ date, departmentId: deptFilter || undefined, targetHospitalId }),
+    staleTime: 60_000,       // 1 daqiqa — tez o'zgaradi
+    refetchInterval: 60_000, // avtomatik yangilanadi
   });
 
   const { data: departments = [] } = useQuery({
     queryKey: ["departments", targetHospitalId],
     queryFn: () => departmentsApi.list(params),
+    staleTime: 10 * 60_000, // 10 daqiqa — kamdan-kam o'zgaradi
   });
 
   const prevDay = () => setDate(dayjs(date).subtract(1, "day").format("YYYY-MM-DD"));
