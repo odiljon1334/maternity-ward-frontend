@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Users, ClipboardList,
-  CalendarDays, DollarSign, Eye,
+  CalendarDays, DollarSign, Eye, ScanFace,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth";
@@ -24,6 +24,7 @@ const NAV_ITEMS_MINISTRY = [
 ];
 
 const NAV_ITEMS_EMPLOYEE = [
+  { href: "/dashboard/my-checkin",    label: "Check-in",  icon: ScanFace      },
   { href: "/dashboard/my-attendance", label: "Davomatim", icon: ClipboardList },
   { href: "/dashboard/my-schedule",   label: "Grafigim",  icon: CalendarDays  },
 ];

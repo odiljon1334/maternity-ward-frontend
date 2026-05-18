@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, CalendarDays, ClipboardList,
   DollarSign, FileBarChart2, Settings, LogOut,
   Activity, ChevronLeft, ChevronRight, Building2, Bell,
-  CreditCard, UserPlus, Shield, Send, Eye, X, Video,
+  CreditCard, UserPlus, Shield, Send, Eye, X, Video, ScanFace,
 } from "lucide-react";
 import { cn, getInitials, getAvatarColor } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth";
@@ -15,6 +15,7 @@ import { useState, useEffect } from "react";
 
 const mainNavItems = [
   { href: "/dashboard/ministry",       label: "Vazirlik Paneli", icon: Eye,            roles: ["MINISTRY"] },
+  { href: "/dashboard/my-checkin",      label: "Check-in",         icon: ScanFace,       roles: ["EMPLOYEE"] },
   { href: "/dashboard/my-attendance",  label: "Mening davomatim", icon: ClipboardList,  roles: ["EMPLOYEE"] },
   { href: "/dashboard/my-schedule",    label: "Mening grafigim",  icon: CalendarDays,   roles: ["EMPLOYEE"] },
   { href: "/dashboard",                label: "Dashboard",        icon: LayoutDashboard, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },

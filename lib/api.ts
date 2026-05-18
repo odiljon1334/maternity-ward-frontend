@@ -183,6 +183,21 @@ export const attendanceApi = {
     api.post("/attendance/manual-checkin", data).then((r) => r.data.data),
   my: (params?: { month?: number; year?: number }) =>
     api.get("/attendance/my", { params }).then((r) => r.data),
+  selfCheckIn: (opts: {
+    gpsLat?: number;
+    gpsLng?: number;
+    gpsAccuracy?: number;
+    selfie?: File | null;
+  }) => {
+    const form = new FormData();
+    if (opts.gpsLat      != null) form.append("gpsLat",      String(opts.gpsLat));
+    if (opts.gpsLng      != null) form.append("gpsLng",      String(opts.gpsLng));
+    if (opts.gpsAccuracy != null) form.append("gpsAccuracy", String(opts.gpsAccuracy));
+    if (opts.selfie)               form.append("selfie",      opts.selfie);
+    return api.post("/attendance/self-checkin", form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    }).then((r) => r.data.data ?? r.data);
+  },
 };
 
 // ─── Payroll ────────────────────────────────────
