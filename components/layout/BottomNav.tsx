@@ -25,6 +25,7 @@ const NAV_ITEMS_MINISTRY = [
 
 const NAV_ITEMS_EMPLOYEE = [
   { href: "/dashboard/my-attendance", label: "Davomatim", icon: ClipboardList },
+  { href: "/dashboard/my-schedule",   label: "Grafigim",  icon: CalendarDays  },
 ];
 
 export function BottomNav() {

@@ -16,6 +16,7 @@ import { useState, useEffect } from "react";
 const mainNavItems = [
   { href: "/dashboard/ministry",       label: "Vazirlik Paneli", icon: Eye,            roles: ["MINISTRY"] },
   { href: "/dashboard/my-attendance",  label: "Mening davomatim", icon: ClipboardList,  roles: ["EMPLOYEE"] },
+  { href: "/dashboard/my-schedule",    label: "Mening grafigim",  icon: CalendarDays,   roles: ["EMPLOYEE"] },
   { href: "/dashboard",                label: "Dashboard",        icon: LayoutDashboard, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/employees",   label: "Xodimlar",           icon: Users,           roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/schedules",   label: "Grafik",             icon: CalendarDays,    roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
