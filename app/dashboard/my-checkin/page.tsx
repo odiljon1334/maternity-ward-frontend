@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Camera, MapPin, CheckCircle2, XCircle, Loader2,
@@ -27,14 +27,36 @@ function fmt(date?: string | Date | null) {
 }
 
 // ─── Camera capture hook ───────────────────────────────────────────────────────
+// iOS Safari muammosi: <video> shartli render bo'lsa, videoRef null bo'ladi va
+// srcObject o'rnatilmaydi → qora ekran.
+// Yechim: video elementni DOIM DOM da saqlaymiz (faqat CSS bilan yashiramiz).
+// srcObject useEffect orqali active=true bo'lgach o'rnatiladi.
 function useCameraCapture() {
-  const videoRef      = useRef<HTMLVideoElement>(null);
-  const canvasRef     = useRef<HTMLCanvasElement>(null);
-  const streamRef     = useRef<MediaStream | null>(null);
-  const [active, setActive]   = useState(false);
-  const [preview, setPreview] = useState<string | null>(null);   // base64
-  const [capturedFile, setCapturedFile] = useState<File | null>(null);
-  const [error, setError]     = useState<string | null>(null);
+  const videoRef   = useRef<HTMLVideoElement>(null);
+  const canvasRef  = useRef<HTMLCanvasElement>(null);
+  const streamRef  = useRef<MediaStream | null>(null);
+  const [active,        setActive]        = useState(false);
+  const [preview,       setPreview]       = useState<string | null>(null);
+  const [capturedFile,  setCapturedFile]  = useState<File | null>(null);
+  const [error,         setError]         = useState<string | null>(null);
+
+  // ── Stream olinib, active=true bo'lgach video elementga o'rnatamiz ──────────
+  // Bu iOS Safari da ishonchli ishlaydi: useEffect render dan keyin chaqiriladi,
+  // video element visible bo'lgach srcObject + play() ishlaydi.
+  useEffect(() => {
+    if (!active || !streamRef.current) return;
+    const video = videoRef.current;
+    if (!video) return;
+
+    // srcObject o'rnatilmagan bo'lsa — o'rnatamiz
+    if (video.srcObject !== streamRef.current) {
+      video.srcObject = streamRef.current;
+    }
+    // iOS Safari: muted video ni play() bilan ishga tushirish kerak
+    video.play().catch(() => {
+      // autoPlay attributi orqali ham ishga tushishi mumkin — ignore
+    });
+  }, [active]);
 
   const startCamera = useCallback(async () => {
     setError(null);
@@ -46,29 +68,9 @@ function useCameraCapture() {
         audio: false,
       });
       streamRef.current = stream;
-      if (videoRef.current) {
-        const video = videoRef.current;
-        video.srcObject = stream;
-        // iOS Safari uchun: autoPlay attributi bilan birga qo'shimcha play() call
-        video.setAttribute("autoplay", "true");
-        video.setAttribute("playsinline", "true");
-        video.setAttribute("muted", "true");
-        // loadedmetadata event kelgach play — iOS da eng ishonchli usul
-        await new Promise<void>((resolve) => {
-          video.onloadedmetadata = () => {
-            video.play().catch(() => {/* autoplay attribute handles it */});
-            resolve();
-          };
-          // Fallback: 1 soniyadan keyin ham play() urinib ko'rish
-          setTimeout(() => {
-            video.play().catch(() => {});
-            resolve();
-          }, 1000);
-        });
-      }
-      setActive(true);
+      setActive(true); // useEffect srcObject + play() ni bajaradi
     } catch {
-      setError("Kamera ruxsati berilmadi. Brauzer sozlamalarini tekshiring.");
+      setError("Kamera ruxsati berilmadi. Brauzer sozlamalarida kamera ruxsatini bering.");
     }
   }, []);
 
@@ -86,12 +88,15 @@ function useCameraCapture() {
       const file = new File([blob], `selfie-${Date.now()}.jpg`, { type: "image/jpeg" });
       setCapturedFile(file);
       setPreview(URL.createObjectURL(blob));
-      stopCamera();
+      // Kamerani to'xtatamiz (video element DOM da qoladi, stream to'xtaydi)
+      streamRef.current?.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+      setActive(false);
     }, "image/jpeg", 0.85);
   }, []);
 
   const stopCamera = useCallback(() => {
-    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
     setActive(false);
   }, []);
@@ -108,9 +113,9 @@ function useCameraCapture() {
 
 // ─── GPS hook ──────────────────────────────────────────────────────────────────
 function useGPS() {
-  const [coords, setCoords] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
+  const [coords,  setCoords]  = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState<string | null>(null);
+  const [error,   setError]   = useState<string | null>(null);
 
   const locate = useCallback(() => {
     if (!navigator.geolocation) {
@@ -178,15 +183,15 @@ function TodayCard({ record }: { record: any }) {
 
 // ─── PAGE ──────────────────────────────────────────────────────────────────────
 export default function MyCheckinPage() {
-  const qc = useQueryClient();
+  const qc  = useQueryClient();
   const cam = useCameraCapture();
   const gps = useGPS();
 
-  // Bugungi davomat record (oy=bugun)
+  // Bugungi davomat record
   const today = dayjs();
   const { data, isLoading } = useQuery({
     queryKey: ["my-attendance-today", today.month() + 1, today.year()],
-    queryFn: () => attendanceApi.my({ month: today.month() + 1, year: today.year() }),
+    queryFn:  () => attendanceApi.my({ month: today.month() + 1, year: today.year() }),
     select: (d) => {
       const todayStr = today.format("YYYY-MM-DD");
       return (d.records ?? []).find(
@@ -211,7 +216,6 @@ export default function MyCheckinPage() {
     },
   });
 
-  // Holat: check-in bo'lgan va check-out bo'lmagan → CHECK_OUT mode
   const isCheckedIn  = !!data?.checkIn;
   const isCheckedOut = !!data?.checkOut;
   const isComplete   = isCheckedIn && isCheckedOut;
@@ -219,8 +223,17 @@ export default function MyCheckinPage() {
   const ActionIcon   = isCheckedIn ? LogOut : LogIn;
   const actionColor  = isCheckedIn ? "bg-red-600 hover:bg-red-700" : "bg-indigo-600 hover:bg-indigo-700";
 
-  // GPS talab: har doim aniqlansin (selfie optional)
-  const canSubmit = !mutation.isPending && !isComplete && gps.coords != null;
+  // GPS va Selfie ikkalasi ham majburiy
+  const canSubmit = !mutation.isPending && !isComplete && gps.coords != null && cam.capturedFile != null;
+
+  // Holat haqida xabar
+  const getMissingMsg = () => {
+    if (!gps.coords && !cam.capturedFile) return "GPS manzil va selfie kerak";
+    if (!gps.coords) return "GPS manzilni aniqlang";
+    if (!cam.capturedFile) return "Selfie oling";
+    return null;
+  };
+  const missingMsg = getMissingMsg();
 
   return (
     <div className="max-w-md mx-auto px-4 py-6 space-y-5">
@@ -284,9 +297,13 @@ export default function MyCheckinPage() {
                 <MapPin className="w-4 h-4 text-indigo-400" />
                 <span className="text-sm font-medium text-[var(--text-primary)]">Hozirgi ish joyi</span>
               </div>
-              {gps.coords && (
-                <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+              {gps.coords ? (
+                <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full font-medium">
                   Aniqlandi ✓
+                </span>
+              ) : (
+                <span className="text-[10px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full font-medium">
+                  Majburiy
                 </span>
               )}
             </div>
@@ -302,7 +319,6 @@ export default function MyCheckinPage() {
                   <p>Uzunlik: <span className="text-[var(--text-primary)]">{gps.coords.lng.toFixed(6)}</span></p>
                   <p>Aniqlik: <span className="text-[var(--text-primary)]">±{Math.round(gps.coords.accuracy)}m</span></p>
                 </div>
-                {/* Google Maps preview link */}
                 <a
                   href={`https://maps.google.com/?q=${gps.coords.lat},${gps.coords.lng}`}
                   target="_blank"
@@ -336,11 +352,7 @@ export default function MyCheckinPage() {
                   : "bg-indigo-600 hover:bg-indigo-700 text-white",
               )}
             >
-              {gps.loading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <MapPin className="w-4 h-4" />
-              )}
+              {gps.loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4" />}
               {gps.loading ? "Aniqlanmoqda..." : gps.coords ? "Qayta aniqlash" : "Manzilni aniqlash"}
             </button>
           </div>
@@ -352,9 +364,15 @@ export default function MyCheckinPage() {
                 <Camera className="w-4 h-4 text-indigo-400" />
                 <span className="text-sm font-medium text-[var(--text-primary)]">Selfie</span>
               </div>
-              <span className="text-[10px] text-[var(--text-muted)] bg-slate-700/50 px-2 py-0.5 rounded-full">
-                Ixtiyoriy
-              </span>
+              {cam.capturedFile ? (
+                <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full font-medium">
+                  Olindi ✓
+                </span>
+              ) : (
+                <span className="text-[10px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full font-medium">
+                  Majburiy
+                </span>
+              )}
             </div>
 
             {/* Camera error */}
@@ -365,8 +383,46 @@ export default function MyCheckinPage() {
               </p>
             )}
 
-            {/* Preview */}
-            {cam.preview ? (
+            {/* ── Video element DOIM DOM da — iOS safari uchun ── */}
+            {/* CSS bilan yashiramiz (conditional render emas!) */}
+            {/* active=false bo'lsa hidden, active=true bo'lsa ko'rinadi */}
+            <div className={cn(
+              "space-y-2",
+              !cam.active && "hidden",
+            )}>
+              <div className="relative rounded-xl overflow-hidden bg-black aspect-square">
+                <video
+                  ref={cam.videoRef}
+                  className="w-full h-full object-cover"
+                  autoPlay
+                  playsInline
+                  muted
+                />
+                {/* Oval guide */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="w-44 h-52 rounded-full border-2 border-white/60 border-dashed" />
+                </div>
+              </div>
+              <canvas ref={cam.canvasRef} className="hidden" />
+              <div className="flex gap-2">
+                <button
+                  onClick={cam.capture}
+                  className="flex-1 py-2.5 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center gap-2 transition-colors"
+                >
+                  <Camera className="w-4 h-4" />
+                  Suratga olish
+                </button>
+                <button
+                  onClick={cam.stopCamera}
+                  className="px-4 py-2.5 rounded-lg text-sm font-medium bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors"
+                >
+                  Bekor
+                </button>
+              </div>
+            </div>
+
+            {/* Preview — oldindan olingan selfie */}
+            {cam.preview && !cam.active && (
               <div className="space-y-2">
                 <img
                   src={cam.preview}
@@ -381,44 +437,13 @@ export default function MyCheckinPage() {
                   Qayta olish
                 </button>
               </div>
-            ) : cam.active ? (
-              /* Live camera */
-              <div className="space-y-2">
-                <div className="relative rounded-xl overflow-hidden bg-black aspect-square">
-                  <video
-                    ref={cam.videoRef}
-                    className="w-full h-full object-cover"
-                    autoPlay
-                    playsInline
-                    muted
-                  />
-                  {/* Oval guide overlay */}
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="w-44 h-52 rounded-full border-2 border-white/60 border-dashed" />
-                  </div>
-                </div>
-                <canvas ref={cam.canvasRef} className="hidden" />
-                <div className="flex gap-2">
-                  <button
-                    onClick={cam.capture}
-                    className="flex-1 py-2.5 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center gap-2 transition-colors"
-                  >
-                    <Camera className="w-4 h-4" />
-                    Suratga olish
-                  </button>
-                  <button
-                    onClick={cam.stopCamera}
-                    className="px-4 py-2.5 rounded-lg text-sm font-medium bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors"
-                  >
-                    Bekor
-                  </button>
-                </div>
-              </div>
-            ) : (
-              /* Start camera button */
+            )}
+
+            {/* Start camera button — preview yo'q va kamera ochiq emas */}
+            {!cam.preview && !cam.active && (
               <button
                 onClick={cam.startCamera}
-                className="w-full py-2 rounded-lg text-sm font-medium bg-slate-700 hover:bg-slate-600 text-slate-300 flex items-center justify-center gap-2 transition-colors"
+                className="w-full py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center gap-2 transition-colors"
               >
                 <Camera className="w-4 h-4" />
                 Kamerani ochish
@@ -445,9 +470,10 @@ export default function MyCheckinPage() {
             {mutation.isPending ? "Yuborilmoqda..." : actionLabel}
           </button>
 
-          {!gps.coords && (
+          {/* Hint */}
+          {missingMsg && !mutation.isPending && (
             <p className="text-center text-xs text-[var(--text-muted)]">
-              GPS joylashuvingizni aniqlang (selfie ixtiyoriy)
+              ⬆ {missingMsg}
             </p>
           )}
         </>

@@ -9,7 +9,7 @@ import { getInitials, getAvatarColor, formatMoney, cn, isSuperLike } from "@/lib
 import { useAuthStore } from "@/stores/auth";
 import {
   Plus, Search, Download, Upload, Camera, ImageIcon,
-  Trash2, X, FileSpreadsheet, Coffee, Building2, CheckSquare, Square,
+  Trash2, X, FileSpreadsheet, Coffee, Building2, CheckSquare, Square, Eye, EyeOff, KeyRound,
 } from "lucide-react";
 import dayjs from "dayjs";
 import { useForm } from "react-hook-form";
@@ -36,11 +36,13 @@ type EmpForm = {
   baseSalary:   number;
   departmentId: string;
   positionId:   string;
+  username:     string;
+  password:     string;
 };
 
 // ── Employee Form Modal ──────────────────────────
 function EmployeeModal({
-  open, onClose, employee, departments, positions, targetHospitalId,
+  open, onClose, employee, departments, positions, targetHospitalId, currentUserRole,
 }: {
   open: boolean;
   onClose: () => void;
@@ -48,6 +50,7 @@ function EmployeeModal({
   departments: any[];
   positions: any[];
   targetHospitalId?: string;
+  currentUserRole?: string;
 }) {
   const qc = useQueryClient();
   const { register, handleSubmit, reset, formState: { errors } } = useForm<EmpForm>({
@@ -56,8 +59,12 @@ function EmployeeModal({
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [showPhotoMenu, setShowPhotoMenu] = useState(false);
-  const photoRef       = useRef<HTMLInputElement>(null); // galereya
-  const photoRefCamera = useRef<HTMLInputElement>(null); // kamera
+  const [showPassword, setShowPassword] = useState(false);
+  const photoRef       = useRef<HTMLInputElement>(null);
+  const photoRefCamera = useRef<HTMLInputElement>(null);
+
+  // Mavjud xodimning login ma'lumotlari bor-yo'qligi
+  const hasAccount = !!employee?.user?.username;
 
   useEffect(() => {
     if (employee) {
@@ -69,12 +76,15 @@ function EmployeeModal({
         baseSalary:   Number(employee.baseSalary) || 0,
         departmentId: employee.departmentId,
         positionId:   employee.positionId,
+        username:     employee.user?.username || "",
+        password:     "",
       });
     } else {
-      reset({ gender: "FEMALE", fullName: "", phone: "", employeeNo: "", baseSalary: 0, departmentId: "", positionId: "" });
+      reset({ gender: "FEMALE", fullName: "", phone: "", employeeNo: "", baseSalary: 0, departmentId: "", positionId: "", username: "", password: "" });
     }
     setPhotoFile(null);
     setPhotoPreview(null);
+    setShowPassword(false);
   }, [employee, reset, open]);
 
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -202,6 +212,54 @@ function EmployeeModal({
                 {positions.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
               {errors.positionId && <p className="text-xs text-red-400 mt-1">{errors.positionId.message}</p>}
+            </div>
+          </div>
+
+          {/* ── Mobil kirish (login) ma'lumotlari ── */}
+          <div className="border border-[var(--border)] rounded-xl p-4 space-y-3 bg-[var(--bg-hover)]/30">
+            <div className="flex items-center gap-2">
+              <KeyRound className="w-4 h-4 text-indigo-400" />
+              <span className="text-xs font-semibold text-[var(--text-primary)] uppercase tracking-wide">Mobil Login</span>
+              {hasAccount && (
+                <span className="text-[10px] bg-emerald-500/15 text-emerald-400 px-1.5 py-0.5 rounded-full font-medium">
+                  Mavjud: {employee?.user?.username}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-[var(--text-muted)]">
+              {hasAccount
+                ? "Username yoki parolni o'zgartirish uchun to'ldiring (bo'sh qoldirsangiz o'zgarmaydi)"
+                : "Xodim mobil ilovaga kirishi uchun username va parol belgilang"}
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Username</label>
+                <input
+                  {...register("username")}
+                  className="input-field"
+                  placeholder={hasAccount ? employee?.user?.username : "masalan: emp001"}
+                  autoComplete="off"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Parol</label>
+                <div className="relative">
+                  <input
+                    {...register("password")}
+                    type={showPassword ? "text" : "password"}
+                    className="input-field pr-8"
+                    placeholder={hasAccount ? "••••••••" : "kamida 6 ta belgi"}
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(v => !v)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                  >
+                    {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -928,6 +986,7 @@ export default function EmployeesPage() {
         departments={departments}
         positions={positions}
         targetHospitalId={targetHospitalId}
+        currentUserRole={user?.role}
       />
 
       {/* ── Bulk action bar ──────────────────────── */}
