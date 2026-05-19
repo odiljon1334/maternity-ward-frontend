@@ -182,7 +182,7 @@ export const attendanceApi = {
   manualCheckin: (data: any) =>
     api.post("/attendance/manual-checkin", data).then((r) => r.data.data),
   my: (params?: { month?: number; year?: number }) =>
-    api.get("/attendance/my", { params }).then((r) => r.data),
+    api.get("/attendance/my", { params }).then((r) => r.data.data ?? r.data),
   selfCheckIn: (opts: {
     gpsLat?: number;
     gpsLng?: number;
