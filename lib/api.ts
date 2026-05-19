@@ -150,7 +150,7 @@ export const employeesApi = {
 // ─── Schedules ──────────────────────────────────
 export const schedulesApi = {
   my: (params?: { month?: number; year?: number }) =>
-    api.get("/schedules/my", { params }).then((r) => r.data),
+    api.get("/schedules/my", { params }).then((r) => r.data.data ?? r.data),
   daily: (params?: { date?: string; targetHospitalId?: string }) =>
     api.get("/schedules/daily", { params }).then((r) => r.data.data),
   monthly: (params?: { month?: number; year?: number; targetHospitalId?: string }) =>

@@ -43,11 +43,28 @@ function useCameraCapture() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 640 } },
+        audio: false,
       });
       streamRef.current = stream;
       if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+        const video = videoRef.current;
+        video.srcObject = stream;
+        // iOS Safari uchun: autoPlay attributi bilan birga qo'shimcha play() call
+        video.setAttribute("autoplay", "true");
+        video.setAttribute("playsinline", "true");
+        video.setAttribute("muted", "true");
+        // loadedmetadata event kelgach play — iOS da eng ishonchli usul
+        await new Promise<void>((resolve) => {
+          video.onloadedmetadata = () => {
+            video.play().catch(() => {/* autoplay attribute handles it */});
+            resolve();
+          };
+          // Fallback: 1 soniyadan keyin ham play() urinib ko'rish
+          setTimeout(() => {
+            video.play().catch(() => {});
+            resolve();
+          }, 1000);
+        });
       }
       setActive(true);
     } catch {
@@ -371,6 +388,7 @@ export default function MyCheckinPage() {
                   <video
                     ref={cam.videoRef}
                     className="w-full h-full object-cover"
+                    autoPlay
                     playsInline
                     muted
                   />
