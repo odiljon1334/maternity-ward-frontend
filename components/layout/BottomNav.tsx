@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Users, ClipboardList,
-  CalendarDays, DollarSign, Eye, ScanFace,
+  CalendarDays, DollarSign, Eye, ScanFace, UserCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth";
@@ -27,6 +27,7 @@ const NAV_ITEMS_EMPLOYEE = [
   { href: "/dashboard/my-checkin",    label: "Check-in",  icon: ScanFace      },
   { href: "/dashboard/my-attendance", label: "Davomatim", icon: ClipboardList },
   { href: "/dashboard/my-schedule",   label: "Grafigim",  icon: CalendarDays  },
+  { href: "/dashboard/profile",       label: "Profilim",  icon: UserCircle    },
 ];
 
 export function BottomNav() {

@@ -51,6 +51,8 @@ export const authApi = {
   profile: () => api.get("/auth/profile").then((r) => r.data.data),
   register: (data: { username: string; password: string; role?: string }) =>
     api.post("/auth/register", data).then((r) => r.data.data),
+  changePassword: (data: { currentPassword: string; newPassword: string }) =>
+    api.put("/auth/change-password", data).then((r) => r.data.data),
 };
 
 // ─── Dashboard ──────────────────────────────────

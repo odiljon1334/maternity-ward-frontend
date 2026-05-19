@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, CalendarDays, ClipboardList,
   DollarSign, FileBarChart2, Settings, LogOut,
   Activity, ChevronLeft, ChevronRight, Building2, Bell,
-  CreditCard, UserPlus, Shield, Send, Eye, X, Video, ScanFace,
+  CreditCard, UserPlus, Shield, Send, Eye, X, Video, ScanFace, UserCircle,
 } from "lucide-react";
 import { cn, getInitials, getAvatarColor } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth";
@@ -18,6 +18,7 @@ const mainNavItems = [
   { href: "/dashboard/my-checkin",      label: "Check-in",         icon: ScanFace,       roles: ["EMPLOYEE"] },
   { href: "/dashboard/my-attendance",  label: "Mening davomatim", icon: ClipboardList,  roles: ["EMPLOYEE"] },
   { href: "/dashboard/my-schedule",    label: "Mening grafigim",  icon: CalendarDays,   roles: ["EMPLOYEE"] },
+  { href: "/dashboard/profile",        label: "Profilim",          icon: UserCircle,     roles: ["EMPLOYEE"] },
   { href: "/dashboard",                label: "Dashboard",        icon: LayoutDashboard, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/employees",   label: "Xodimlar",           icon: Users,           roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/schedules",   label: "Grafik",             icon: CalendarDays,    roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
@@ -149,7 +150,7 @@ export function Sidebar() {
             </Link>
           )}
 
-          {mounted && user?.role !== "MINISTRY" && (
+          {mounted && user?.role !== "MINISTRY" && user?.role !== "EMPLOYEE" && (
             <Link
               href="/dashboard/settings"
               className={cn("nav-item", collapsed && "lg:justify-center lg:px-0")}
