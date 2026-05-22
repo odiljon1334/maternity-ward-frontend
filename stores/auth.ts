@@ -8,7 +8,7 @@ interface User {
   role: string;
   lang: string;
   hospitalId?: string | null;
-  hospital?: { id: string; name: string; code: string } | null;
+  hospital?: { id: string; name: string; code: string; gpsLat?: number | null; gpsLng?: number | null; gpsRadius?: number | null } | null;
   employee?: any;
 }
 

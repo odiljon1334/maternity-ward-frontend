@@ -65,6 +65,17 @@ export const dashboardApi = {
     api.get("/dashboard/departments", { params }).then((r) => r.data.data),
   topLate: (params?: { limit?: number; targetHospitalId?: string }) =>
     api.get("/dashboard/top-late", { params }).then((r) => r.data.data),
+  // ─── Analytics ───
+  analyticsMonthly: (params?: { months?: number; targetHospitalId?: string }) =>
+    api.get("/dashboard/analytics/monthly", { params }).then((r) => r.data.data),
+  analyticsPerformance: (params?: { month?: number; year?: number; limit?: number; targetHospitalId?: string }) =>
+    api.get("/dashboard/analytics/performance", { params }).then((r) => r.data.data),
+  analyticsPayrollTrend: (params?: { months?: number; targetHospitalId?: string }) =>
+    api.get("/dashboard/analytics/payroll-trend", { params }).then((r) => r.data.data),
+  analyticsLeaves: (params?: { year?: number; targetHospitalId?: string }) =>
+    api.get("/dashboard/analytics/leaves", { params }).then((r) => r.data.data),
+  analyticsCheckinHeatmap: (params?: { days?: number; targetHospitalId?: string }) =>
+    api.get("/dashboard/analytics/checkin-heatmap", { params }).then((r) => r.data.data),
 };
 
 // ─── Departments ────────────────────────────────
@@ -200,6 +211,10 @@ export const attendanceApi = {
       headers: { "Content-Type": "multipart/form-data" },
     }).then((r) => r.data.data ?? r.data);
   },
+  /** Birinchi marta ish joyi GPS ni kasalxona uchun o'rnatish */
+  setHospitalGps: (lat: number, lng: number) =>
+    api.post("/attendance/set-hospital-gps", { lat: String(lat), lng: String(lng) })
+      .then((r) => r.data.data ?? r.data),
 };
 
 // ─── Payroll ────────────────────────────────────
@@ -217,6 +232,13 @@ export const payrollApi = {
   approve: (id: string) => api.put(`/payroll/approve/${id}`).then((r) => r.data.data),
   exportExcel: (params?: any) =>
     api.get("/payroll/export/excel", { params, responseType: "blob" }),
+  downloadPayslip: (employeeId: string, params?: { month?: number; year?: number }) =>
+    api.get(`/payroll/payslip/${employeeId}`, { params, responseType: "blob" }),
+  // EMPLOYEE endpoints
+  myList: (params?: { month?: number; year?: number }) =>
+    api.get("/payroll/my", { params }).then((r) => r.data.data ?? r.data),
+  downloadMyPayslip: (params?: { month?: number; year?: number }) =>
+    api.get("/payroll/my/payslip", { params, responseType: "blob" }),
 };
 
 // ─── Reports ────────────────────────────────────
@@ -242,6 +264,10 @@ export const hospitalsApi = {
     api.patch(`/hospitals/${hospitalId}/directors`, data).then((r) => r.data.data),
   block: (id: string) => api.patch(`/hospitals/${id}/block`).then((r) => r.data.data),
   unblock: (id: string) => api.patch(`/hospitals/${id}/unblock`).then((r) => r.data.data),
+  updateGpsRadius: (id: string, radius: number) =>
+    api.patch(`/hospitals/${id}/gps-radius`, { radius }).then((r) => r.data.data),
+  resetGps: (id: string) =>
+    api.patch(`/hospitals/${id}/gps-reset`).then((r) => r.data.data),
   resetTelegramSubs: (id: string) => api.delete(`/hospitals/${id}/telegram-subs`).then((r) => r.data),
 };
 
@@ -346,6 +372,45 @@ export const ministryApi = {
     api.get("/ministry/attendance/absent", { params }).then((r) => r.data.data),
   payrollSummary: (params?: { month?: number; year?: number }) =>
     api.get("/ministry/payroll/summary", { params }).then((r) => r.data.data),
+};
+
+// ─── Leave Requests (Ta'til so'rovlari) ─────────
+export const leaveApi = {
+  /** EMPLOYEE: yangi so'rov yaratish */
+  create: (data: { type: string; startDate: string; endDate: string; reason?: string }) =>
+    api.post("/leave", data).then((r) => r.data.data ?? r.data),
+
+  /** EMPLOYEE: o'z so'rovlari */
+  my: (params?: { status?: string; page?: number; limit?: number }) =>
+    api.get("/leave/my", { params }).then((r) => r.data.data ?? r.data),
+
+  /** EMPLOYEE: PENDING so'rovni bekor qilish */
+  cancel: (id: string) =>
+    api.patch(`/leave/${id}/cancel`).then((r) => r.data.data ?? r.data),
+
+  /** DIRECTOR/ADMIN: barcha so'rovlar */
+  list: (params?: { status?: string; page?: number; limit?: number; targetHospitalId?: string }) =>
+    api.get("/leave", { params }).then((r) => r.data.data ?? r.data),
+
+  /** DIRECTOR/ADMIN: tasdiqlash yoki rad etish */
+  review: (id: string, data: { decision: "APPROVED" | "REJECTED"; reviewNote?: string }) =>
+    api.patch(`/leave/${id}/review`, data).then((r) => r.data.data ?? r.data),
+
+  /** DIRECTOR/ADMIN: tasdiqlangan ta'tilni qaytarish */
+  revoke: (id: string) =>
+    api.patch(`/leave/${id}/revoke`).then((r) => r.data.data ?? r.data),
+};
+
+// ─── Push Notifications ─────────────────────────
+export const pushApi = {
+  vapidKey: () =>
+    api.get("/push/vapid-key").then((r) => r.data.data ?? r.data),
+  subscribe: (data: { endpoint: string; keys: { p256dh: string; auth: string }; userAgent?: string }) =>
+    api.post("/push/subscribe", data).then((r) => r.data),
+  unsubscribe: (endpoint: string) =>
+    api.delete("/push/unsubscribe", { data: { endpoint } }).then((r) => r.data),
+  test: (data?: { title?: string; body?: string }) =>
+    api.post("/push/test", data ?? {}).then((r) => r.data),
 };
 
 // ─── Helper: download blob ───────────────────────

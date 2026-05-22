@@ -8,7 +8,7 @@ import { formatMoney, formatMinutes, cn, isSuperLike, getInitials, getAvatarColo
 import {
   Download, RefreshCw, CheckCircle, ChevronLeft, ChevronRight,
   TrendingDown, TrendingUp, DollarSign, Users, Clock,
-  AlertTriangle, Info, X, Calculator,
+  AlertTriangle, Info, X, Calculator, FileText,
 } from "lucide-react";
 import dayjs from "dayjs";
 import { useAuthStore } from "@/stores/auth";
@@ -187,6 +187,21 @@ export default function PayrollPage() {
     } catch { toast.error("Export xatoligi"); }
   };
 
+  const [payslipLoading, setPayslipLoading] = useState<string | null>(null);
+  const handlePayslip = async (employeeId: string, employeeName: string) => {
+    setPayslipLoading(employeeId);
+    try {
+      const res = await payrollApi.downloadPayslip(employeeId, { month, year });
+      const safeName = employeeName.replace(/\s+/g, "_");
+      downloadBlob(res.data, `maosh_varaqasi_${safeName}_${month}_${year}.pdf`);
+      toast.success("PDF yuklab olindi");
+    } catch {
+      toast.error("PDF yaratishda xatolik");
+    } finally {
+      setPayslipLoading(null);
+    }
+  };
+
   const records: any[] = data?.data || data || [];
   const total = data?.total || records.length;
   const totalPages = Math.ceil(total / LIMIT);
@@ -337,15 +352,27 @@ export default function PayrollPage() {
                   )}
                 </div>
 
-                {r.status === "DRAFT" && (
+                <div className="mt-3 flex gap-2">
+                  {r.status === "DRAFT" && (
+                    <button
+                      onClick={() => approveMutation.mutate(r.id)}
+                      disabled={approveMutation.isPending}
+                      className="flex-1 flex items-center justify-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 py-2 border border-indigo-500/30 rounded-lg hover:bg-indigo-500/10 transition-colors"
+                    >
+                      <CheckCircle className="w-3.5 h-3.5" /> Tasdiqlash
+                    </button>
+                  )}
                   <button
-                    onClick={() => approveMutation.mutate(r.id)}
-                    disabled={approveMutation.isPending}
-                    className="mt-3 w-full flex items-center justify-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 py-2 border border-indigo-500/30 rounded-lg hover:bg-indigo-500/10 transition-colors"
+                    onClick={() => handlePayslip(r.employee.id, r.employee.fullName)}
+                    disabled={payslipLoading === r.employee.id}
+                    className="flex-1 flex items-center justify-center gap-1.5 text-xs text-rose-400 hover:text-rose-300 py-2 border border-rose-500/30 rounded-lg hover:bg-rose-500/10 transition-colors"
                   >
-                    <CheckCircle className="w-3.5 h-3.5" /> Tasdiqlash
+                    {payslipLoading === r.employee.id
+                      ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      : <FileText className="w-3.5 h-3.5" />}
+                    PDF varaqasi
                   </button>
-                )}
+                </div>
               </div>
             );
           })}
@@ -416,15 +443,28 @@ export default function PayrollPage() {
                         <span className={STATUS_MAP[r.status]?.cls || "badge-gray"}>{STATUS_MAP[r.status]?.label || r.status}</span>
                       </td>
                       <td className="px-5 py-3.5">
-                        {r.status === "DRAFT" && (
+                        <div className="flex items-center gap-2">
+                          {r.status === "DRAFT" && (
+                            <button
+                              onClick={() => approveMutation.mutate(r.id)}
+                              disabled={approveMutation.isPending}
+                              className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 whitespace-nowrap"
+                            >
+                              <CheckCircle className="w-3.5 h-3.5" /> Tasdiqlash
+                            </button>
+                          )}
                           <button
-                            onClick={() => approveMutation.mutate(r.id)}
-                            disabled={approveMutation.isPending}
-                            className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300"
+                            onClick={() => handlePayslip(r.employee.id, r.employee.fullName)}
+                            disabled={payslipLoading === r.employee.id}
+                            title="PDF Maosh varaqasi"
+                            className="flex items-center gap-1 text-xs text-rose-400 hover:text-rose-300 whitespace-nowrap"
                           >
-                            <CheckCircle className="w-3.5 h-3.5" /> Tasdiqlash
+                            {payslipLoading === r.employee.id
+                              ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              : <FileText className="w-3.5 h-3.5" />}
+                            PDF
                           </button>
-                        )}
+                        </div>
                       </td>
                     </tr>
                   );

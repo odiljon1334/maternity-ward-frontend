@@ -4,10 +4,11 @@ import { useRef, useState, useCallback, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Camera, MapPin, CheckCircle2, XCircle, Loader2,
-  RefreshCw, AlertTriangle, Clock, LogIn, LogOut,
+  RefreshCw, AlertTriangle, Clock, LogIn, LogOut, Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { attendanceApi, photoUrl } from "@/lib/api";
+import { useAuthStore } from "@/stores/auth";
 import dayjs from "dayjs";
 import "dayjs/locale/uz";
 dayjs.locale("uz");
@@ -183,9 +184,25 @@ function TodayCard({ record }: { record: any }) {
 
 // ─── PAGE ──────────────────────────────────────────────────────────────────────
 export default function MyCheckinPage() {
-  const qc  = useQueryClient();
-  const cam = useCameraCapture();
-  const gps = useGPS();
+  const qc   = useQueryClient();
+  const cam  = useCameraCapture();
+  const gps  = useGPS();
+  const { user } = useAuthStore();
+
+  // Erta ketish ogohlantirishi uchun state
+  const [showEarlyWarning, setShowEarlyWarning] = useState(false);
+
+  // Kasalxona GPS o'rnatish (birinchi marta)
+  // hospitalGpsSet: null = yuklanmoqda, false = o'rnatilmagan, true = o'rnatilgan
+  const hospitalGpsReady = !!(user?.hospital?.gpsLat && user?.hospital?.gpsLng);
+  const [hospitalSetupDone, setHospitalSetupDone] = useState(hospitalGpsReady);
+  const [hospitalSetupStep, setHospitalSetupStep] = useState<"idle" | "confirming" | "saving">("idle");
+  const [hospitalSaveError, setHospitalSaveError] = useState<string | null>(null);
+
+  // hospitalGpsReady o'zgarganda sinxronlaymiz (login refresh dan keyin)
+  useEffect(() => {
+    if (hospitalGpsReady) setHospitalSetupDone(true);
+  }, [hospitalGpsReady]);
 
   // Bugungi davomat record
   const today = dayjs();
@@ -213,8 +230,24 @@ export default function MyCheckinPage() {
       qc.invalidateQueries({ queryKey: ["my-attendance-today"] });
       qc.invalidateQueries({ queryKey: ["my-attendance"] });
       cam.reset();
+      setShowEarlyWarning(false);
     },
   });
+
+  // Kasalxona GPS saqlash
+  const saveHospitalGps = useCallback(async () => {
+    if (!gps.coords) return;
+    setHospitalSetupStep("saving");
+    setHospitalSaveError(null);
+    try {
+      await attendanceApi.setHospitalGps(gps.coords.lat, gps.coords.lng);
+      setHospitalSetupDone(true);
+      setHospitalSetupStep("idle");
+    } catch (e: any) {
+      setHospitalSaveError(e?.response?.data?.message ?? "Saqlashda xatolik");
+      setHospitalSetupStep("confirming");
+    }
+  }, [gps.coords]);
 
   const isCheckedIn  = !!data?.checkIn;
   const isCheckedOut = !!data?.checkOut;
@@ -225,6 +258,24 @@ export default function MyCheckinPage() {
 
   // GPS va Selfie ikkalasi ham majburiy
   const canSubmit = !mutation.isPending && !isComplete && gps.coords != null && cam.capturedFile != null;
+
+  // Erta ketish tekshiruvi — check-out da expectedCheckOut dan oldin ketayotgan bo'lsa
+  const expectedCheckOut = data?.expectedCheckOut ? dayjs(data.expectedCheckOut) : null;
+  const isEarlyLeave = isCheckedIn && !isCheckedOut && expectedCheckOut
+    ? dayjs().isBefore(expectedCheckOut)
+    : false;
+  const remainingMin = isEarlyLeave && expectedCheckOut
+    ? expectedCheckOut.diff(dayjs(), "minute")
+    : 0;
+
+  // Submit handler — erta ketish bo'lsa dialog ko'rsatadi
+  const handleSubmit = () => {
+    if (isCheckedIn && isEarlyLeave && !showEarlyWarning) {
+      setShowEarlyWarning(true);
+      return;
+    }
+    mutation.mutate();
+  };
 
   // Holat haqida xabar
   const getMissingMsg = () => {
@@ -244,6 +295,90 @@ export default function MyCheckinPage() {
           {today.format("DD MMMM YYYY, dddd")}
         </p>
       </div>
+
+      {/* ── Kasalxona GPS setup (birinchi marta) ─────────────────────────────── */}
+      {!hospitalSetupDone && (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 space-y-3">
+          <div className="flex items-start gap-3">
+            <Building2 className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-amber-300">Ish joyi manzilini belgilang</p>
+              <p className="text-xs text-amber-400/80 mt-0.5">
+                Bu bir martalik sozlama. Hozirgi joylashuvingiz ish joyi sifatida saqlanadi
+                va kelajakdagi check-in larda shunga nisbatan masofa ko'rsatiladi.
+              </p>
+            </div>
+          </div>
+
+          {hospitalSetupStep === "idle" && (
+            <div className="space-y-2">
+              {/* GPS yig'ish */}
+              {!gps.coords ? (
+                <button
+                  onClick={gps.locate}
+                  disabled={gps.loading}
+                  className="w-full py-2.5 rounded-lg text-sm font-medium bg-amber-600 hover:bg-amber-700 text-white flex items-center justify-center gap-2 transition-colors"
+                >
+                  {gps.loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4" />}
+                  {gps.loading ? "Aniqlanmoqda..." : "Joylashuvni aniqlash"}
+                </button>
+              ) : (
+                <div className="space-y-2">
+                  <div className="rounded-lg bg-amber-900/30 p-2.5 text-xs text-amber-200 space-y-1">
+                    <p>📍 Kenglik: <span className="font-mono">{gps.coords.lat.toFixed(6)}</span></p>
+                    <p>📍 Uzunlik: <span className="font-mono">{gps.coords.lng.toFixed(6)}</span></p>
+                    <p>🎯 Aniqlik: ±{Math.round(gps.coords.accuracy)}m</p>
+                  </div>
+                  <button
+                    onClick={() => setHospitalSetupStep("confirming")}
+                    className="w-full py-2.5 rounded-lg text-sm font-medium bg-amber-600 hover:bg-amber-700 text-white flex items-center justify-center gap-2 transition-colors"
+                  >
+                    <Building2 className="w-4 h-4" />
+                    Shu joylashuvni ish joyi sifatida saqlash
+                  </button>
+                </div>
+              )}
+              {gps.error && (
+                <p className="text-xs text-red-400 flex items-start gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" /> {gps.error}
+                </p>
+              )}
+            </div>
+          )}
+
+          {hospitalSetupStep === "confirming" && (
+            <div className="space-y-2">
+              <p className="text-xs text-amber-300 font-medium">
+                ⚠️ Tasdiqlash: Hozirgi joylashuvingiz ({gps.coords?.lat.toFixed(5)}, {gps.coords?.lng.toFixed(5)}) ish joyi sifatida saqlansinmi?
+              </p>
+              {hospitalSaveError && (
+                <p className="text-xs text-red-400">❌ {hospitalSaveError}</p>
+              )}
+              <div className="flex gap-2">
+                <button
+                  onClick={saveHospitalGps}
+                  className="flex-1 py-2 rounded-lg text-sm font-medium bg-amber-600 hover:bg-amber-700 text-white transition-colors"
+                >
+                  Ha, saqlash
+                </button>
+                <button
+                  onClick={() => { setHospitalSetupStep("idle"); gps.locate(); }}
+                  className="flex-1 py-2 rounded-lg text-sm font-medium bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors"
+                >
+                  Qayta aniqlash
+                </button>
+              </div>
+            </div>
+          )}
+
+          {hospitalSetupStep === "saving" && (
+            <div className="flex items-center justify-center gap-2 py-2 text-amber-300 text-sm">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Saqlanmoqda...
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Today card */}
       {isLoading ? (
@@ -320,13 +455,13 @@ export default function MyCheckinPage() {
                   <p>Aniqlik: <span className="text-[var(--text-primary)]">±{Math.round(gps.coords.accuracy)}m</span></p>
                 </div>
                 <a
-                  href={`https://maps.google.com/?q=${gps.coords.lat},${gps.coords.lng}`}
+                  href={`https://yandex.uz/maps/?pt=${gps.coords.lng},${gps.coords.lat}&z=16&l=map`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
                 >
                   <MapPin className="w-3 h-3" />
-                  Xaritada ko&apos;rish
+                  Yandex Maps da ko&apos;rish
                 </a>
               </div>
             ) : (
@@ -451,27 +586,69 @@ export default function MyCheckinPage() {
             )}
           </div>
 
+          {/* ── Erta ketish ogohlantirishi (dialog) ─────────── */}
+          {showEarlyWarning && (
+            <div className="rounded-xl border border-orange-500/40 bg-orange-500/10 p-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-orange-300">Ish vaqti hali tugamadi</p>
+                  <p className="text-xs text-orange-400/80 mt-1">
+                    Ish tugash vaqti:{" "}
+                    <span className="font-bold text-orange-300">
+                      {expectedCheckOut?.format("HH:mm")}
+                    </span>
+                    {remainingMin > 0 && (
+                      <> — yana <span className="font-bold text-orange-300">{remainingMin} daqiqa</span> qoldi</>
+                    )}
+                  </p>
+                  <p className="text-xs text-orange-400/70 mt-1">
+                    Erta ketish sifatida belgilanadi va rahbariyatga xabar yuboriladi.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => mutation.mutate()}
+                  disabled={mutation.isPending}
+                  className="flex-1 py-2.5 rounded-lg text-sm font-medium bg-orange-600 hover:bg-orange-700 text-white flex items-center justify-center gap-2 transition-colors"
+                >
+                  {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogOut className="w-4 h-4" />}
+                  Baribir chiqish
+                </button>
+                <button
+                  onClick={() => setShowEarlyWarning(false)}
+                  className="flex-1 py-2.5 rounded-lg text-sm font-medium bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors"
+                >
+                  Bekor qilish
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* ── Submit button ────────────────────────────────── */}
-          <button
-            onClick={() => mutation.mutate()}
-            disabled={!canSubmit}
-            className={cn(
-              "w-full py-3.5 rounded-xl text-base font-semibold flex items-center justify-center gap-2.5 transition-all",
-              canSubmit
-                ? `${actionColor} text-white shadow-lg`
-                : "bg-slate-700/50 text-slate-500 cursor-not-allowed",
-            )}
-          >
-            {mutation.isPending ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <ActionIcon className="w-5 h-5" />
-            )}
-            {mutation.isPending ? "Yuborilmoqda..." : actionLabel}
-          </button>
+          {!showEarlyWarning && (
+            <button
+              onClick={handleSubmit}
+              disabled={!canSubmit}
+              className={cn(
+                "w-full py-3.5 rounded-xl text-base font-semibold flex items-center justify-center gap-2.5 transition-all",
+                canSubmit
+                  ? `${actionColor} text-white shadow-lg`
+                  : "bg-slate-700/50 text-slate-500 cursor-not-allowed",
+              )}
+            >
+              {mutation.isPending ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <ActionIcon className="w-5 h-5" />
+              )}
+              {mutation.isPending ? "Yuborilmoqda..." : actionLabel}
+            </button>
+          )}
 
           {/* Hint */}
-          {missingMsg && !mutation.isPending && (
+          {missingMsg && !mutation.isPending && !showEarlyWarning && (
             <p className="text-center text-xs text-[var(--text-muted)]">
               ⬆ {missingMsg}
             </p>

@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, CalendarDays, ClipboardList,
   DollarSign, FileBarChart2, Settings, LogOut,
   Activity, ChevronLeft, ChevronRight, Building2, Bell,
-  CreditCard, UserPlus, Shield, Send, Eye, X, Video, ScanFace, UserCircle,
+  CreditCard, UserPlus, Shield, Send, Eye, X, Video, ScanFace, UserCircle, Palmtree, BarChart2, Wallet,
 } from "lucide-react";
 import { cn, getInitials, getAvatarColor } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth";
@@ -18,13 +18,17 @@ const mainNavItems = [
   { href: "/dashboard/my-checkin",      label: "Check-in",         icon: ScanFace,       roles: ["EMPLOYEE"] },
   { href: "/dashboard/my-attendance",  label: "Mening davomatim", icon: ClipboardList,  roles: ["EMPLOYEE"] },
   { href: "/dashboard/my-schedule",    label: "Mening grafigim",  icon: CalendarDays,   roles: ["EMPLOYEE"] },
+  { href: "/dashboard/my-leaves",      label: "Ta'til so'rovlari", icon: Palmtree,       roles: ["EMPLOYEE"] },
+  { href: "/dashboard/my-payroll",     label: "Maoshim",           icon: Wallet,         roles: ["EMPLOYEE"] },
   { href: "/dashboard/profile",        label: "Profilim",          icon: UserCircle,     roles: ["EMPLOYEE"] },
   { href: "/dashboard",                label: "Dashboard",        icon: LayoutDashboard, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/employees",   label: "Xodimlar",           icon: Users,           roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/schedules",   label: "Grafik",             icon: CalendarDays,    roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/attendance",  label: "Davomat",            icon: ClipboardList,   roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
+  { href: "/dashboard/leaves",      label: "Ta'til so'rovlari",  icon: Palmtree,        roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/cameras",    label: "Kameralar",          icon: Video,           roles: ["MINISTRY"] },
   { href: "/dashboard/payroll",     label: "Maosh",              icon: DollarSign,      roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
+  { href: "/dashboard/analytics",   label: "Chuqur tahlil",      icon: BarChart2,       roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/reports",     label: "Hisobotlar",         icon: FileBarChart2,   roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/hospitals",   label: "Kasalxonalar",       icon: Building2,       roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN"] },
   { href: "/dashboard/payments",    label: "To'lovlar",          icon: CreditCard,      roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN"] },

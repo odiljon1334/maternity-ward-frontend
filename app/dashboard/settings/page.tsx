@@ -7,8 +7,9 @@ import { Topbar } from "@/components/layout/Topbar";
 import { useAuthStore } from "@/stores/auth";
 import { useForm } from "react-hook-form";
 import {
-  Building2, Briefcase, Plus, Edit2, Trash2, X, Check, Camera, Zap,
+  Building2, Briefcase, Plus, Edit2, Trash2, X, Check, Camera, Zap, Bell, BellOff,
 } from "lucide-react";
+import { usePushNotification } from "@/hooks/usePushNotification";
 import { cn, isSuperLike } from "@/lib/utils";
 
 // ─────────────────────────────────────────────
@@ -532,6 +533,82 @@ export default function SettingsPage() {
           <PositionsPanel targetHospitalId={targetHospitalId} />
         </div>
         <CamerasPanel targetHospitalId={targetHospitalId} />
+        <PushNotificationsPanel />
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Push Notifications Panel
+// ─────────────────────────────────────────────
+function PushNotificationsPanel() {
+  const { supported, permission, subscribed, loading, subscribe, unsubscribe } = usePushNotification();
+
+  return (
+    <div className="card overflow-hidden">
+      <div className="px-5 py-4 border-b border-[var(--border)] flex items-center gap-2">
+        <Bell className="w-4 h-4 text-indigo-400" />
+        <h2 className="font-semibold text-[var(--text-primary)]">Push xabarnomalar</h2>
+      </div>
+
+      <div className="p-5 space-y-3">
+        {!supported && (
+          <p className="text-sm text-[var(--text-muted)] text-center py-4">
+            Bu brauzer push xabarnomalarni qo'llab-quvvatlamaydi
+          </p>
+        )}
+
+        {supported && (
+          <>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-[var(--text-primary)]">
+                  {subscribed ? "Push xabarnomalar yoqilgan" : "Push xabarnomalar o'chirilgan"}
+                </p>
+                <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                  Ta'til tasdiqlanganda, maosh hisoblanganda darhol xabar oling
+                </p>
+                {permission === "denied" && (
+                  <p className="text-xs text-red-400 mt-1">
+                    ⚠️ Brauzer sozlamalaridan ruxsat bering
+                  </p>
+                )}
+              </div>
+
+              <button
+                onClick={subscribed ? unsubscribe : subscribe}
+                disabled={loading || permission === "denied"}
+                className={cn(
+                  "flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors",
+                  subscribed
+                    ? "bg-red-500/15 border border-red-500/25 text-red-400 hover:bg-red-500/25"
+                    : "bg-indigo-600/20 border border-indigo-500/25 text-indigo-400 hover:bg-indigo-600/30",
+                  (loading || permission === "denied") && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                {loading ? (
+                  <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                ) : subscribed ? (
+                  <BellOff className="w-4 h-4" />
+                ) : (
+                  <Bell className="w-4 h-4" />
+                )}
+                {loading ? "..." : subscribed ? "O'chirish" : "Yoqish"}
+              </button>
+            </div>
+
+            <div className="text-xs text-[var(--text-muted)] space-y-1 pt-2 border-t border-[var(--border)]">
+              <p>📱 Xabarnomalar faqat ushbu qurilmaga yuboriladi</p>
+              <p>🔔 Qaysi hodisalar haqida xabar keladi:</p>
+              <ul className="pl-4 space-y-0.5">
+                <li>• Ta'til so'rovi tasdiqlandi / rad etildi</li>
+                <li>• Oylik maosh hisoblandi</li>
+                <li>• Yangi ta'til so'rovi (direktor uchun)</li>
+              </ul>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
