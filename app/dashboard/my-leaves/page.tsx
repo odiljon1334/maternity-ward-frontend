@@ -110,25 +110,25 @@ function NewLeaveForm({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* Sanalar */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3">
           <div className="space-y-1.5">
-            <label className="text-xs text-[var(--text-muted)] font-medium">Boshlanish</label>
+            <label className="text-xs text-[var(--text-muted)] font-medium">📅 Boshlanish sanasi</label>
             <input
               type="date"
               value={form.startDate}
               min={dayjs().format("YYYY-MM-DD")}
               onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-              className="w-full bg-[var(--bg-main)] border border-[var(--border)] rounded-lg px-3 py-2.5 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+              className="w-full bg-[var(--bg-main)] border border-[var(--border)] rounded-xl px-3 py-3 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
             />
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs text-[var(--text-muted)] font-medium">Tugash</label>
+            <label className="text-xs text-[var(--text-muted)] font-medium">📅 Tugash sanasi</label>
             <input
               type="date"
               value={form.endDate}
               min={form.startDate || dayjs().format("YYYY-MM-DD")}
               onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-              className="w-full bg-[var(--bg-main)] border border-[var(--border)] rounded-lg px-3 py-2.5 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+              className="w-full bg-[var(--bg-main)] border border-[var(--border)] rounded-xl px-3 py-3 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
             />
           </div>
         </div>

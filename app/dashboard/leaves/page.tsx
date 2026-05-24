@@ -143,7 +143,7 @@ function ReviewModal({
   );
 }
 
-// ─── Leave row ─────────────────────────────────────────────────────────────────
+// ─── Leave row (desktop table) ─────────────────────────────────────────────────
 
 function LeaveRow({
   leave,
@@ -199,6 +199,79 @@ function LeaveRow({
         )}
       </td>
     </tr>
+  );
+}
+
+// ─── Leave card (mobile) ───────────────────────────────────────────────────────
+
+function LeaveCard({
+  leave,
+  onReview,
+  onRevoke,
+}: {
+  leave:    any;
+  onReview: (leave: any) => void;
+  onRevoke: (id: string) => void;
+}) {
+  const st = STATUS_CONFIG[leave.status] ?? STATUS_CONFIG.PENDING;
+  const tp = LEAVE_TYPES[leave.type]     ?? { label: leave.type, emoji: "📋" };
+
+  return (
+    <div className="card p-4 space-y-3">
+      {/* Top row: name + status */}
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="text-sm font-semibold text-[var(--text-primary)]">
+            {leave.employee?.fullName}
+          </p>
+          <p className="text-xs text-[var(--text-muted)]">{leave.employee?.department?.name}</p>
+        </div>
+        <span className={cn("flex-shrink-0 text-[10px] font-semibold px-2.5 py-1 rounded-full", st.cls)}>
+          {st.label}
+        </span>
+      </div>
+
+      {/* Leave type + dates */}
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-[var(--text-muted)]">
+          {tp.emoji} {tp.label}
+        </span>
+        <span className="text-[var(--text-muted)]">
+          {dayjs(leave.startDate).format("DD.MM")} – {dayjs(leave.endDate).format("DD.MM.YYYY")}
+          <span className="ml-1 text-indigo-400 font-medium">({leave.daysCount} kun)</span>
+        </span>
+      </div>
+
+      {/* Reason if any */}
+      {leave.reason && (
+        <p className="text-xs text-[var(--text-muted)] bg-[var(--bg-main)] rounded-lg px-3 py-2">
+          💬 {leave.reason}
+        </p>
+      )}
+
+      {/* Action buttons */}
+      {leave.status === "PENDING" && (
+        <button
+          onClick={() => onReview(leave)}
+          className="w-full py-2.5 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+        >
+          Ko'rib chiqish
+        </button>
+      )}
+      {leave.status === "APPROVED" && (
+        <button
+          onClick={() => onRevoke(leave.id)}
+          className="w-full py-2.5 rounded-xl text-xs font-medium bg-slate-700 hover:bg-red-500/20 hover:text-red-400 text-slate-400 transition-colors flex items-center justify-center gap-1.5"
+        >
+          <RotateCcw className="w-3.5 h-3.5" /> Qaytarish
+        </button>
+      )}
+
+      {/* Date submitted */}
+      <p className="text-[10px] text-[var(--text-muted)] opacity-50">
+        {dayjs(leave.createdAt).format("DD.MM.YYYY HH:mm")} da yuborilgan
+      </p>
+    </div>
   );
 }
 
@@ -275,43 +348,58 @@ export default function LeavesPage() {
           ))}
         </div>
 
-        {/* Table */}
-        <div className="card overflow-hidden">
-          {isLoading ? (
-            <div className="p-10 text-center">
-              <Loader2 className="w-6 h-6 animate-spin mx-auto text-indigo-400" />
+        {/* Content */}
+        {isLoading ? (
+          <div className="card p-10 text-center">
+            <Loader2 className="w-6 h-6 animate-spin mx-auto text-indigo-400" />
+          </div>
+        ) : records.length === 0 ? (
+          <div className="card p-10 text-center">
+            <CalendarDays className="w-12 h-12 mx-auto mb-3 text-[var(--text-muted)] opacity-30" />
+            <p className="text-sm text-[var(--text-muted)]">So'rovlar yo'q</p>
+          </div>
+        ) : (
+          <>
+            {/* Mobile: cards */}
+            <div className="md:hidden space-y-3">
+              {records.map((leave) => (
+                <LeaveCard
+                  key={leave.id}
+                  leave={leave}
+                  onReview={setReviewLeave}
+                  onRevoke={(id) => revokeMutation.mutate(id)}
+                />
+              ))}
             </div>
-          ) : records.length === 0 ? (
-            <div className="p-10 text-center">
-              <CalendarDays className="w-12 h-12 mx-auto mb-3 text-[var(--text-muted)] opacity-30" />
-              <p className="text-sm text-[var(--text-muted)]">So'rovlar yo'q</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-[var(--border)]">
-                    {["Xodim", "Tur", "Muddat", "Holat", "Amal"].map((h) => (
-                      <th key={h} className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wide">
-                        {h}
-                      </th>
+
+            {/* Desktop: table */}
+            <div className="card overflow-hidden hidden md:block">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-[var(--border)]">
+                      {["Xodim", "Tur", "Muddat", "Holat", "Amal"].map((h) => (
+                        <th key={h} className="px-4 py-3 text-left text-xs font-medium text-[var(--text-muted)] uppercase tracking-wide">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {records.map((leave) => (
+                      <LeaveRow
+                        key={leave.id}
+                        leave={leave}
+                        onReview={setReviewLeave}
+                        onRevoke={(id) => revokeMutation.mutate(id)}
+                      />
                     ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {records.map((leave) => (
-                    <LeaveRow
-                      key={leave.id}
-                      leave={leave}
-                      onReview={setReviewLeave}
-                      onRevoke={(id) => revokeMutation.mutate(id)}
-                    />
-                  ))}
-                </tbody>
-              </table>
+                  </tbody>
+                </table>
+              </div>
             </div>
-          )}
-        </div>
+          </>
+        )}
       </div>
     </div>
   );
