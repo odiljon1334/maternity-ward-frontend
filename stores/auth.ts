@@ -21,6 +21,7 @@ interface AuthStore {
   logout: () => void;
   isAuthenticated: () => boolean;
   setSelectedHospital: (h: { id: string; name: string; code: string } | null) => void;
+  updateHospitalGps: (lat: number, lng: number) => void;
 }
 
 /** Next.js middleware uchun cookie saqlash yordamchisi */
@@ -59,6 +60,17 @@ export const useAuthStore = create<AuthStore>()(
       },
       isAuthenticated: () => !!get().token,
       setSelectedHospital: (h) => set({ selectedHospital: h }),
+      /** Hospital GPS o'rnatilgandan so'ng store ni yangilash */
+      updateHospitalGps: (lat: number, lng: number) => {
+        const user = get().user;
+        if (!user) return;
+        set({
+          user: {
+            ...user,
+            hospital: user.hospital ? { ...user.hospital, gpsLat: lat, gpsLng: lng } : user.hospital,
+          },
+        });
+      },
     }),
     {
       name: "auth-storage",

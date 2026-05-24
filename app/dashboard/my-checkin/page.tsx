@@ -187,7 +187,7 @@ export default function MyCheckinPage() {
   const qc   = useQueryClient();
   const cam  = useCameraCapture();
   const gps  = useGPS();
-  const { user } = useAuthStore();
+  const { user, updateHospitalGps } = useAuthStore();
 
   // Erta ketish ogohlantirishi uchun state
   const [showEarlyWarning, setShowEarlyWarning] = useState(false);
@@ -241,6 +241,8 @@ export default function MyCheckinPage() {
     setHospitalSaveError(null);
     try {
       await attendanceApi.setHospitalGps(gps.coords.lat, gps.coords.lng);
+      // Auth store dagi hospital GPS ni ham yangilaymiz — banner qayta ko'rinmasin
+      updateHospitalGps(gps.coords.lat, gps.coords.lng);
       setHospitalSetupDone(true);
       setHospitalSetupStep("idle");
     } catch (e: any) {
@@ -256,8 +258,17 @@ export default function MyCheckinPage() {
   const ActionIcon   = isCheckedIn ? LogOut : LogIn;
   const actionColor  = isCheckedIn ? "bg-red-600 hover:bg-red-700" : "bg-indigo-600 hover:bg-indigo-700";
 
+  // Check-in bo'lsa, 2 soat o'tganmi?
+  const minutesSinceCheckIn = isCheckedIn && data?.checkIn
+    ? dayjs().diff(dayjs(data.checkIn), "minute")
+    : 999;
+  const minWorkMinutes = 120;
+  const canCheckOut = minutesSinceCheckIn >= minWorkMinutes;
+  const checkOutWaitMin = Math.max(0, minWorkMinutes - minutesSinceCheckIn);
+
   // GPS va Selfie ikkalasi ham majburiy
-  const canSubmit = !mutation.isPending && !isComplete && gps.coords != null && cam.capturedFile != null;
+  const canSubmit = !mutation.isPending && !isComplete && gps.coords != null && cam.capturedFile != null
+    && (!isCheckedIn || canCheckOut); // check-out uchun 2 soat o'tishi kerak
 
   // Erta ketish tekshiruvi — check-out da expectedCheckOut dan oldin ketayotgan bo'lsa
   const expectedCheckOut = data?.expectedCheckOut ? dayjs(data.expectedCheckOut) : null;
@@ -647,8 +658,21 @@ export default function MyCheckinPage() {
             </button>
           )}
 
+          {/* 2 soat kutish ogohlantirishi */}
+          {isCheckedIn && !isCheckedOut && !canCheckOut && (
+            <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25">
+              <span className="text-lg">⏳</span>
+              <div>
+                <p className="text-xs font-medium text-amber-300">Check-out hali erta</p>
+                <p className="text-xs text-amber-400/80">
+                  {checkOutWaitMin} daqiqadan so'ng check-out qilish mumkin (minimum 2 soat)
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Hint */}
-          {missingMsg && !mutation.isPending && !showEarlyWarning && (
+          {missingMsg && !mutation.isPending && !showEarlyWarning && canCheckOut && (
             <p className="text-center text-xs text-[var(--text-muted)]">
               ⬆ {missingMsg}
             </p>
