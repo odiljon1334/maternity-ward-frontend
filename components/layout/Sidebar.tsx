@@ -6,7 +6,8 @@ import {
   LayoutDashboard, Users, CalendarDays, ClipboardList,
   DollarSign, FileBarChart2, Settings, LogOut,
   Activity, ChevronLeft, ChevronRight, Building2, Bell,
-  CreditCard, UserPlus, Shield, Send, Eye, X, Video, ScanFace, UserCircle, Palmtree, BarChart2, Wallet,
+  CreditCard, UserPlus, Shield, Send, Eye, X, Video, 
+  ScanFace, UserCircle, Palmtree, BarChart2, Wallet, Bot,
 } from "lucide-react";
 import { cn, getInitials, getAvatarColor } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth";
@@ -35,6 +36,7 @@ const mainNavItems = [
   { href: "/dashboard/notifications", label: "Bildirishnomalar", icon: Bell,            roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN"] },
   { href: "/dashboard/audit-logs",  label: "Audit Log",          icon: Shield,          roles: ["SUPER_ADMIN"] },
   { href: "/dashboard/telegram",    label: "Telegram",           icon: Send,            roles: ["SUPER_ADMIN"] },
+  { href: "/agent",                 label: "AI Agent",           icon: Bot,             roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR"] },
 ];
 
 export function Sidebar() {
@@ -74,7 +76,7 @@ export function Sidebar() {
       <aside
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex flex-col h-full transition-transform duration-300",
-          "bg-[var(--sidebar-bg)] border-r border-[var(--border)]",
+          "bg-[var(--sidebar-bg)] backdrop-blur-2xl border-r border-[var(--border)] shadow-2xl shadow-black/20",
           // Mobile: drawer — show/hide via transform
           mobileOpen ? "translate-x-0" : "-translate-x-full",
           // Desktop: always visible, sticky, relative

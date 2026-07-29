@@ -32,9 +32,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       toggle: () => setMobileOpen((v) => !v),
       close: () => setMobileOpen(false),
     }}>
-      <div className="flex h-screen overflow-hidden bg-[var(--bg-primary)]">
+      <div className="relative flex h-screen overflow-hidden bg-[var(--bg-primary)]">
+        <div aria-hidden className="pointer-events-none absolute -top-48 -left-48 h-[32rem] w-[32rem] rounded-full bg-blue-600/10 blur-[140px] dark:block hidden" />
+        <div aria-hidden className="pointer-events-none absolute -bottom-56 -right-48 h-[34rem] w-[34rem] rounded-full bg-violet-600/10 blur-[150px] dark:block hidden" />
         <Sidebar />
-        <main className="flex-1 overflow-y-auto min-w-0 pb-16 sm:pb-0">
+        <main className="relative z-10 flex-1 overflow-y-auto min-w-0 pb-16 sm:pb-0">
           {children}
         </main>
         <BottomNav />

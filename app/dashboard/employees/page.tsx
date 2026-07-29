@@ -3,13 +3,14 @@ import { useState, useEffect, useRef, useCallback, memo, useMemo } from "react";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { employeesApi, departmentsApi, positionsApi, attendanceApi, downloadBlob, photoUrl as buildPhotoUrl } from "@/lib/api";
+import { employeesApi, departmentsApi, positionsApi, attendanceApi, leaveApi, downloadBlob, photoUrl as buildPhotoUrl } from "@/lib/api";
 import { Topbar } from "@/components/layout/Topbar";
 import { getInitials, getAvatarColor, formatMoney, cn, isSuperLike } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth";
 import {
   Plus, Search, Download, Upload, Camera, ImageIcon,
-  Trash2, X, FileSpreadsheet, Coffee, Building2, CheckSquare, Square, Eye, EyeOff, KeyRound,
+  Trash2, X, FileSpreadsheet, Coffee, Building2, 
+  CheckSquare, Square, Eye, EyeOff, KeyRound, Palmtree,
 } from "lucide-react";
 import dayjs from "dayjs";
 import { useForm } from "react-hook-form";
@@ -27,6 +28,14 @@ function normalizeStr(str: string): string {
   };
   return str.toLowerCase().split('').map(c => cyr[c] || c).join('');
 }
+
+const LEAVE_LABELS: Record<string, { label: string; emoji: string }> = {
+  VACATION:  { label: "Yillik ta'til",  emoji: "🏖" },
+  SICK:      { label: "Kasallik",        emoji: "🤒" },
+  PERSONAL:  { label: "Shaxsiy sabab",   emoji: "🏠" },
+  MATERNITY: { label: "Tug'ruq ta'tili", emoji: "🤱" },
+  UNPAID:    { label: "Haqsiz ta'til",   emoji: "📋" },
+};
 
 type EmpForm = {
   fullName:     string;
@@ -298,10 +307,11 @@ function EmployeeModal({
 
 // ── Memoized table row ────────────────────────────
 const EmpRow = memo(function EmpRow({
-  emp, lunchLate, onEdit, onDelete, onPhoto, uploadingId, router, selected, onSelect,
+  emp, lunchLate, onLeave, onEdit, onDelete, onPhoto, uploadingId, router, selected, onSelect,
 }: {
   emp: any;
   lunchLate?: number;
+  onLeave: any;
   onEdit: (emp: any) => void;
   onDelete: (id: string) => void;
   onPhoto: (id: string) => void;
@@ -343,13 +353,22 @@ const EmpRow = memo(function EmpRow({
             )}
           </button>
           <button onClick={() => router.push(`/dashboard/employees/${emp.id}`)} className="text-left hover:text-indigo-400 transition-colors group/name">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <p className="font-medium text-[var(--text-primary)] group-hover/name:text-indigo-400">{emp.fullName}</p>
               {lunchLate && lunchLate > 0 ? (
-                <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-400 whitespace-nowrap">
+            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-400 whitespace-nowrap">
                   <Coffee className="w-2.5 h-2.5" />+{lunchLate}min
                 </span>
               ) : null}
+              {onLeave && (
+                <span
+                  title={`${LEAVE_LABELS[onLeave.type]?.label ?? onLeave.type} · ${onLeave.startDate?.slice(0,10)} – ${onLeave.endDate?.slice(0,10)}`}
+                  className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 whitespace-nowrap cursor-help"
+                >
+                  <Palmtree className="w-2.5 h-2.5" />
+                  {LEAVE_LABELS[onLeave.type]?.emoji} Ta'tilda
+                </span>
+              )}
             </div>
             <p className="text-xs text-[var(--text-muted)]">{emp.phone || "—"}</p>
           </button>
@@ -549,12 +568,39 @@ export default function EmployeesPage() {
     queryFn: () => attendanceApi.daily({ date: today, targetHospitalId }),
     staleTime: 2 * 60 * 1000,
   });
+
   const lunchLateMap = new Map<string, number>();
   if (Array.isArray(todayAttRaw)) {
     for (const r of todayAttRaw) {
       if (r.employeeId && (r.lunchLateMin ?? 0) > 0) lunchLateMap.set(r.employeeId, r.lunchLateMin);
     }
   }
+
+  const { data: onLeaveRecords = [] } = useQuery({
+    queryKey: ["employees-on-leave", today, targetHospitalId],
+    queryFn: async () => {
+      const data = await leaveApi.list({
+        status: "APPROVED",
+        limit: 500,
+        ...(targetHospitalId ? { targetHospitalId } : {}),
+      });
+      const records: any[] = data?.records ?? [];
+      return records.filter((r: any) => {
+        const start = r.startDate?.slice(0, 10);
+        const end   = r.endDate?.slice(0, 10);
+        return today >= start && today <= end;
+      });
+    },
+    staleTime: 5 * 60_000,
+  });
+
+  const onLeaveMap = useMemo(() => {
+    const map = new Map<string, any>();
+    for (const r of onLeaveRecords) {
+      map.set(r.employeeId, r);
+    }
+    return map;
+  }, [onLeaveRecords]);
 
   // ── Delete ───────────────────────────────────
   const deleteMutation = useMutation({
@@ -866,6 +912,14 @@ export default function EmployeesPage() {
                         <Coffee className="w-2.5 h-2.5" />+{lunchLateMap.get(emp.id)}min
                       </span>
                     )}
+                    {onLeaveMap.has(emp.id) && (
+                      <span 
+                      title={`${LEAVE_LABELS[onLeaveMap.get(emp.id)?.type]?.label} · ${onLeaveMap.get(emp.id)?.startDate?.slice(0,10)} – ${onLeaveMap.get(emp.id)?.endDate?.slice(0,10)}`} 
+                      className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 cursor-help">
+                    <Palmtree className="w-2.5 h-2.5" />
+                    {LEAVE_LABELS[onLeaveMap.get(emp.id)?.type]?.emoji} Ta'tilda
+                    </span>
+                    )}
                   </div>
                   <p className="text-xs text-[var(--text-muted)] truncate">{emp.department?.name} · {emp.position?.name}</p>
                 </button>
@@ -936,6 +990,7 @@ export default function EmployeesPage() {
                     key={emp.id}
                     emp={emp}
                     lunchLate={lunchLateMap.get(emp.id)}
+                    onLeave={onLeaveMap.get(emp.id)}
                     onEdit={(e) => { setEditEmp(e); setModalOpen(true); }}
                     onDelete={(id) => deleteMutation.mutate(id)}
                     onPhoto={handlePhotoClick}

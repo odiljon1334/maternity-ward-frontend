@@ -185,7 +185,7 @@ export function Topbar({ title, subtitle }: TopbarProps) {
         </div>
       )}
 
-      <header className="flex items-center gap-3 justify-between px-4 lg:px-6 py-3 lg:py-4 border-b border-[var(--border)] bg-[var(--bg-secondary)]">
+      <header className="sticky top-0 z-30 flex items-center gap-3 justify-between px-4 lg:px-6 py-3 lg:py-4 border-b border-[var(--border)] bg-[var(--bg-secondary)] backdrop-blur-2xl shadow-sm shadow-black/5">
         <div className="flex items-center gap-3 min-w-0">
           {/* Hamburger — mobile only */}
           <button
