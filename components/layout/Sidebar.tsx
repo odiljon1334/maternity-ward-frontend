@@ -7,36 +7,45 @@ import {
   DollarSign, FileBarChart2, Settings, LogOut,
   Activity, ChevronLeft, ChevronRight, Building2, Bell,
   CreditCard, UserPlus, Shield, Send, Eye, X, Video, 
-  ScanFace, UserCircle, Palmtree, BarChart2, Wallet, Bot,
+  ScanFace, UserCircle, Palmtree, BarChart2, Wallet, Bot, Archive,
 } from "lucide-react";
 import { cn, getInitials, getAvatarColor } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth";
 import { useMobileMenu } from "@/contexts/mobile-menu";
 import { useState, useEffect } from "react";
 
-const mainNavItems = [
-  { href: "/dashboard/ministry",       label: "Vazirlik Paneli", icon: Eye,            roles: ["MINISTRY"] },
-  { href: "/dashboard/my-checkin",      label: "Check-in",         icon: ScanFace,       roles: ["EMPLOYEE"] },
-  { href: "/dashboard/my-attendance",  label: "Mening davomatim", icon: ClipboardList,  roles: ["EMPLOYEE"] },
-  { href: "/dashboard/my-schedule",    label: "Mening grafigim",  icon: CalendarDays,   roles: ["EMPLOYEE"] },
-  { href: "/dashboard/my-leaves",      label: "Ta'til so'rovlari", icon: Palmtree,       roles: ["EMPLOYEE"] },
-  { href: "/dashboard/my-payroll",     label: "Maoshim",           icon: Wallet,         roles: ["EMPLOYEE"] },
-  { href: "/dashboard/profile",        label: "Profilim",          icon: UserCircle,     roles: ["EMPLOYEE"] },
-  { href: "/dashboard",                label: "Dashboard",        icon: LayoutDashboard, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
-  { href: "/dashboard/employees",   label: "Xodimlar",           icon: Users,           roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
-  { href: "/dashboard/schedules",   label: "Grafik",             icon: CalendarDays,    roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
-  { href: "/dashboard/attendance",  label: "Davomat",            icon: ClipboardList,   roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
-  { href: "/dashboard/leaves",      label: "Ta'til so'rovlari",  icon: Palmtree,        roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
-  { href: "/dashboard/cameras",    label: "Kameralar",          icon: Video,           roles: ["MINISTRY"] },
-  { href: "/dashboard/payroll",     label: "Maosh",              icon: DollarSign,      roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
-  { href: "/dashboard/analytics",   label: "Chuqur tahlil",      icon: BarChart2,       roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
-  { href: "/dashboard/reports",     label: "Hisobotlar",         icon: FileBarChart2,   roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
-  { href: "/dashboard/hospitals",   label: "Kasalxonalar",       icon: Building2,       roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN"] },
-  { href: "/dashboard/payments",    label: "To'lovlar",          icon: CreditCard,      roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN"] },
-  { href: "/dashboard/notifications", label: "Bildirishnomalar", icon: Bell,            roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN"] },
-  { href: "/dashboard/audit-logs",  label: "Audit Log",          icon: Shield,          roles: ["SUPER_ADMIN"] },
-  { href: "/dashboard/telegram",    label: "Telegram",           icon: Send,            roles: ["SUPER_ADMIN"] },
-  { href: "/agent",                 label: "AI Agent",           icon: Bot,             roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR"] },
+type NavItem = {
+  href:   string;
+  label:  string;
+  icon:   React.ElementType;
+  roles:  string[];
+  exact?: boolean;  // ← yangi
+};
+
+const mainNavItems: NavItem[] = [
+  { href: "/dashboard/ministry",          label: "Vazirlik Paneli",    icon: Eye,            exact: true,  roles: ["MINISTRY"] },
+  { href: "/dashboard/my-checkin",        label: "Check-in",           icon: ScanFace,       exact: true,  roles: ["EMPLOYEE"] },
+  { href: "/dashboard/my-attendance",     label: "Mening davomatim",   icon: ClipboardList,  exact: false, roles: ["EMPLOYEE"] },
+  { href: "/dashboard/my-schedule",       label: "Mening grafigim",    icon: CalendarDays,   exact: false, roles: ["EMPLOYEE"] },
+  { href: "/dashboard/my-leaves",         label: "Ta'til so'rovlari",  icon: Palmtree,       exact: false, roles: ["EMPLOYEE"] },
+  { href: "/dashboard/my-payroll",        label: "Maoshim",            icon: Wallet,         exact: false, roles: ["EMPLOYEE"] },
+  { href: "/dashboard/profile",           label: "Profilim",           icon: UserCircle,     exact: false, roles: ["EMPLOYEE"] },
+  { href: "/dashboard",                   label: "Dashboard",          icon: LayoutDashboard, exact: true, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
+  { href: "/dashboard/employees",         label: "Xodimlar",           icon: Users,          exact: true,  roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
+  { href: "/dashboard/employees/archive", label: "Xodimlar arxivi",    icon: Archive,        exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
+  { href: "/dashboard/schedules",         label: "Grafik",             icon: CalendarDays,   exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
+  { href: "/dashboard/attendance",        label: "Davomat",            icon: ClipboardList,  exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
+  { href: "/dashboard/leaves",            label: "Ta'til so'rovlari",  icon: Palmtree,       exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
+  { href: "/dashboard/cameras",           label: "Kameralar",          icon: Video,          exact: false, roles: ["MINISTRY"] },
+  { href: "/dashboard/payroll",           label: "Maosh",              icon: DollarSign,     exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
+  { href: "/dashboard/analytics",         label: "Chuqur tahlil",      icon: BarChart2,      exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
+  { href: "/dashboard/reports",           label: "Hisobotlar",         icon: FileBarChart2,  exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
+  { href: "/dashboard/hospitals",         label: "Kasalxonalar",       icon: Building2,      exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN"] },
+  { href: "/dashboard/payments",          label: "To'lovlar",          icon: CreditCard,     exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN"] },
+  { href: "/dashboard/notifications",     label: "Bildirishnomalar",   icon: Bell,           exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN"] },
+  { href: "/dashboard/audit-logs",        label: "Audit Log",          icon: Shield,         exact: false, roles: ["SUPER_ADMIN"] },
+  { href: "/dashboard/telegram",          label: "Telegram",           icon: Send,           exact: false, roles: ["SUPER_ADMIN"] },
+  { href: "/agent",                       label: "AI Agent",           icon: Bot,            exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR"] },
 ];
 
 export function Sidebar() {
@@ -117,8 +126,11 @@ export function Sidebar() {
 
         {/* Nav items */}
         <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto">
-          {navItems.map(({ href, label, icon: Icon }) => {
-            const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
+          {navItems.map((item) => {
+            const { href, label, icon: Icon } = item;
+            const active = item.exact
+            ? pathname === href
+            : pathname === href || pathname.startsWith(href + "/");
             return (
               <Link
                 key={href}

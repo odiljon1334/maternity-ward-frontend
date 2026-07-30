@@ -305,15 +305,188 @@ function EmployeeModal({
   );
 }
 
+const FIRE_REASONS = [
+  { value: "RESIGNED",    label: "O'z xohishi bilan ketdi" },
+  { value: "FIRED",       label: "Ishdan bo'shatildi"       },
+  { value: "RETIRED",     label: "Pensiyaga chiqdi"         },
+  { value: "TRANSFERRED", label: "Boshqa joyga o'tdi"       },
+  { value: "OTHER",       label: "Boshqa sabab"             },
+];
+
+function FireModal({
+  open,
+  onClose,
+  employee,
+  targetHospitalId,
+}: {
+  open: boolean;
+  onClose: () => void;
+  employee: any;
+  targetHospitalId?: string;
+}) {
+  const qc = useQueryClient();
+  const [reason,  setReason]  = useState("RESIGNED");
+  const [note,    setNote]    = useState("");
+  const [firedAt, setFiredAt] = useState(dayjs().format("YYYY-MM-DD"));
+
+  useEffect(() => {
+    if (open) {
+      setReason("RESIGNED");
+      setNote("");
+      setFiredAt(dayjs().format("YYYY-MM-DD"));
+    }
+  }, [open]);
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      employeesApi.fire(
+        employee.id,
+        { fireReason: reason, fireNote: note || undefined, firedAt },
+        targetHospitalId ? { targetHospitalId } : undefined,
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["employees"] });
+      toast.success(`${employee.fullName} ishdan bo'shatildi`);
+      onClose();
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message || "Xatolik"),
+  });
+
+  if (!open || !employee) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative card w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl">
+        
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-orange-500/15 flex items-center justify-center">
+              <span className="text-lg">👋</span>
+            </div>
+            <div>
+              <h2 className="font-semibold text-[var(--text-primary)] text-sm">Ishdan bo'shatish</h2>
+              <p className="text-xs text-[var(--text-muted)]">{employee.fullName}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="btn-ghost p-1.5">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="p-5 space-y-4">
+          
+          {/* Xodim info */}
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--bg-hover)]">
+            {employee.photoUrl ? (
+              <img
+                src={buildPhotoUrl(employee.photoUrl)}
+                alt={employee.fullName}
+                className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+              />
+            ) : (
+              <div className={cn("w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0", getAvatarColor(employee.fullName))}>
+                {getInitials(employee.fullName)}
+              </div>
+            )}
+            <div>
+              <p className="font-medium text-[var(--text-primary)] text-sm">{employee.fullName}</p>
+              <p className="text-xs text-[var(--text-muted)]">
+                {employee.department?.name} · {employee.position?.name}
+              </p>
+              <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                Ishga kirgan: {dayjs(employee.hiredAt).format("DD.MM.YYYY")}
+              </p>
+            </div>
+          </div>
+
+          {/* Ketish sababi */}
+          <div>
+            <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">
+              Ketish sababi *
+            </label>
+            <select
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="input-field w-full"
+            >
+              {FIRE_REASONS.map((r) => (
+                <option key={r.value} value={r.value}>{r.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Ketgan sana */}
+          <div>
+            <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">
+              Ketgan sana *
+            </label>
+            <input
+              type="date"
+              value={firedAt}
+              onChange={(e) => setFiredAt(e.target.value)}
+              className="input-field w-full"
+              max={dayjs().format("YYYY-MM-DD")}
+            />
+          </div>
+
+          {/* Izoh */}
+          <div>
+            <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">
+              Qo'shimcha izoh <span className="opacity-50">(ixtiyoriy)</span>
+            </label>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              className="input-field w-full resize-none"
+              rows={3}
+              placeholder="Masalan: Shaxsiy sabablarga ko'ra ishdan ketdi..."
+            />
+          </div>
+
+          {/* Warning */}
+          <div className="flex items-start gap-2 p-3 rounded-xl bg-orange-500/10 border border-orange-500/20">
+            <span className="text-orange-400 text-base flex-shrink-0">⚠️</span>
+            <p className="text-xs text-orange-300">
+              Xodim ishdan bo'shatilgandan so'ng arxivga o'tadi. 
+              Barcha tarixi (davomat, maosh) saqlanib qoladi.
+            </p>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex gap-3 px-5 pb-5">
+          <button
+            onClick={onClose}
+            className="btn-secondary flex-1"
+          >
+            Bekor
+          </button>
+          <button
+            onClick={() => mutation.mutate()}
+            disabled={mutation.isPending}
+            className="flex-1 px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold transition-colors disabled:opacity-50"
+          >
+            {mutation.isPending ? "Saqlanmoqda..." : "Bo'shatishni tasdiqlash"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Memoized table row ────────────────────────────
 const EmpRow = memo(function EmpRow({
-  emp, lunchLate, onLeave, onEdit, onDelete, onPhoto, uploadingId, router, selected, onSelect,
+  emp, lunchLate, onLeave, onEdit, onFire, onDelete, onPhoto, uploadingId, router, selected, onSelect,
 }: {
   emp: any;
   lunchLate?: number;
   onLeave: any;
   onEdit: (emp: any) => void;
   onDelete: (id: string) => void;
+  onFire: (emp: any) => void;
   onPhoto: (id: string) => void;
   uploadingId: string | null;
   router: any;
@@ -379,18 +552,31 @@ const EmpRow = memo(function EmpRow({
       <td className="px-5 py-3.5 font-mono text-xs text-[var(--text-muted)]">{emp.employeeNo || <span className="opacity-40">—</span>}</td>
       <td className="px-5 py-3.5">{formatMoney(emp.baseSalary)}</td>
       <td className="px-5 py-3.5">
-        {emp.firedAt ? <span className="badge-red">Ketgan</span> : <span className="badge-green">Aktiv</span>}
+      {emp.firedAt || emp.status === 'FIRED'
+        ? <span className="badge-red">Ketgan</span>
+        : emp.status === 'ON_LEAVE'
+        ? <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-400">Ta'tilda</span>
+        : <span className="badge-green">Faol</span>
+      }
       </td>
       <td className="px-5 py-3.5">
         <div className="flex items-center gap-1 justify-end">
-          <button onClick={() => onEdit(emp)} className="text-indigo-400 hover:text-indigo-300 px-2 py-1 rounded text-xs font-medium">
+          <button onClick={() => onEdit(emp)} 
+            className="text-indigo-400 hover:text-indigo-300 px-2 py-1 rounded text-xs font-medium">
             Tahrirlash
           </button>
+          {!emp.firedAt && (
+            <button
+              onClick={() => onFire(emp)}
+              className="px-2 py-1 rounded text-xs font-medium text-orange-400 hover:text-orange-300 hover:bg-orange-500/10"
+              title="Ishdan bo'shatish">
+              Bo'shatish
+            </button>
+          )}
           <button
             onClick={() => confirm("O'chirishni tasdiqlaysizmi?") && onDelete(emp.id)}
-            className="p-1.5 rounded text-[var(--text-muted)] hover:text-red-400 hover:bg-red-500/10"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
+            className="p-1.5 rounded text-[var(--text-muted)] hover:text-red-400 hover:bg-red-500/10">
+          <Trash2 className="w-3.5 h-3.5" />
           </button>
         </div>
       </td>
@@ -419,6 +605,8 @@ export default function EmployeesPage() {
   const [showPhotoMenuMain, setShowPhotoMenuMain] = useState(false);
   const [importing, setImporting] = useState(false);
   const [fixing, setFixing]       = useState(false);
+  const [fireModalOpen, setFireModalOpen] = useState(false);
+const [fireEmp, setFireEmp] = useState<any>(null);
 
   // ── Bulk selection ───────────────────────────
   const [selectedIds, setSelectedIds]   = useState<string[]>([]);
@@ -866,83 +1054,109 @@ export default function EmployeesPage() {
         )}
 
         {/* ── Mobile cards ── */}
-        <div className="sm:hidden space-y-3">
-          {isLoading && [...Array(5)].map((_, i) => (
-            <div key={i} className="card p-4 animate-pulse">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-[var(--bg-hover)]" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 rounded bg-[var(--bg-hover)] w-3/4" />
-                  <div className="h-3 rounded bg-[var(--bg-hover)] w-1/2" />
-                </div>
-              </div>
-            </div>
-          ))}
-          {!isLoading && employees.length === 0 && (
-            <div className="card p-8 text-center text-[var(--text-muted)] text-sm">Xodimlar topilmadi</div>
-          )}
-          {employees.map((emp: any) => (
-            <div key={emp.id} className={cn("card p-4", selectedIds.includes(emp.id) && "ring-1 ring-indigo-500/40 bg-indigo-500/5")}>
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => toggleSelect(emp.id, !selectedIds.includes(emp.id))}
-                  className="text-[var(--text-muted)] hover:text-indigo-400 transition-colors flex-shrink-0"
-                >
-                  {selectedIds.includes(emp.id)
-                    ? <CheckSquare className="w-4 h-4 text-indigo-400" />
-                    : <Square className="w-4 h-4" />}
-                </button>
-                <button onClick={() => handlePhotoClick(emp.id)} className="relative group flex-shrink-0">
-                  {emp.photoUrl
-                    ? <img src={buildPhotoUrl(emp.photoUrl)} alt={emp.fullName} className="w-10 h-10 rounded-full object-cover" />
-                    : <div className={cn("w-10 h-10 rounded-full flex items-center justify-center text-xs font-semibold text-white", getAvatarColor(emp.fullName))}>
-                        {getInitials(emp.fullName)}
-                      </div>
-                  }
-                  <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Camera className="w-3.5 h-3.5 text-white" />
-                  </div>
-                </button>
-                <button className="flex-1 min-w-0 text-left" onClick={() => router.push(`/dashboard/employees/${emp.id}`)}>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <p className="font-medium text-[var(--text-primary)] text-sm">{emp.fullName}</p>
-                    {lunchLateMap.has(emp.id) && (
-                      <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-400">
-                        <Coffee className="w-2.5 h-2.5" />+{lunchLateMap.get(emp.id)}min
-                      </span>
-                    )}
-                    {onLeaveMap.has(emp.id) && (
-                      <span 
-                      title={`${LEAVE_LABELS[onLeaveMap.get(emp.id)?.type]?.label} · ${onLeaveMap.get(emp.id)?.startDate?.slice(0,10)} – ${onLeaveMap.get(emp.id)?.endDate?.slice(0,10)}`} 
-                      className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 cursor-help">
-                    <Palmtree className="w-2.5 h-2.5" />
-                    {LEAVE_LABELS[onLeaveMap.get(emp.id)?.type]?.emoji} Ta'tilda
-                    </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-[var(--text-muted)] truncate">{emp.department?.name} · {emp.position?.name}</p>
-                </button>
-                {emp.firedAt ? <span className="badge-red flex-shrink-0">Ketgan</span> : <span className="badge-green flex-shrink-0">Aktiv</span>}
-              </div>
-              <div className="flex items-center gap-3 mt-3 pt-3 border-t border-[var(--border)]">
-                <span className="font-mono text-xs text-[var(--text-muted)]">{emp.employeeNo || "—"}</span>
-                <span className="text-xs text-[var(--text-primary)] font-medium">{formatMoney(emp.baseSalary)}</span>
-                <div className="ml-auto flex items-center gap-1">
-                  <button onClick={() => { setEditEmp(emp); setModalOpen(true); }} className="text-indigo-400 hover:text-indigo-300 px-2 py-1 rounded text-xs font-medium">
-                    Tahrirlash
-                  </button>
-                  <button
-                    onClick={() => confirm("O'chirishni tasdiqlaysizmi?") && deleteMutation.mutate(emp.id)}
-                    className="p-1.5 rounded text-[var(--text-muted)] hover:text-red-400 hover:bg-red-500/10"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
+<div className="sm:hidden space-y-3">
+  {isLoading && [...Array(5)].map((_, i) => (
+    <div key={i} className="card p-4 animate-pulse">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-full bg-[var(--bg-hover)]" />
+        <div className="flex-1 space-y-2">
+          <div className="h-4 rounded bg-[var(--bg-hover)] w-3/4" />
+          <div className="h-3 rounded bg-[var(--bg-hover)] w-1/2" />
         </div>
+      </div>
+    </div>
+  ))}
+  {!isLoading && employees.length === 0 && (
+    <div className="card p-8 text-center text-[var(--text-muted)] text-sm">Xodimlar topilmadi</div>
+  )}
+  {employees.map((emp: any) => (
+    <div key={emp.id} className={cn("card p-4", selectedIds.includes(emp.id) && "ring-1 ring-indigo-500/40 bg-indigo-500/5")}>
+      
+      {/* Yuqori qator: checkbox + avatar + ism + badge */}
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => toggleSelect(emp.id, !selectedIds.includes(emp.id))}
+          className="text-[var(--text-muted)] hover:text-indigo-400 transition-colors flex-shrink-0"
+        >
+          {selectedIds.includes(emp.id)
+            ? <CheckSquare className="w-4 h-4 text-indigo-400" />
+            : <Square className="w-4 h-4" />}
+        </button>
+
+        <button onClick={() => handlePhotoClick(emp.id)} className="relative group flex-shrink-0">
+          {emp.photoUrl
+            ? <img src={buildPhotoUrl(emp.photoUrl)} alt={emp.fullName} className="w-10 h-10 rounded-full object-cover" />
+            : <div className={cn("w-10 h-10 rounded-full flex items-center justify-center text-xs font-semibold text-white", getAvatarColor(emp.fullName))}>
+                {getInitials(emp.fullName)}
+              </div>
+          }
+          <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+            <Camera className="w-3.5 h-3.5 text-white" />
+          </div>
+        </button>
+
+        <button className="flex-1 min-w-0 text-left" onClick={() => router.push(`/dashboard/employees/${emp.id}`)}>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <p className="font-medium text-[var(--text-primary)] text-sm">{emp.fullName}</p>
+            {lunchLateMap.has(emp.id) && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-400">
+                <Coffee className="w-2.5 h-2.5" />+{lunchLateMap.get(emp.id)}min
+              </span>
+            )}
+            {onLeaveMap.has(emp.id) && (
+              <span
+                title={`${LEAVE_LABELS[onLeaveMap.get(emp.id)?.type]?.label} · ${onLeaveMap.get(emp.id)?.startDate?.slice(0,10)} – ${onLeaveMap.get(emp.id)?.endDate?.slice(0,10)}`}
+                className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 cursor-help"
+              >
+                <Palmtree className="w-2.5 h-2.5" />
+                {LEAVE_LABELS[onLeaveMap.get(emp.id)?.type]?.emoji} Ta'tilda
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-[var(--text-muted)] truncate">{emp.department?.name} · {emp.position?.name}</p>
+        </button>
+
+        {/* Status badge */}
+        {emp.firedAt || emp.status === 'FIRED'
+          ? <span className="badge-red flex-shrink-0">Ketgan</span>
+          : emp.status === 'ON_LEAVE'
+          ? <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 flex-shrink-0">Ta'tilda</span>
+          : <span className="badge-green flex-shrink-0">Faol</span>
+        }
+      </div>
+
+      {/* Quyi qator: employeeNo + maosh + tugmalar */}
+      <div className="flex items-center gap-3 mt-3 pt-3 border-t border-[var(--border)]">
+        <span className="font-mono text-xs text-[var(--text-muted)]">{emp.employeeNo || "—"}</span>
+        <span className="text-xs text-[var(--text-primary)] font-medium">{formatMoney(emp.baseSalary)}</span>
+        <div className="ml-auto flex items-center gap-1">
+          <button
+            onClick={() => { setEditEmp(emp); setModalOpen(true); }}
+            className="text-indigo-400 hover:text-indigo-300 px-2 py-1 rounded text-xs font-medium"
+          >
+            Tahrirlash
+          </button>
+          {!emp.firedAt && emp.status !== 'FIRED' && (
+            <button
+              onClick={() => { setFireEmp(emp); setFireModalOpen(true); }}
+              className="text-orange-400 hover:text-orange-300 px-2 py-1 rounded text-xs font-medium"
+            >
+              Bo'shatish
+            </button>
+          )}
+          <button
+            onClick={() => confirm("O'chirishni tasdiqlaysizmi?") && deleteMutation.mutate(emp.id)}
+            className="p-1.5 rounded text-[var(--text-muted)] hover:text-red-400 hover:bg-red-500/10"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+
+    </div>
+  ))}
+</div>
 
         {/* Mobile sentinel — infinite scroll uchun */}
         <div ref={mobileSentinelRef} className="h-4 sm:hidden" />
@@ -993,6 +1207,7 @@ export default function EmployeesPage() {
                     onLeave={onLeaveMap.get(emp.id)}
                     onEdit={(e) => { setEditEmp(e); setModalOpen(true); }}
                     onDelete={(id) => deleteMutation.mutate(id)}
+                    onFire={(e) => { setFireEmp(e); setFireModalOpen(true); }}
                     onPhoto={handlePhotoClick}
                     uploadingId={uploadingEmpId}
                     router={router}
@@ -1042,6 +1257,12 @@ export default function EmployeesPage() {
         positions={positions}
         targetHospitalId={targetHospitalId}
         currentUserRole={user?.role}
+      />
+      <FireModal 
+      open={fireModalOpen} 
+      onClose={() => { setFireModalOpen(false); setFireEmp(null); }} 
+      employee={fireEmp} 
+      targetHospitalId={targetHospitalId}
       />
 
       {/* ── Bulk action bar ──────────────────────── */}

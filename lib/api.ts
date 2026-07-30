@@ -126,8 +126,8 @@ export const employeesApi = {
     api.post("/employees", data, { params }).then((r) => r.data.data),
   update: (id: string, data: any, params?: { targetHospitalId?: string }) =>
     api.put(`/employees/${id}`, data, { params }).then((r) => r.data.data),
-  fire: (id: string, params?: { targetHospitalId?: string }) =>
-    api.put(`/employees/${id}/fire`, {}, { params }).then((r) => r.data.data),
+  fire: (id: string, data?: { fireReason?: string; fireNote?: string; firedAt?: string }, params?: { targetHospitalId?: string }) =>
+    api.put(`/employees/${id}/fire`, data ?? {}, { params }).then((r) => r.data.data),
   delete: (id: string, params?: { targetHospitalId?: string }) =>
     api.delete(`/employees/${id}`, { params }).then((r) => r.data.data),
   uploadPhoto: (id: string, file: File, params?: { targetHospitalId?: string }) => {
@@ -158,6 +158,12 @@ export const employeesApi = {
     api.post("/employees/bulk-delete", { ids }, { params }).then((r) => r.data),
   bulkMoveDepartment: (ids: string[], departmentId: string, params?: { targetHospitalId?: string }) =>
     api.put("/employees/bulk-department", { ids, departmentId }, { params }).then((r) => r.data),
+  archive: (params?: { search?: string; page?: number; limit?: number; targetHospitalId?: string }) =>
+    api.get("/employees/archive", { params }).then((r) => r.data),
+  getArchived: (id: string) =>
+    api.get(`/employees/archive/${id}`).then((r) => r.data.data ?? r.data),
+  lookup: (phone: string, params?: { targetHospitalId?: string }) =>
+    api.get("/employees/lookup", { params: { phone, ...params } }).then((r) => r.data.data ?? r.data),
 };
 
 // ─── Schedules ──────────────────────────────────
