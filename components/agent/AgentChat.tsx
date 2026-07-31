@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
-import { Send, Bot, User, Loader2, FileDown } from "lucide-react";
+import { Send, Bot, User, Loader2, FileDown, Trash2 } from "lucide-react";
 import VoiceInput from "./VoiceInput";
 import ToolResultCard from "./ToolResultCard";
 
@@ -23,24 +23,60 @@ const QUICK_ACTIONS = [
 
 const now = () =>
   new Date().toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit" });
+const STORAGE_KEY = "agent-chat-history";
+
+const WELCOME_MSG: Message = {
+  id: "0",
+  role: "assistant",
+  content: "Assalomu alaykum! Men Maternity Ward AI assistantiman 🏥\nXodimlar, davomat, maosh va jadval bo'yicha yordam bera olaman.",
+  time: "",
+};
 
 export default function AgentChat() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "0",
-      role: "assistant",
-      content: "Assalomu alaykum! Men Maternity Ward AI assistantiman 🏥\nXodimlar, davomat, maosh va jadval bo'yicha yordam bera olaman.",
-      time: now(),
-    },
-  ]);
+  // useState ni yangilash
+  const [messages, setMessages] = useState<Message[]>([WELCOME_MSG]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const historyRef = useRef<{ role: string; content: string }[]>([]);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+ // 1. Scroll
+useEffect(() => {
+  bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+}, [messages]);
+
+// 2. localStorage tiklash + welcome vaqti
+useEffect(() => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const parsed: Message[] = JSON.parse(saved);
+      if (parsed.length > 0) {
+        setMessages(parsed);
+        historyRef.current = parsed
+          .filter(m => m.content)
+          .map(m => ({ role: m.role, content: m.content }));
+        return;
+      }
+    }
+  } catch {}
+  setMessages(prev => prev.map(m =>
+    m.id === "0" ? { ...m, time: now() } : m
+  ));
+}, []);
+
+// 3. localStorage saqlash
+useEffect(() => {
+  if (messages.length > 1) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+  }
+}, [messages]);
+
+const clearChat = () => {
+  localStorage.removeItem(STORAGE_KEY);
+  historyRef.current = [];
+  setMessages([WELCOME_MSG]);
+};
 
   const send = async (text: string) => {
     if (!text.trim() || streaming) return;
@@ -152,6 +188,14 @@ export default function AgentChat() {
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white text-xs transition-colors"
         >
           <FileDown size={13} /> Eksport
+        </button>
+
+        <button 
+          onClick={clearChat} 
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-red-400 text-xs transition-colors"
+          >
+            <Trash2 size={13} /> 
+            Tozalash
         </button>
       </div>
 
