@@ -162,8 +162,8 @@ export const employeesApi = {
     api.get("/employees/archive", { params }).then((r) => r.data),
   getArchived: (id: string) =>
     api.get(`/employees/archive/${id}`).then((r) => r.data.data ?? r.data),
-  lookup: (phone: string, params?: { targetHospitalId?: string }) =>
-    api.get("/employees/lookup", { params: { phone, ...params } }).then((r) => r.data.data ?? r.data),
+  lookup: (params: { fullName: string; birthDate?: string; targetHospitalId?: string }) =>
+    api.get("/employees/lookup", { params }).then((r) => r.data.data ?? r.data),
 };
 
 // ─── Schedules ──────────────────────────────────

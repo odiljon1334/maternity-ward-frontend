@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import dayjs from "dayjs";
 import { useForm } from "react-hook-form";
+import { ArchivedBioModal } from "@/components/employees/ArchivedBioModal";
 
 const LIMIT = 20;
 
@@ -47,6 +48,7 @@ type EmpForm = {
   positionId:   string;
   username:     string;
   password:     string;
+  birthDate?:   string;
 };
 
 // ── Employee Form Modal ──────────────────────────
@@ -61,8 +63,7 @@ function EmployeeModal({
   targetHospitalId?: string;
   currentUserRole?: string;
 }) {
-  const qc = useQueryClient();
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<EmpForm>({
+  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<EmpForm>({
     defaultValues: { gender: "FEMALE" },
   });
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -71,6 +72,46 @@ function EmployeeModal({
   const [showPassword, setShowPassword] = useState(false);
   const photoRef       = useRef<HTMLInputElement>(null);
   const photoRefCamera = useRef<HTMLInputElement>(null);
+  const [lookupResults, setLookupResults] = useState<any[]>([]);
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [showLookup, setShowLookup]       = useState(false);
+  const lookupDebounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const [bioEmpId, setBioEmpId] = useState<string | null>(null);
+
+  const qc = useQueryClient();
+
+  const watchedName = watch("fullName");
+  const watchedBirthDate = watch("birthDate");
+
+useEffect(() => {
+  // Faqat yangi xodim qo'shganda (edit emas)
+  if (employee) return;
+  if (!watchedName || watchedName.trim().length < 3) {
+    setLookupResults([]);
+    setShowLookup(false);
+    return;
+  }
+
+  clearTimeout(lookupDebounceRef.current);
+  lookupDebounceRef.current = setTimeout(async () => {
+    setLookupLoading(true);
+    try {
+      const results = await employeesApi.lookup({
+        fullName:  watchedName.trim(),
+        birthDate: watchedBirthDate || undefined,
+        ...(targetHospitalId ? { targetHospitalId } : {}),
+      });
+      setLookupResults(results ?? []);
+      setShowLookup((results ?? []).length > 0);
+    } catch {
+      setLookupResults([]);
+    } finally {
+      setLookupLoading(false);
+    }
+  }, 600);
+
+  return () => clearTimeout(lookupDebounceRef.current);
+}, [watchedName, watchedBirthDate, employee]);
 
   // Mavjud xodimning login ma'lumotlari bor-yo'qligi
   const hasAccount = !!employee?.user?.username;
@@ -107,9 +148,10 @@ function EmployeeModal({
 
   const mutation = useMutation({
     mutationFn: async (data: EmpForm) => {
+      const { birthDate, ...rest } = data;
       const emp = employee
-        ? await employeesApi.update(employee.id, data, params)
-        : await employeesApi.create(data, params);
+        ? await employeesApi.update(employee.id, rest, params)
+        : await employeesApi.create({ ...rest, birthDate: birthDate || undefined }, params);
       if (photoFile) await employeesApi.uploadPhoto(emp.id, photoFile, params);
       return emp;
     },
@@ -177,6 +219,84 @@ function EmployeeModal({
               {errors.fullName && <p className="text-xs text-red-400 mt-1">{errors.fullName.message}</p>}
             </div>
 
+            {/* Lookup banner — faqat yangi xodim qo'shganda */}
+          {!employee && (
+            <div>
+              {lookupLoading && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--bg-hover)] text-xs text-[var(--text-muted)]">
+                  <div className="w-3 h-3 border border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                  Arxivdan qidirilmoqda...
+                </div>
+              )}
+
+              {showLookup && lookupResults.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-amber-400 flex items-center gap-1.5">
+                    ⚠️ Bu ismga mos arxiv yozuvlari topildi
+                  </p>
+                  {lookupResults.map((r) => {
+                    const confidenceColor =
+                      r.confidence === 'HIGH'   ? 'border-red-500/40 bg-red-500/5'    :
+                      r.confidence === 'MEDIUM' ? 'border-amber-500/40 bg-amber-500/5' :
+                                        'border-gray-500/20 bg-gray-500/5';
+                    const confidenceLabel =
+                      r.confidence === 'HIGH'   ? '🔴 Yuqori moslik' :
+                      r.confidence === 'MEDIUM' ? '🟡 O\'rta moslik'  :
+                                        '⚪ Past moslik';
+
+                    return (
+                      <div key={r.id} className={`rounded-xl border p-3 space-y-2 ${confidenceColor}`}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            {r.photoUrl ? (
+                              <img
+                                src={buildPhotoUrl(r.photoUrl)}
+                                alt={r.fullName}
+                                className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                              />
+                            ) : (
+                              <div className={cn("w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0", getAvatarColor(r.fullName))}>
+                                {getInitials(r.fullName)}
+                              </div>
+                            )}
+                            <div>
+                              <p className="text-sm font-semibold text-[var(--text-primary)]">{r.fullName}</p>
+                              <p className="text-xs text-[var(--text-muted)]">{r.position} · {r.department}</p>
+                            </div>
+                          </div>
+                          <span className="text-[10px] font-semibold text-[var(--text-muted)] whitespace-nowrap">
+                            {confidenceLabel}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-[var(--text-muted)]">
+                          <span>🏥 {r.hospital?.name}</span>
+                          <span>⏱ {r.duration}</span>
+                          <span>💰 {formatMoney(r.lastSalary)}</span>
+                          {r.fireReason && (
+                          <span>🚪 {
+                            r.fireReason === 'RESIGNED'    ? "O'z xohishi" :
+                            r.fireReason === 'FIRED'       ? "Bo'shatildi"  :
+                            r.fireReason === 'RETIRED'     ? "Pensiya"      :
+                            r.fireReason === 'TRANSFERRED' ? "O'tkazildi"   : "Boshqa"
+                          }</span>
+                        )}
+                        {r.hospital?.phone && <span>📞 {r.hospital.phone}</span>}
+                      </div>
+                      <button 
+                        type="button" 
+                        onClick={() => setBioEmpId(r.id)} 
+                        className="w-full mt-2 text-xs text-indigo-400 hover:text-indigo-300 font-medium py-1.5 rounded-lg hover:bg-indigo-500/10 transition-colors"
+                      >
+                        Batafsil bio ko'rish →
+                      </button>
+                    </div>
+                  );
+                 })}
+                </div>
+              )}
+            </div>
+          )}
             <div>
               <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Jinsi</label>
               <select {...register("gender")} className="input-field">
@@ -193,6 +313,16 @@ function EmployeeModal({
             <div>
               <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Telefon</label>
               <input {...register("phone")} className="input-field" placeholder="+998901234567" />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Tug'ilgan sana</label>
+              <input
+                {...register("birthDate")}
+                type="date"
+                className="input-field"
+                max={new Date().toISOString().slice(0, 10)}
+              />
             </div>
 
             <div>
@@ -300,6 +430,12 @@ function EmployeeModal({
             </button>
           </div>
         </div>
+      )}
+      {bioEmpId && (
+        <ArchivedBioModal
+          empId={bioEmpId}
+          onClose={() => setBioEmpId(null)}
+        />
       )}
     </div>
   );
@@ -606,7 +742,8 @@ export default function EmployeesPage() {
   const [importing, setImporting] = useState(false);
   const [fixing, setFixing]       = useState(false);
   const [fireModalOpen, setFireModalOpen] = useState(false);
-const [fireEmp, setFireEmp] = useState<any>(null);
+  const [fireEmp, setFireEmp] = useState<any>(null);
+  const [statusFilter, setStatusFilter] = useState(""); // "" | ACTIVE | ON_LEAVE | FIRED
 
   // ── Bulk selection ───────────────────────────
   const [selectedIds, setSelectedIds]   = useState<string[]>([]);
@@ -628,12 +765,13 @@ const [fireEmp, setFireEmp] = useState<any>(null);
     isFetchingNextPage,
     isLoading,
   } = useInfiniteQuery({
-    queryKey: ["employees", search, deptFilter, targetHospitalId],
+    queryKey: ["employees", search, deptFilter, statusFilter, targetHospitalId],
 
     queryFn: ({ pageParam = 1 }) =>
       employeesApi.list({
         search,
         departmentId: deptFilter || undefined,
+        employeeStatus: statusFilter || undefined,
         page: pageParam as number,
         limit: LIMIT,
         ...(params || {}),
@@ -718,6 +856,7 @@ const [fireEmp, setFireEmp] = useState<any>(null);
     setSearchInput("");
     setSearch("");
     setPhotoFilter("all");
+    setStatusFilter("");
     setSelectedIds([]);
   }, [targetHospitalId]);
 
@@ -946,6 +1085,17 @@ const [fireEmp, setFireEmp] = useState<any>(null);
             >
               <option value="">Barcha bo'limlar</option>
               {(departments as any[]).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="input-field flex-1 sm:w-44 sm:flex-none sm:flex-shrink-0"
+            >
+              <option value="">Barcha holat</option>
+              <option value="ACTIVE">✅ Faol</option>
+              <option value="ON_LEAVE">🏖 Ta'tilda</option>
+              <option value="FIRED">❌ Ketgan</option>
             </select>
 
             <div className="flex flex-wrap items-center gap-2 ml-auto sm:ml-auto">

@@ -9,6 +9,7 @@
   --bg-card:       #ffffff;
   --bg-hover:      #f3f4f6;
   --border:        #e5e7eb;
+  --border-hover:  #d1d5db;
   --text-primary:  #111827;
   --text-muted:    #6b7280;
   --sidebar-bg:    #1e2638;
@@ -21,15 +22,16 @@
 .dark {
   --bg-primary:    #080b16;
   --bg-secondary:  rgba(15, 20, 36, 0.72);
-  --bg-card:       rgba(20, 27, 46, 0.66);
-  --bg-hover:      rgba(255, 255, 255, 0.08);
-  --border:        rgba(255, 255, 255, 0.12);
+  --bg-card:       rgba(20, 27, 46, 0.60);
+  --bg-hover:      rgba(255, 255, 255, 0.07);
+  --border:        rgba(255, 255, 255, 0.10);
+  --border-hover:  rgba(255, 255, 255, 0.18);
   --text-primary:  #f8fafc;
   --text-muted:    #a8b3c7;
-  --sidebar-bg:    rgba(10, 15, 30, 0.84);
-  --sidebar-text:  #d1d5db;
-  --sidebar-hover: rgba(255, 255, 255, 0.08);
-  --sidebar-active:rgba(255, 255, 255, 0.14);
+  --sidebar-bg:    rgba(8, 12, 28, 0.90);
+  --sidebar-text:  #c4cdd8;
+  --sidebar-hover: rgba(255, 255, 255, 0.07);
+  --sidebar-active:rgba(99, 102, 241, 0.20);
 }
 
 * { box-sizing: border-box; }
@@ -42,17 +44,17 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-/* Tungi rejim: chuqur mesh-gradient fon va shaffof qatlamlar. */
+/* ── Dark mode: mesh-gradient fon ── */
 html.dark body {
   background-image:
-    radial-gradient(circle at 8% 2%, rgba(37, 99, 235, 0.23), transparent 31rem),
-    radial-gradient(circle at 92% 92%, rgba(126, 34, 206, 0.21), transparent 34rem),
-    radial-gradient(circle at 51% 42%, rgba(67, 56, 202, 0.14), transparent 28rem);
+    radial-gradient(circle at 8%  2%,  rgba(37,  99, 235, 0.22), transparent 32rem),
+    radial-gradient(circle at 92% 92%, rgba(126, 34, 206, 0.20), transparent 35rem),
+    radial-gradient(circle at 50% 45%, rgba(67,  56, 202, 0.12), transparent 30rem);
   background-attachment: fixed;
 }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 5px; height: 5px; }
+/* ── Scrollbar ── */
+::-webkit-scrollbar       { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
@@ -60,7 +62,7 @@ html.dark body {
 @layer utilities {
   .text-balance { text-wrap: balance; }
 
-  /* Theme-aware bg */
+  /* Theme-aware helpers */
   .bg-primary   { background-color: var(--bg-primary); }
   .bg-secondary { background-color: var(--bg-secondary); }
   .bg-card      { background-color: var(--bg-card); }
@@ -69,22 +71,22 @@ html.dark body {
   .text-theme   { color: var(--text-primary); }
   .text-muted   { color: var(--text-muted); }
 
-  /* Card - screenshot stilida */
+  /* ── Card ── */
   .card {
     background-color: var(--bg-card);
     border: 1px solid var(--border);
-    @apply rounded-xl;
+    @apply rounded-xl transition-all duration-200;
   }
 
-  /* Badges - screenshot'dagi outlined green badge */
+  /* ── Badges ── */
   .badge-green  { @apply inline-flex items-center rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-400; }
-  .badge-red    { @apply inline-flex items-center rounded-full border border-red-500/40   bg-red-500/10   px-2.5 py-0.5 text-xs font-medium text-red-400; }
+  .badge-red    { @apply inline-flex items-center rounded-full border border-red-500/40    bg-red-500/10    px-2.5 py-0.5 text-xs font-medium text-red-400; }
   .badge-yellow { @apply inline-flex items-center rounded-full border border-yellow-500/40 bg-yellow-500/10 px-2.5 py-0.5 text-xs font-medium text-yellow-400; }
-  .badge-gray   { @apply inline-flex items-center rounded-full border border-gray-500/40  bg-gray-500/10  px-2.5 py-0.5 text-xs font-medium text-gray-400; }
-  .badge-blue   { @apply inline-flex items-center rounded-full border border-blue-500/40  bg-blue-500/10  px-2.5 py-0.5 text-xs font-medium text-blue-400; }
+  .badge-gray   { @apply inline-flex items-center rounded-full border border-gray-500/40   bg-gray-500/10   px-2.5 py-0.5 text-xs font-medium text-gray-400; }
+  .badge-blue   { @apply inline-flex items-center rounded-full border border-blue-500/40   bg-blue-500/10   px-2.5 py-0.5 text-xs font-medium text-blue-400; }
   .badge-purple { @apply inline-flex items-center rounded-full border border-purple-500/40 bg-purple-500/10 px-2.5 py-0.5 text-xs font-medium text-purple-400; }
 
-  /* Inputs */
+  /* ── Inputs ── */
   .input-field {
     @apply block w-full rounded-lg px-3 py-2 text-sm
            focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
@@ -95,7 +97,7 @@ html.dark body {
   }
   .input-field::placeholder { color: var(--text-muted); }
 
-  /* Buttons */
+  /* ── Buttons ── */
   .btn-primary {
     @apply inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white
            hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500
@@ -107,6 +109,9 @@ html.dark body {
     background-color: var(--bg-hover);
     color: var(--text-primary);
     border: 1px solid var(--border);
+  }
+  .btn-secondary:hover {
+    border-color: var(--border-hover);
   }
   .btn-ghost {
     @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium
@@ -122,7 +127,7 @@ html.dark body {
            hover:bg-red-500/20 transition-all duration-150;
   }
 
-  /* Sidebar nav item */
+  /* ── Sidebar nav item ── */
   .nav-item {
     @apply flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 cursor-pointer;
     color: var(--sidebar-text);
@@ -136,31 +141,108 @@ html.dark body {
     color: #fff;
   }
 
-  /* Table row hover */
-  .table-row-hover {
-    transition: background-color 0.1s ease;
-  }
-  .table-row-hover:hover {
-    background-color: var(--bg-hover);
-  }
+  /* ── Table row hover ── */
+  .table-row-hover { transition: background-color 0.1s ease; }
+  .table-row-hover:hover { background-color: var(--bg-hover); }
 }
 
+/* ════════════════════════════════════════
+   DARK MODE — Glass Morphism overrides
+   ════════════════════════════════════════ */
+
+/* Card */
 html.dark .card {
-  background-color: var(--bg-card);
-  border-color: var(--border);
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(20px);
+  background-color: rgba(20, 27, 46, 0.55);
+  border-color: rgba(255, 255, 255, 0.09);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
 }
 
-html.dark .input-field {
-  background-color: rgba(255, 255, 255, 0.055);
+html.dark .card:hover {
   border-color: rgba(255, 255, 255, 0.14);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.09);
 }
 
-/* Push notification banner animation */
+/* Input */
+html.dark .input-field {
+  background-color: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.11);
+  color: #f8fafc;
+}
+
+html.dark .input-field:focus {
+  background-color: rgba(255, 255, 255, 0.08);
+  border-color: rgba(99, 102, 241, 0.55);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.14);
+}
+
+/* Select dark */
+html.dark select.input-field option {
+  background-color: #0f1628;
+  color: #f8fafc;
+}
+
+/* btn-secondary dark */
+html.dark .btn-secondary {
+  background-color: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.11);
+  color: #e2e8f0;
+}
+
+html.dark .btn-secondary:hover {
+  background-color: rgba(255, 255, 255, 0.11);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+/* Sidebar nav active — indigo glow */
+html.dark .nav-item.active {
+  background: rgba(99, 102, 241, 0.18);
+  border: 1px solid rgba(99, 102, 241, 0.28);
+  color: #fff;
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.08);
+}
+
+html.dark .nav-item:hover {
+  background-color: rgba(255, 255, 255, 0.07);
+  color: #fff;
+}
+
+/* Table row */
+html.dark .table-row-hover:hover {
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+/* Badge glow dark */
+html.dark .badge-green  { box-shadow: 0 0 10px rgba(52,  211, 153, 0.12); }
+html.dark .badge-red    { box-shadow: 0 0 10px rgba(248, 113, 113, 0.12); }
+html.dark .badge-blue   { box-shadow: 0 0 10px rgba(96,  165, 250, 0.12); }
+html.dark .badge-purple { box-shadow: 0 0 10px rgba(167, 139, 250, 0.12); }
+html.dark .badge-yellow { box-shadow: 0 0 10px rgba(251, 191,  36, 0.12); }
+
+/* Modal backdrop dark */
+html.dark .modal-backdrop {
+  background: rgba(4, 7, 18, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Scrollbar dark */
+html.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+}
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+/* Push notification */
 @keyframes slide-up {
   from { opacity: 0; transform: translateX(-50%) translateY(20px); }
-  to   { opacity: 1; transform: translateX(-50%) translateY(0);    }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 .animate-slide-up {
   animation: slide-up 0.3s ease forwards;
