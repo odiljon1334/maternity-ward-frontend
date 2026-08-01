@@ -75,21 +75,37 @@ export const toolHandlers: Record<string, (input: any, token: string) => Promise
     return apiFetch(`/schedules/monthly?${q}`, token);
   },
 
-  get_schedule_employee: ({ employeeId, month, year }, token) => {
+  get_schedule_employee: async ({ employeeId, month, year }, token) => {
     const q = new URLSearchParams();
     if (month) q.set("month", String(month));
     if (year)  q.set("year", String(year));
-    return apiFetch(`/schedules/employee/${employeeId}?${q}`, token);
+    
+    // Xodim ma'lumotini ham olamiz
+    const [schedules, employee] = await Promise.all([
+      apiFetch(`/schedules/employee/${employeeId}?${q}`, token),
+      apiFetch(`/employees/${employeeId}`, token),
+    ]);
+  
+    return {
+      employeeName: employee?.fullName,
+      department:   employee?.department?.name,
+      position:     employee?.position?.name,
+      schedules:    Array.isArray(schedules) ? schedules : schedules?.data ?? [],
+    };
   },
-
+  
   // ── Shiftlar ────────────────────────────────────────────────────────────────
   get_shifts: (_input, token) =>
     apiFetch(`/shifts`, token),
 
-  create_shift: async ({ name, type, startTime, endTime, graceMinutes, lunchStart, lunchEnd }, token) => {
+  create_shift: async ({ name, type, startTime, endTime, graceMinutes, lunchStart, lunchEnd, hospitalId }, token) => {
     const overnight = isOvernight(startTime, endTime);
     const durationH = calcDurationH(startTime, endTime);
-    return apiFetch(`/shifts`, token, {
+  
+    const q = new URLSearchParams();
+    if (hospitalId) q.set("targetHospitalId", hospitalId);
+  
+    return apiFetch(`/shifts?${q}`, token, {
       method: "POST",
       body: JSON.stringify({
         name,

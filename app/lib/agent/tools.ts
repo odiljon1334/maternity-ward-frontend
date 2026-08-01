@@ -89,7 +89,7 @@ export const tools = [
     },
     {
       name: "create_shift",
-      description: "Yangi shift yaratadi. Faqat get_shifts da kerakli vaqt topilmasa ishlat.",
+      description: "Yangi shift yaratadi. Faqat get_shifts da kerakli vaqt topilmasa ishlat. SUPER_ADMIN uchun hospitalId majburiy — avval get_departments dan oling.",
       input_schema: {
         type: "object" as const,
         properties: {
@@ -102,6 +102,7 @@ export const tools = [
           graceMinutes: { type: "number", description: "Kechikish uchun ruxsat daqiqalar, odatda 15" },
           lunchStart:   { type: "string", description: "Tushlik boshi HH:MM, ixtiyoriy" },
           lunchEnd:     { type: "string", description: "Tushlik oxiri HH:MM, ixtiyoriy" },
+          hospitalId:   { type: "string", description: "Kasalxona ID si — SUPER_ADMIN uchun majburiy. get_departments orqali oling." }, // ← qo'shildi
         },
         required: ["name", "type", "startTime", "endTime", "durationH"],
       },

@@ -149,23 +149,48 @@ function PayrollCard({ result }: { result: any }) {
 }
 
 function ScheduleCard({ result }: { result: any }) {
-  const list = Array.isArray(result) ? result : result?.data ?? result?.schedules ?? [];
+  const list = Array.isArray(result)
+    ? result
+    : result?.schedules ?? result?.data ?? [];
+
   return (
     <CardWrapper icon="📅" label="Jadval" color="border-purple-500/20 bg-purple-500/5">
-      <div className="space-y-1.5 max-h-56 overflow-y-auto">
-        {list.slice(0, 8).map((s: any, i: number) => (
+      {/* Xodim ismi */}
+      {result?.employeeName && (
+        <div className="flex items-center gap-2 mb-2 p-2 rounded-lg bg-white/5">
+          <span className="text-sm">👤</span>
+          <div>
+            <p className="text-[11px] font-semibold text-slate-100">{result.employeeName}</p>
+            <p className="text-[10px] text-slate-400">{result.department} · {result.position}</p>
+          </div>
+        </div>
+      )}
+      <p className="text-[11px] text-slate-400 mb-2">
+        Jami: <span className="text-purple-400 font-semibold">{list.length} kun</span>
+      </p>
+      <div className="space-y-1.5 max-h-48 overflow-y-auto">
+        {list.slice(0, 10).map((s: any, i: number) => (
           <div key={i} className="flex items-center gap-2 p-1.5 rounded-lg bg-white/5">
-            <Avatar name={s.employee?.fullName ?? "?"} photoUrl={s.employee?.photoUrl} size="sm" />
+            <span className="text-sm">
+              {s.status === "WORKING"  ? "✅" :
+               s.status === "DAY_OFF" ? "🔴" :
+               s.status === "VACATION"? "🏖" : "📋"}
+            </span>
             <div className="flex-1 min-w-0">
-              <p className="text-[11px] text-slate-200 truncate">{s.employee?.fullName}</p>
-              <p className="text-[10px] text-slate-400">
-                {s.shift?.name ?? "—"} · {s.shift?.startTime ?? "?"} – {s.shift?.endTime ?? "?"}
+              <p className="text-[11px] text-slate-200">
+                {s.date ? new Date(s.date).toLocaleDateString("uz-UZ", { day: "2-digit", month: "2-digit" }) : "—"}
+                {s.shift?.name ? ` · ${s.shift.name}` : ""}
               </p>
+              {s.shift?.startTime && (
+                <p className="text-[10px] text-slate-400">{s.shift.startTime} – {s.shift.endTime}</p>
+              )}
             </div>
             <StatusBadge status={s.status} />
           </div>
         ))}
-        {list.length > 8 && <p className="text-[10px] text-slate-500 text-center pt-1">... va yana {list.length - 8} ta</p>}
+        {list.length > 10 && (
+          <p className="text-[10px] text-slate-500 text-center pt-1">... va yana {list.length - 10} kun</p>
+        )}
       </div>
     </CardWrapper>
   );
@@ -246,29 +271,89 @@ function LeaveCard({ result }: { result: any }) {
 
 // ── Main export ───────────────────────────────────
 export default function ToolResultCard({ toolName, result }: ToolResult) {
-  if (toolName.includes("employee") && !toolName.includes("attendance") && !toolName.includes("schedule") && !toolName.includes("payroll") && !toolName.includes("leave")) {
-    return <EmployeesCard result={result} />;
+  // create_shift — alohida "yaratildi" karta
+  if (toolName === "create_shift") {
+    return (
+      <CardWrapper icon="✅" label="Shift yaratildi" color="border-green-500/20 bg-green-500/5">
+        <div className="space-y-1 text-xs">
+          <p className="text-slate-200 font-medium">{result?.name}</p>
+          <p className="text-slate-400">{result?.type} · {result?.startTime} – {result?.endTime}</p>
+          {result?.durationH && <p className="text-slate-400">Davomiylik: {result.durationH} soat</p>}
+        </div>
+      </CardWrapper>
+    );
   }
-  if (toolName.includes("attendance") || toolName === "get_attendance_daily" || toolName === "get_attendance_employee") {
-    return <AttendanceCard result={result} />;
-  }
-  if (toolName.includes("payroll") || toolName.includes("salary")) {
-    return <PayrollCard result={result} />;
-  }
-  if (toolName.includes("schedule") && !toolName.includes("shift")) {
-    return <ScheduleCard result={result} />;
-  }
-  if (toolName.includes("shift")) {
+
+  // get_shifts — smenalar ro'yxati
+  if (toolName === "get_shifts") {
     return <ShiftsCard result={result} />;
   }
-  if (toolName.includes("dashboard") || toolName.includes("overview") || toolName.includes("analytics")) {
+
+  // Xodimlar
+  if (toolName === "get_employees" || toolName === "get_employee") {
+    return <EmployeesCard result={result} />;
+  }
+
+  // Davomat
+  if (toolName === "get_attendance_daily" || toolName === "get_attendance_employee") {
+    return <AttendanceCard result={result} />;
+  }
+
+  // Maosh
+  if (toolName === "get_payroll_list" || toolName === "get_payroll_employee" || toolName === "preview_payroll") {
+    return <PayrollCard result={result} />;
+  }
+
+  // Jadval
+  if (toolName === "get_schedule_monthly" || toolName === "get_schedule_employee") {
+    return <ScheduleCard result={result} />;
+  }
+
+  // Jadval yaratish
+  if (toolName === "create_schedule_employee" || toolName === "create_schedule_bulk") {
+    return (
+      <CardWrapper icon="✅" label="Jadval yaratildi" color="border-green-500/20 bg-green-500/5">
+        <div className="space-y-1 text-xs">
+          {result?.summary ? (
+            <>
+              <p className="text-slate-200">Jami: <span className="text-green-400 font-semibold">{result.summary.total}</span> xodim</p>
+              <p className="text-slate-400">Muvaffaqiyatli: <span className="text-green-400">{result.summary.success}</span> · Xato: <span className="text-red-400">{result.summary.failed}</span></p>
+            </>
+          ) : (
+            <p className="text-slate-200">Yaratildi: <span className="text-green-400 font-semibold">{result?.created}</span> kun</p>
+          )}
+        </div>
+      </CardWrapper>
+    );
+  }
+
+  // Dashboard
+  if (toolName === "get_dashboard_overview" || toolName === "get_dashboard_analytics") {
     return <DashboardCard result={result} />;
   }
-  if (toolName.includes("leave")) {
+
+  // Ta'til
+  if (toolName === "get_leave_requests" || toolName === "get_employees_on_leave") {
     return <LeaveCard result={result} />;
   }
 
-  // Fallback — oddiy JSON
+  // Bo'limlar
+  if (toolName === "get_departments") {
+    return (
+      <CardWrapper icon="🏢" label="Bo'limlar" color="border-slate-500/20 bg-slate-500/5">
+        <div className="space-y-1.5 max-h-48 overflow-y-auto">
+          {(Array.isArray(result) ? result : result?.data ?? []).map((d: any, i: number) => (
+            <div key={i} className="flex items-center justify-between p-1.5 rounded-lg bg-white/5">
+              <span className="text-[11px] text-slate-200">{d.name}</span>
+              <span className="text-[10px] text-slate-400 font-mono">{d.code}</span>
+            </div>
+          ))}
+        </div>
+      </CardWrapper>
+    );
+  }
+
+  // Fallback
   return (
     <div className="rounded-xl border border-slate-500/20 bg-slate-500/5 mt-2 overflow-hidden">
       <div className="flex items-center gap-2 px-3 py-2 border-b border-white/5">
