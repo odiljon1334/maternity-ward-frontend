@@ -79,18 +79,26 @@ export const toolHandlers: Record<string, (input: any, token: string) => Promise
     const q = new URLSearchParams();
     if (month) q.set("month", String(month));
     if (year)  q.set("year", String(year));
-    
-    // Xodim ma'lumotini ham olamiz
-    const [schedules, employee] = await Promise.all([
-      apiFetch(`/schedules/employee/${employeeId}?${q}`, token),
-      apiFetch(`/employees/${employeeId}`, token),
-    ]);
+  
+    const schedules = await apiFetch(`/schedules/employee/${employeeId}?${q}`, token);
+    const list = Array.isArray(schedules) ? schedules : schedules?.data ?? [];
+  
+    // employee bor bo'lgan birinchi elementni topamiz
+    const employee = list.find((s: any) => s.employee)?.employee;
+  
+    // employee topilmasa — alohida so'rov
+    let empData = employee;
+    if (!empData) {
+      try {
+        empData = await apiFetch(`/employees/${employeeId}`, token);
+      } catch {}
+    }
   
     return {
-      employeeName: employee?.fullName,
-      department:   employee?.department?.name,
-      position:     employee?.position?.name,
-      schedules:    Array.isArray(schedules) ? schedules : schedules?.data ?? [],
+      employeeName: empData?.fullName ?? null,
+      department:   empData?.department?.name ?? null,
+      position:     empData?.position?.name ?? null,
+      schedules:    list,
     };
   },
   

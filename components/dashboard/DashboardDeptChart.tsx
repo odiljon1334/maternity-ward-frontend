@@ -9,11 +9,14 @@ import {
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-[#1e2638] border border-[#2d3748] rounded-lg px-3 py-2 text-xs">
-      <p className="text-gray-400 mb-1">{label}</p>
+    <div className="bg-[var(--bg-card,#1e2638)] border border-[var(--border,#2d3748)] rounded-xl px-3.5 py-2.5 text-xs shadow-xl backdrop-blur-md z-50">
+      <p className="text-[var(--text-muted,#94a3b8)] mb-1.5 font-semibold text-[11px] tracking-wider uppercase">
+        {label}
+      </p>
       {payload.map((p: any) => (
-        <p key={p.name} style={{ color: p.color }} className="font-medium">
-          {p.name}: {p.value}
+        <p key={p.name} style={{ color: p.color }} className="font-medium flex justify-between gap-4 py-0.5">
+          <span className="opacity-80">{p.name}:</span>
+          <span className="font-semibold">{p.value} ta</span>
         </p>
       ))}
     </div>
@@ -33,17 +36,17 @@ export default function DashboardDeptChart({ departments }: Props) {
   }));
 
   return (
-    <div className="card p-5">
+    <div className="card p-5 hover:border-indigo-500/20 transition-all duration-300">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="font-semibold text-[var(--text-primary)]">Bo'limlar bo'yicha davomat</h3>
-          <p className="text-xs text-[var(--text-muted)]">Bu oylik holat</p>
+          <h3 className="font-semibold text-[var(--text-primary)] text-base">Bo'limlar bo'yicha davomat</h3>
+          <p className="text-xs text-[var(--text-muted)] mt-0.5">Joriy oy ko'rsatkichlari bo'limlar kesimida</p>
         </div>
       </div>
       <div className="overflow-x-auto">
         <div style={{ minWidth: Math.max(560, deptData.length * 32) }}>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={deptData} barCategoryGap="30%" margin={{ bottom: 8 }}>
+            <BarChart data={deptData} barCategoryGap="30%" margin={{ bottom: 8, top: 4, right: 8, left: -16 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
               <XAxis
                 dataKey="name"
@@ -58,10 +61,10 @@ export default function DashboardDeptChart({ departments }: Props) {
               />
               <YAxis tick={{ fill: "var(--text-muted)", fontSize: 11 }} tickLine={false} axisLine={false} width={32} />
               <Tooltip content={<CustomTooltip />} />
-              <Legend wrapperStyle={{ fontSize: 12, color: "var(--text-muted)" }} />
-              <Bar dataKey="present" name="Keldi"    fill="#6366f1" radius={[3, 3, 0, 0]} />
-              <Bar dataKey="late"    name="Kechikdi" fill="#fbbf24" radius={[3, 3, 0, 0]} />
-              <Bar dataKey="absent"  name="Kelmadi"  fill="#f87171" radius={[3, 3, 0, 0]} />
+              <Legend wrapperStyle={{ fontSize: 11, color: "var(--text-muted)" }} />
+              <Bar dataKey="present" name="Keldi"    fill="#6366f1" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="late"    name="Kechikdi" fill="#fbbf24" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="absent"  name="Kelmadi"  fill="#f87171" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

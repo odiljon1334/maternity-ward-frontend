@@ -152,7 +152,6 @@ function ScheduleCard({ result }: { result: any }) {
   const list = Array.isArray(result)
     ? result
     : result?.schedules ?? result?.data ?? [];
-
   return (
     <CardWrapper icon="📅" label="Jadval" color="border-purple-500/20 bg-purple-500/5">
       {/* Xodim ismi */}

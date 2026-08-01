@@ -12,12 +12,12 @@ import { formatMoney } from "@/lib/utils";
 function ChartTooltip({ active, payload, label, formatter }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-[#1e2638] border border-[#2d3748] rounded-lg px-3 py-2 text-xs shadow-lg">
-      <p className="text-gray-400 mb-1.5 font-medium">{label}</p>
+    <div className="bg-[var(--bg-card,#1e2638)] border border-[var(--border,#2d3748)] rounded-xl px-3.5 py-2.5 text-xs shadow-xl backdrop-blur-md z-50">
+      <p className="text-[var(--text-muted,#94a3b8)] mb-1.5 font-semibold text-[11px] tracking-wider uppercase">{label}</p>
       {payload.map((p: any) => (
-        <p key={p.name} style={{ color: p.color ?? p.fill }} className="font-medium flex justify-between gap-4">
-          <span>{p.name}:</span>
-          <span>{formatter ? formatter(p.value, p.name) : p.value}</span>
+        <p key={p.name} style={{ color: p.color ?? p.fill }} className="font-medium flex justify-between gap-4 py-0.5">
+          <span className="opacity-80">{p.name}:</span>
+          <span className="font-semibold">{formatter ? formatter(p.value, p.name) : p.value}</span>
         </p>
       ))}
     </div>
@@ -44,7 +44,7 @@ export default function AnalyticsCharts({
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
       {/* ── 1. Monthly Attendance Summary ─────────────────────────────── */}
-      <div className="card p-5">
+      <div className="card p-5 hover:border-indigo-500/20 transition-all duration-300">
         <div className="mb-4">
           <h3 className="font-semibold text-[var(--text-primary)]">Oylik davomat</h3>
           <p className="text-xs text-[var(--text-muted)]">Keldi / Kelmadi / Kechikdi</p>
@@ -88,7 +88,7 @@ export default function AnalyticsCharts({
       </div>
 
       {/* ── 2. Payroll Cost Trend ──────────────────────────────────────── */}
-      <div className="card p-5">
+      <div className="card p-5 hover:border-indigo-500/20 transition-all duration-300">
         <div className="mb-4">
           <h3 className="font-semibold text-[var(--text-primary)]">Maosh xarajati trendi</h3>
           <p className="text-xs text-[var(--text-muted)]">Sof maosh (so'm)</p>
@@ -119,14 +119,14 @@ export default function AnalyticsCharts({
               }
             />
             <Legend wrapperStyle={{ fontSize: 11, color: "var(--text-muted)" }} />
-            <Bar dataKey="baseSalary" name="Asosiy maosh" fill="#4f46e5" radius={[3, 3, 0, 0]} />
-            <Bar dataKey="netSalary"  name="Sof maosh"    fill="#22c55e" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="baseSalary" name="Asosiy maosh" fill="#4f46e5" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="netSalary"  name="Sof maosh"    fill="#22c55e" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
 
       {/* ── 3. Check-in Time Heatmap ───────────────────────────────────── */}
-      <div className="card p-5">
+      <div className="card p-5 hover:border-indigo-500/20 transition-all duration-300">
         <div className="mb-4">
           <h3 className="font-semibold text-[var(--text-primary)]">Kelish vaqti tahlili</h3>
           <p className="text-xs text-[var(--text-muted)]">Soat bo'yicha (so'nggi 30 kun)</p>
@@ -151,7 +151,7 @@ export default function AnalyticsCharts({
               allowDecimals={false}
             />
             <Tooltip content={<ChartTooltip formatter={(v: number) => `${v} ta`} />} />
-            <Bar dataKey="count" name="Kelish" radius={[3, 3, 0, 0]}>
+            <Bar dataKey="count" name="Kelish" radius={[4, 4, 0, 0]}>
               {heatmap
                 .filter((h) => h.hour >= 5 && h.hour <= 23)
                 .map((entry, idx) => {
@@ -167,7 +167,7 @@ export default function AnalyticsCharts({
       </div>
 
       {/* ── 4. Monthly Approved Leaves ────────────────────────────────── */}
-      <div className="card p-5">
+      <div className="card p-5 hover:border-indigo-500/20 transition-all duration-300">
         <div className="mb-4">
           <h3 className="font-semibold text-[var(--text-primary)]">Ta'til so'rovlari trendi</h3>
           <p className="text-xs text-[var(--text-muted)]">
@@ -190,7 +190,7 @@ export default function AnalyticsCharts({
               allowDecimals={false}
             />
             <Tooltip content={<ChartTooltip formatter={(v: number) => `${v} ta`} />} />
-            <Bar dataKey="count" name="Tasdiqlangan ta'til" fill="#10b981" radius={[3, 3, 0, 0]}>
+            <Bar dataKey="count" name="Tasdiqlangan ta'til" fill="#10b981" radius={[4, 4, 0, 0]}>
               {leaveMonthly.map((_: any, idx: number) => (
                 <Cell key={`lv-${idx}`} fill={`hsl(${160 - idx * 3}, 65%, 45%)`} />
               ))}
