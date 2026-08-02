@@ -1,10 +1,10 @@
 "use client";
 
 import { GenerateModal } from "@/components/schedules/GenerateModal";
-import { useState, useMemo, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { schedulesApi, employeesApi, shiftsApi, departmentsApi } from "@/lib/api";
+import { schedulesApi, employeesApi, shiftsApi, departmentsApi, api } from "@/lib/api";
 import { Topbar } from "@/components/layout/Topbar";
 import { cn } from "@/lib/utils";
 import { 
@@ -352,7 +352,7 @@ function CellEditModal({
   const mutation = useMutation({
     mutationFn: () => schedulesApi.update(entry!.id, { status, shiftId }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["schedules-monthly"] });
+      qc.invalidateQueries({ queryKey: ["schedules-monthly-paginated"] });
       toast.success("Grafik yangilandi");
       onClose();
     },
@@ -573,20 +573,67 @@ export default function SchedulesPage() {
   const targetHospitalId = selectedHospital?.id;
   const qc = useQueryClient();
 
+  // Scroll konteyner ref'i Infinite Scroll uchun
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     setDeptFilter("");
     setEmpSearch("");
     setScheduleFilter("all");
   }, [targetHospitalId]);
 
-  const { data: schedules = [], isLoading: schedLoading } = useQuery({
-    queryKey: ["schedules-monthly", month, year, targetHospitalId],
-    queryFn: () => schedulesApi.monthly({ month, year, ...(targetHospitalId && { targetHospitalId }) }),
+  // 1. O'zgarmaydigan statistika (Cards uchun)
+  const { data: statsData, isLoading: statsLoading } = useQuery({
+    queryKey: ["schedule-statistics", month, year, targetHospitalId],
+    queryFn: () => schedulesApi.statisticsSummary({ month, year, ...(targetHospitalId && { targetHospitalId }) }),
   });
+
+ // 2. Sahifalangan (paginated) oylik grafiklar ro'yxati (Infinite Scroll uchun)
+ const { 
+  data: paginatedData, 
+  fetchNextPage, 
+  hasNextPage, 
+  isFetchingNextPage, 
+  isLoading: schedLoading 
+} = useInfiniteQuery({
+  queryKey: ['staff-schedule-paginated', month, year, targetHospitalId],
+  queryFn: async ({ pageParam = 1 }) => {
+    const res = await api.get(`/schedules/monthly-paginated`, {
+      params: {
+        page: pageParam,
+        limit: 30,
+        month: month, // 👈 Sizdagi state nomi
+        year: year,   // 👈 Sizdagi state nomi
+        targetHospitalId: targetHospitalId,
+      },
+    });
+    return res.data;
+  },
+  initialPageParam: 1,
+  getNextPageParam: (lastPage, allPages) => {
+    const items = Array.isArray(lastPage) ? lastPage : (lastPage?.data ?? lastPage?.items ?? []);
+    if (items.length < 30) {
+      return undefined;
+    }
+    return allPages.length + 1;
+  },
+});
+
+  // Infinite scroll hodisasini kuzatish
+  const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, scrollHeight, clientHeight } = event.currentTarget;
+    
+    // 100px qolgandayoq keyingi sahifani fetch qilishni boshlaydi
+    const isBottom = scrollHeight - scrollTop - clientHeight <= 100;
+  
+    if (isBottom && hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  };
 
   const { data: employeesResp, isLoading: empLoading } = useQuery({
     queryKey: ["employees-all", targetHospitalId],
-    queryFn: () => employeesApi.list({ limit: 500, ...(targetHospitalId ? { targetHospitalId } : {}) }),
+    queryFn: () => employeesApi.list({ limit: 1000, ...(targetHospitalId ? { targetHospitalId } : {}) }),
     staleTime: 30_000,
   });
   const allEmployees: any[] = (employeesResp as any)?.data ?? [];
@@ -601,54 +648,79 @@ export default function SchedulesPage() {
     queryFn: () => departmentsApi.list(targetHospitalId ? { targetHospitalId } : undefined),
   });
 
+  // Yuklangan barcha sahifalardagi xodimlar va ularning grafiklarini birlashtiramiz
+  const employeesWithSchedules = useMemo(() => {
+    if (!paginatedData?.pages) return [];
+  
+    const list: any[] = [];
+    const seenNames = new Set(); // Ismlar bo'yicha tekshiramiz
+  
+    for (const page of paginatedData.pages) {
+      const items = Array.isArray(page) ? page : (page?.data ?? page?.items ?? page?.result ?? []);
+  
+      if (Array.isArray(items)) {
+        for (const item of items) {
+          // Xodimning to'liq ismi (fullName yoki name)
+          const fullName = (item.fullName || item.name || item.employee?.fullName || "").trim().toLowerCase();
+          
+          if (fullName) {
+            if (!seenNames.has(fullName)) {
+              seenNames.add(fullName);
+              list.push(item);
+            }
+          } else {
+            list.push(item);
+          }
+        }
+      }
+    }
+    return list;
+  }, [paginatedData]);
+
+  // Grafik kataklarini tezkor topish uchun Map tuzish
   const scheduleMap = useMemo(() => {
     const map = new Map<string, Map<string, any>>();
-    for (const s of schedules as any[]) {
-      if (!map.has(s.employeeId)) map.set(s.employeeId, new Map());
-      const dateKey = dayjs(s.date).format("YYYY-MM-DD");
-      map.get(s.employeeId)!.set(dateKey, s);
+    for (const emp of employeesWithSchedules) {
+      if (!map.has(emp.id)) map.set(emp.id, new Map());
+      if (emp.schedules) {
+        for (const s of emp.schedules) {
+          const dateKey = dayjs(s.date).format("YYYY-MM-DD");
+          map.get(emp.id)!.set(dateKey, s);
+        }
+      }
     }
     return map;
-  }, [schedules]);
+  }, [employeesWithSchedules]);
 
-  const workingEmpIds = useMemo(() => {
-    const set = new Set<string>();
-    for (const s of schedules as any[]) {
-      if (s.status === "WORKING") set.add(s.employeeId);
-    }
-    return set;
-  }, [schedules]);
-
+  // Frontend filtrlash (Bo'lim, Qidiruv, Grafik mavjudligi bo'yicha)
   const employees = useMemo(() => {
     let list = deptFilter
-      ? allEmployees.filter((e) => e.department?.id === deptFilter || e.departmentId === deptFilter)
-      : [...allEmployees];
-    if (scheduleFilter === "with") list = list.filter((e) => workingEmpIds.has(e.id));
-    else if (scheduleFilter === "without") list = list.filter((e) => !workingEmpIds.has(e.id));
+      ? employeesWithSchedules.filter((e) => e.department?.id === deptFilter || e.departmentId === deptFilter)
+      : [...employeesWithSchedules];
+
+    if (scheduleFilter === "with") {
+      list = list.filter((e) => {
+        const empSch = scheduleMap.get(e.id);
+        if (!empSch) return false;
+        return Array.from(empSch.values()).some((s: any) => s.status === "WORKING");
+      });
+    } else if (scheduleFilter === "without") {
+      list = list.filter((e) => {
+        const empSch = scheduleMap.get(e.id);
+        if (!empSch) return true;
+        return !Array.from(empSch.values()).some((s: any) => s.status === "WORKING");
+      });
+    }
+
     if (empSearch.trim()) {
       const q = normalizeStr(empSearch.trim());
       list = list.filter((e) => normalizeStr(e.fullName).includes(q));
     }
     return list;
-  }, [allEmployees, deptFilter, scheduleFilter, empSearch, workingEmpIds]);
-
-  const deptFilteredEmployees = useMemo(
-    () => deptFilter ? allEmployees.filter((e) => e.department?.id === deptFilter || e.departmentId === deptFilter) : allEmployees,
-    [allEmployees, deptFilter]
-  );
-  
-  const withScheduleCount = deptFilteredEmployees.filter((e) => workingEmpIds.has(e.id)).length;
-  const withoutScheduleCount = deptFilteredEmployees.length - withScheduleCount;
+  }, [employeesWithSchedules, deptFilter, scheduleFilter, empSearch, scheduleMap]);
 
   const isLoading = schedLoading || empLoading;
   const daysInMonth = dayjs(`${year}-${String(month).padStart(2, "0")}-01`).daysInMonth();
-
-  const stats = useMemo(() => {
-    const all = schedules as any[];
-    const day = all.filter((s) => s.status === "WORKING" && s.shift?.type === "DAYTIME").length;
-    const night = all.filter((s) => s.status === "WORKING" && s.shift?.type === "NIGHTTIME").length;
-    return { day, night };
-  }, [schedules]);
 
   const navMonth = (dir: number) => {
     const next = dayjs(`${year}-${String(month).padStart(2, "0")}-01`).add(dir, "month");
@@ -667,7 +739,8 @@ export default function SchedulesPage() {
       const params = targetHospitalId ? { targetHospitalId } : undefined;
       const res = await schedulesApi.rollover({ fromMonth: prev.month() + 1, fromYear: prev.year(), toMonth: month, toYear: year }, params);
       toast.success(res?.message || "Grafiklar muvaffaqiyatli ko'chirildi", { id: tid });
-      qc.invalidateQueries({ queryKey: ["schedules-monthly"] });
+      qc.invalidateQueries({ queryKey: ["schedules-monthly-paginated"] });
+      qc.invalidateQueries({ queryKey: ["schedule-statistics"] });
     } catch (e: any) {
       toast.error(e?.response?.data?.message || "Ko'chirishda xatolik", { id: tid });
     } finally {
@@ -756,7 +829,7 @@ export default function SchedulesPage() {
           )}
         </div>
 
-        {/* Stats Cards */}
+        {/* Stats Cards (Scroll qilinganda o'zgarmaydigan umumiy statistika) */}
         {view === "grafik" && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
             <div className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl flex items-center gap-3.5 shadow-xl">
@@ -765,7 +838,9 @@ export default function SchedulesPage() {
               </div>
               <div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Jami Xodimlar</p>
-                <p className="text-lg font-bold text-slate-900 dark:text-white">{deptFilteredEmployees.length}</p>
+                <p className="text-lg font-bold text-slate-900 dark:text-white">
+                  {statsLoading ? "..." : (statsData?.totalEmployees ?? 0)}
+                </p>
               </div>
             </div>
 
@@ -775,7 +850,9 @@ export default function SchedulesPage() {
               </div>
               <div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Grafikli</p>
-                <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{withScheduleCount}</p>
+                <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                  {statsLoading ? "..." : (statsData?.withSchedule ?? 0)}
+                </p>
               </div>
             </div>
 
@@ -785,7 +862,9 @@ export default function SchedulesPage() {
               </div>
               <div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Grafiksiz</p>
-                <p className="text-lg font-bold text-amber-600 dark:text-amber-400">{withoutScheduleCount}</p>
+                <p className="text-lg font-bold text-amber-600 dark:text-amber-400">
+                  {statsLoading ? "..." : (statsData?.withoutSchedule ?? 0)}
+                </p>
               </div>
             </div>
 
@@ -795,7 +874,9 @@ export default function SchedulesPage() {
               </div>
               <div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Kunduzgi / Tungi</p>
-                <p className="text-lg font-bold text-slate-900 dark:text-white">{stats.day} / {stats.night}</p>
+                <p className="text-lg font-bold text-slate-900 dark:text-white">
+                  {statsLoading ? "..." : `${statsData?.daytime ?? 0} / ${statsData?.nighttime ?? 0}`}
+                </p>
               </div>
             </div>
           </div>
@@ -850,14 +931,18 @@ export default function SchedulesPage() {
         {/* Smenlar ko'rinishi */}
         {view === "smenlar" && <ShiftsView targetHospitalId={targetHospitalId} />}
 
-        {/* Main Grid Calendar */}
+        {/* Main Grid Calendar with Infinite Scroll */}
         {view === "grafik" && (
-          <div className="bg-white bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-2xl rounded-2xl overflow-hidden">
-            <div className="overflow-x-auto max-h-[calc(100vh-300px)] relative">
+          <div className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-2xl rounded-2xl overflow-hidden">
+            <div 
+              ref={scrollContainerRef}
+              onScroll={handleScroll}
+              className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-320px)] relative"
+            >
               <table className="w-full border-collapse text-xs table-fixed">
-                <thead className="sticky top-0 z-30 bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-xl">
+                <thead className="sticky top-0 z-30 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-xl">
                   <tr>
-                    <th className="sticky left-0 z-40 bg-white dark:bg-slate-900/80 dark:border-slate-800 text-left px-4 py-3.5 font-bold text-slate-500 dark:text-slate-400 uppercase text-[10px] tracking-wider w-[220px] min-w-[220px] border-r border-slate-200 shadow-[4px_0_12px_-2px_rgba(0,0,0,0.05)] dark:shadow-[4px_0_12px_-2px_rgba(0,0,0,0.5)]">
+                    <th className="sticky left-0 z-40 bg-white dark:bg-slate-900 text-left px-4 py-3.5 font-bold text-slate-500 dark:text-slate-400 uppercase text-[10px] tracking-wider w-[220px] min-w-[220px] border-r border-slate-200 dark:border-slate-800 shadow-[4px_0_12px_-2px_rgba(0,0,0,0.05)] dark:shadow-[4px_0_12px_-2px_rgba(0,0,0,0.5)]">
                       Xodimlarning F.I.Sh
                     </th>
                     {Array.from({ length: daysInMonth }, (_, i) => {
@@ -912,7 +997,7 @@ export default function SchedulesPage() {
                       return (
                         <tr key={emp.id} className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors group">
                           {/* Left Sticky Column */}
-                          <td className="sticky left-0 bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 dark:group-hover:bg-[#161821] z-20 px-4 py-2 border-r shadow-[4px_0_12px_-2px_rgba(0,0,0,0.05)] dark:shadow-[4px_0_12px_-2px_rgba(0,0,0,0.5)] transition-colors">
+                          <td className="sticky left-0 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 dark:group-hover:bg-[#161821] z-20 px-4 py-2 border-r shadow-[4px_0_12px_-2px_rgba(0,0,0,0.05)] dark:shadow-[4px_0_12px_-2px_rgba(0,0,0,0.5)] transition-colors">
                             <div
                               className="cursor-pointer group/item"
                               onClick={() => { setGenerateEmpId(emp.id); setModalOpen(true); }}
@@ -961,10 +1046,18 @@ export default function SchedulesPage() {
                     })}
                 </tbody>
               </table>
+
+              {/* Infinite Scroll Loading Indicator */}
+              {isFetchingNextPage && (
+                <div className="py-4 text-center text-xs text-slate-400 flex items-center justify-center gap-2 bg-slate-50/50 dark:bg-white/[0.01]">
+                  <div className="w-4 h-4 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
+                  Keyingi xodimlar yuklanmoqda...
+                </div>
+              )}
             </div>
 
             {/* Table Footer / Legend */}
-            <div className="flex flex-wrap items-center gap-6 px-6 py-3.5 bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400">
+            <div className="flex flex-wrap items-center gap-6 px-6 py-3.5 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400">
               <span className="flex items-center gap-2 font-medium">
                 <span className="bg-sky-500/10 text-sky-600 dark:text-sky-400 font-bold px-2 py-0.5 rounded-lg border border-sky-500/20 text-[10px]">K</span> Kunduzgi smen
               </span>
@@ -994,7 +1087,8 @@ export default function SchedulesPage() {
         onMonthChange={(m, y) => {
           setMonth(m);
           setYear(y);
-          qc.invalidateQueries({ queryKey: ["schedules-monthly"] });
+          qc.invalidateQueries({ queryKey: ["schedules-monthly-paginated"] });
+          qc.invalidateQueries({ queryKey: ["schedule-statistics"] });
         }}
       />
 
@@ -1010,7 +1104,10 @@ export default function SchedulesPage() {
         month={month}
         year={year}
         targetHospitalId={targetHospitalId}
-        onSuccess={() => qc.invalidateQueries({ queryKey: ["schedules-monthly"] })}
+        onSuccess={() => {
+          qc.invalidateQueries({ queryKey: ["schedules-monthly-paginated"] });
+          qc.invalidateQueries({ queryKey: ["schedule-statistics"] });
+        }}
       />
     </div>
   );

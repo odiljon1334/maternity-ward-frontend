@@ -174,6 +174,13 @@ export const schedulesApi = {
     api.get("/schedules/daily", { params }).then((r) => r.data.data),
   monthly: (params?: { month?: number; year?: number; targetHospitalId?: string }) =>
     api.get("/schedules/monthly", { params }).then((r) => r.data.data),
+  
+  // YANGI QO'SHILADIGAN API'LAR:
+  statisticsSummary: (params?: { month?: number; year?: number; targetHospitalId?: string }) =>
+    api.get("/schedules/statistics/summary", { params }).then((r) => r.data.data ?? r.data),
+  monthlyPaginated: (params?: { month?: number; year?: number; page?: number; limit?: number; targetHospitalId?: string }) =>
+    api.get("/schedules/monthly-paginated", { params }).then((r) => r.data.data ?? r.data),
+
   employee: (id: string, params?: { month?: number; year?: number }) =>
     api.get(`/schedules/employee/${id}`, { params }).then((r) => r.data.data),
   generate: (data: any) => api.post("/schedules/generate", data).then((r) => r.data.data),
@@ -186,7 +193,7 @@ export const schedulesApi = {
     api.post("/schedules/import-xlsx", formData, {
       headers: { "Content-Type": "multipart/form-data" },
       params,
-      timeout: 300000, // 5 daqiqa — katta import uchun
+      timeout: 300000,
     }).then((r) => r.data.data ?? r.data),
 };
 
