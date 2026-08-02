@@ -41,7 +41,7 @@ const mainNavItems: NavItem[] = [
   { href: "/dashboard/analytics",         label: "Chuqur tahlil",      icon: BarChart2,      exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/reports",           label: "Hisobotlar",         icon: FileBarChart2,  exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/hospitals",         label: "Kasalxonalar",       icon: Building2,      exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN"] },
-  { href: "/dashboard/payments",          label: "To'lovlar",          icon: CreditCard,     exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN"] },
+  { href: "/dashboard/payments",          label: "To'lovlar",          icon: CreditCard,     exact: false, roles: ["SUPER_ADMIN",] },
   { href: "/dashboard/notifications",     label: "Bildirishnomalar",   icon: Bell,           exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN"] },
   { href: "/dashboard/audit-logs",        label: "Audit Log",          icon: Shield,         exact: false, roles: ["SUPER_ADMIN"] },
   { href: "/dashboard/telegram",          label: "Telegram",           icon: Send,           exact: false, roles: ["SUPER_ADMIN"] },
