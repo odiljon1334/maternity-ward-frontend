@@ -10,7 +10,7 @@ import { useAuthStore } from "@/stores/auth";
 import {
   Plus, Search, Download, Upload, Camera, ImageIcon,
   Trash2, X, FileSpreadsheet, Coffee, Building2, 
-  CheckSquare, Square, Eye, EyeOff, KeyRound, Palmtree,
+  CheckSquare, Square, Eye, EyeOff, KeyRound, Palmtree, ChevronRight, UserX, AlertTriangle
 } from "lucide-react";
 import dayjs from "dayjs";
 import { useForm } from "react-hook-form";
@@ -18,7 +18,6 @@ import { ArchivedBioModal } from "@/components/employees/ArchivedBioModal";
 
 const LIMIT = 20;
 
-// ─── Kirill → Lotin normalizer ────────────────────────────────────────────────
 function normalizeStr(str: string): string {
   const cyr: Record<string, string> = {
     'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'yo','ж':'j','з':'z',
@@ -83,37 +82,35 @@ function EmployeeModal({
   const watchedName = watch("fullName");
   const watchedBirthDate = watch("birthDate");
 
-useEffect(() => {
-  // Faqat yangi xodim qo'shganda (edit emas)
-  if (employee) return;
-  if (!watchedName || watchedName.trim().length < 3) {
-    setLookupResults([]);
-    setShowLookup(false);
-    return;
-  }
-
-  clearTimeout(lookupDebounceRef.current);
-  lookupDebounceRef.current = setTimeout(async () => {
-    setLookupLoading(true);
-    try {
-      const results = await employeesApi.lookup({
-        fullName:  watchedName.trim(),
-        birthDate: watchedBirthDate || undefined,
-        ...(targetHospitalId ? { targetHospitalId } : {}),
-      });
-      setLookupResults(results ?? []);
-      setShowLookup((results ?? []).length > 0);
-    } catch {
+  useEffect(() => {
+    if (employee) return;
+    if (!watchedName || watchedName.trim().length < 3) {
       setLookupResults([]);
-    } finally {
-      setLookupLoading(false);
+      setShowLookup(false);
+      return;
     }
-  }, 600);
 
-  return () => clearTimeout(lookupDebounceRef.current);
-}, [watchedName, watchedBirthDate, employee]);
+    clearTimeout(lookupDebounceRef.current);
+    lookupDebounceRef.current = setTimeout(async () => {
+      setLookupLoading(true);
+      try {
+        const results = await employeesApi.lookup({
+          fullName:  watchedName.trim(),
+          birthDate: watchedBirthDate || undefined,
+          ...(targetHospitalId ? { targetHospitalId } : {}),
+        });
+        setLookupResults(results ?? []);
+        setShowLookup((results ?? []).length > 0);
+      } catch {
+        setLookupResults([]);
+      } finally {
+        setLookupLoading(false);
+      }
+    }, 600);
 
-  // Mavjud xodimning login ma'lumotlari bor-yo'qligi
+    return () => clearTimeout(lookupDebounceRef.current);
+  }, [watchedName, watchedBirthDate, employee, targetHospitalId]);
+
   const hasAccount = !!employee?.user?.username;
 
   useEffect(() => {
@@ -167,41 +164,45 @@ useEffect(() => {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative card w-full sm:max-w-lg max-h-[92vh] sm:max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)] sticky top-0 bg-[var(--bg-card)] z-10">
-          <h2 className="font-semibold text-[var(--text-primary)]">
-            {employee ? "Xodimni tahrirlash" : "Yangi xodim"}
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={onClose} />
+      <div className="relative card w-full sm:max-w-lg max-h-[92vh] sm:max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl border border-[var(--border)] shadow-2xl bg-[var(--bg-card)] text-[var(--text-primary)]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border)] sticky top-0 bg-[var(--bg-card)]/90 backdrop-blur-md z-10">
+          <h2 className="font-bold text-lg text-[var(--text-primary)]">
+            {employee ? "Xodimni tahrirlash" : "Yangi xodim qo'shish"}
           </h2>
-          <button onClick={onClose} className="btn-ghost p-1.5">
-            <X className="w-4 h-4" />
+          <button onClick={onClose} className="p-2 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors">
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="p-5 space-y-4">
-          <div className="flex items-center gap-4">
+        <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="p-6 space-y-4">
+          <div className="flex items-center gap-4 p-3 rounded-xl bg-[var(--bg-hover)]/40 border border-[var(--border)]/50">
             <div
               onClick={() => setShowPhotoMenu(true)}
-              className="w-16 h-16 rounded-full flex-shrink-0 overflow-hidden border-2 border-dashed border-[var(--border)] hover:border-indigo-500/60 cursor-pointer transition-colors flex items-center justify-center bg-[var(--bg-hover)]"
+              className="relative group w-16 h-16 rounded-full flex-shrink-0 overflow-hidden border-2 border-dashed border-[var(--border)] hover:border-indigo-500 cursor-pointer transition-all flex items-center justify-center bg-[var(--bg-hover)]"
             >
               {photoPreview ? (
                 <img src={photoPreview} alt="preview" className="w-full h-full object-cover" />
               ) : employee?.photoUrl ? (
                 <img src={buildPhotoUrl(employee.photoUrl)} alt="photo" className="w-full h-full object-cover" />
               ) : (
-                <Camera className="w-6 h-6 text-[var(--text-muted)]" />
+                <Camera className="w-6 h-6 text-[var(--text-muted)] group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors" />
               )}
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                <Camera className="w-5 h-5 text-white" />
+              </div>
             </div>
             <div>
-              <p className="text-sm font-medium text-[var(--text-primary)]">Rasm yuklash</p>
-              <p className="text-xs text-[var(--text-muted)] mt-0.5">Ixtiyoriy · JPG, PNG</p>
+              <p className="text-sm font-bold text-[var(--text-primary)]">Profil rasmi</p>
+              <p className="text-xs text-[var(--text-muted)] mt-0.5">JPG yoki PNG formatda</p>
               <button
                 type="button"
                 onClick={() => setShowPhotoMenu(true)}
-                className="btn-secondary text-xs px-3 py-1 mt-1.5"
+                className="btn-secondary text-xs px-3 py-1 mt-2 inline-flex items-center gap-1.5"
               >
-                {photoFile ? photoFile.name.substring(0, 18) + "..." : "Rasm tanlash"}
+                <ImageIcon className="w-3.5 h-3.5" />
+                {photoFile ? photoFile.name.substring(0, 16) + "..." : "Rasm tanlash"}
               </button>
             </div>
             <input ref={photoRef}       type="file" accept="image/*"                    className="hidden" onChange={handlePhotoSelect} />
@@ -210,223 +211,223 @@ useEffect(() => {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
-              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">F.I.O *</label>
+              <label className="block text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider mb-1.5">F.I.O *</label>
               <input
                 {...register("fullName", { required: "Ism kiritish shart", minLength: { value: 2, message: "Kamida 2 harf" } })}
-                className="input-field"
-                placeholder="Aziza Karimova"
+                className="input-field w-full text-[var(--text-primary)] font-medium"
+                placeholder="Masalan: Aziza Karimova"
               />
-              {errors.fullName && <p className="text-xs text-red-400 mt-1">{errors.fullName.message}</p>}
+              {errors.fullName && <p className="text-xs text-red-600 dark:text-red-400 mt-1 font-semibold">{errors.fullName.message}</p>}
             </div>
 
-            {/* Lookup banner — faqat yangi xodim qo'shganda */}
-          {!employee && (
-            <div>
-              {lookupLoading && (
-                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--bg-hover)] text-xs text-[var(--text-muted)]">
-                  <div className="w-3 h-3 border border-indigo-500 border-t-transparent rounded-full animate-spin" />
-                  Arxivdan qidirilmoqda...
-                </div>
-              )}
+            {!employee && (
+              <div className="col-span-2">
+                {lookupLoading && (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--bg-hover)] text-xs text-[var(--text-muted)]">
+                    <div className="w-3 h-3 border border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                    Arxivdan mos keluvchi xodimlar qidirilmoqda...
+                  </div>
+                )}
 
-              {showLookup && lookupResults.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold text-amber-400 flex items-center gap-1.5">
-                    ⚠️ Bu ismga mos arxiv yozuvlari topildi
-                  </p>
-                  {lookupResults.map((r) => {
-                    const confidenceColor =
-                      r.confidence === 'HIGH'   ? 'border-red-500/40 bg-red-500/5'    :
-                      r.confidence === 'MEDIUM' ? 'border-amber-500/40 bg-amber-500/5' :
-                                        'border-gray-500/20 bg-gray-500/5';
-                    const confidenceLabel =
-                      r.confidence === 'HIGH'   ? '🔴 Yuqori moslik' :
-                      r.confidence === 'MEDIUM' ? '🟡 O\'rta moslik'  :
-                                        '⚪ Past moslik';
+                {showLookup && lookupResults.length > 0 && (
+                  <div className="space-y-2.5 p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 dark:bg-amber-500/5">
+                    <p className="text-xs font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                      <AlertTriangle className="w-4 h-4" /> Mos keluvchi arxiv yozuvlari topildi:
+                    </p>
+                    {lookupResults.map((r) => {
+                      const confidenceColor =
+                        r.confidence === 'HIGH'   ? 'border-red-500/30 bg-red-500/10'    :
+                        r.confidence === 'MEDIUM' ? 'border-amber-500/30 bg-amber-500/10' :
+                                          'border-slate-500/20 bg-slate-500/5';
+                      const confidenceLabel =
+                        r.confidence === 'HIGH'   ? '🔴 Yuqori moslik' :
+                        r.confidence === 'MEDIUM' ? '🟡 O\'rta moslik'  :
+                                          '⚪ Past moslik';
 
-                    return (
-                      <div key={r.id} className={`rounded-xl border p-3 space-y-2 ${confidenceColor}`}>
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            {r.photoUrl ? (
-                              <img
-                                src={buildPhotoUrl(r.photoUrl)}
-                                alt={r.fullName}
-                                className="w-8 h-8 rounded-full object-cover flex-shrink-0"
-                              />
-                            ) : (
-                              <div className={cn("w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0", getAvatarColor(r.fullName))}>
-                                {getInitials(r.fullName)}
+                      return (
+                        <div key={r.id} className={`rounded-xl border p-3 space-y-2 ${confidenceColor}`}>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2.5">
+                              {r.photoUrl ? (
+                                <img
+                                  src={buildPhotoUrl(r.photoUrl)}
+                                  alt={r.fullName}
+                                  className="w-9 h-9 rounded-full object-cover flex-shrink-0"
+                                />
+                              ) : (
+                                <div className={cn("w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0", getAvatarColor(r.fullName))}>
+                                  {getInitials(r.fullName)}
+                                </div>
+                              )}
+                              <div>
+                                <p className="text-sm font-bold text-[var(--text-primary)]">{r.fullName}</p>
+                                <p className="text-xs text-[var(--text-muted)] font-medium">{r.position} · {r.department}</p>
                               </div>
-                            )}
-                            <div>
-                              <p className="text-sm font-semibold text-[var(--text-primary)]">{r.fullName}</p>
-                              <p className="text-xs text-[var(--text-muted)]">{r.position} · {r.department}</p>
                             </div>
+                            <span className="text-[10px] font-bold text-[var(--text-muted)] whitespace-nowrap">
+                              {confidenceLabel}
+                            </span>
                           </div>
-                          <span className="text-[10px] font-semibold text-[var(--text-muted)] whitespace-nowrap">
-                            {confidenceLabel}
-                          </span>
-                        </div>
 
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-[var(--text-muted)]">
-                          <span>🏥 {r.hospital?.name}</span>
-                          <span>⏱ {r.duration}</span>
-                          <span>💰 {formatMoney(r.lastSalary)}</span>
-                          {r.fireReason && (
-                          <span>🚪 {
-                            r.fireReason === 'RESIGNED'    ? "O'z xohishi" :
-                            r.fireReason === 'FIRED'       ? "Bo'shatildi"  :
-                            r.fireReason === 'RETIRED'     ? "Pensiya"      :
-                            r.fireReason === 'TRANSFERRED' ? "O'tkazildi"   : "Boshqa"
-                          }</span>
-                        )}
-                        {r.hospital?.phone && <span>📞 {r.hospital.phone}</span>}
+                          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-[var(--text-muted)] pt-1 border-t border-[var(--border)] font-medium">
+                            <span>🏥 {r.hospital?.name}</span>
+                            <span>⏱ {r.duration}</span>
+                            <span>💰 {formatMoney(r.lastSalary)}</span>
+                            {r.fireReason && (
+                            <span>🚪 {
+                              r.fireReason === 'RESIGNED'    ? "O'z xohishi" :
+                              r.fireReason === 'FIRED'       ? "Bo'shatildi"  :
+                              r.fireReason === 'RETIRED'     ? "Pensiya"      :
+                              r.fireReason === 'TRANSFERRED' ? "O'tkazildi"   : "Boshqa"
+                            }</span>
+                          )}
+                          {r.hospital?.phone && <span>📞 {r.hospital.phone}</span>}
+                        </div>
+                        <button 
+                          type="button" 
+                          onClick={() => setBioEmpId(r.id)} 
+                          className="w-full mt-2 text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-bold py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 transition-colors flex items-center justify-center gap-1"
+                        >
+                          Batafsil bio ko'rish <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
                       </div>
-                      <button 
-                        type="button" 
-                        onClick={() => setBioEmpId(r.id)} 
-                        className="w-full mt-2 text-xs text-indigo-400 hover:text-indigo-300 font-medium py-1.5 rounded-lg hover:bg-indigo-500/10 transition-colors"
-                      >
-                        Batafsil bio ko'rish →
-                      </button>
-                    </div>
-                  );
-                 })}
-                </div>
-              )}
-            </div>
-          )}
+                    );
+                   })}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div>
-              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Jinsi</label>
-              <select {...register("gender")} className="input-field">
+              <label className="block text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider mb-1.5">Jinsi</label>
+              <select {...register("gender")} className="input-field w-full font-medium">
                 <option value="FEMALE">Ayol</option>
                 <option value="MALE">Erkak</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Terminal ID</label>
-              <input {...register("employeeNo")} className="input-field" placeholder="Avtomatik" />
+              <label className="block text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider mb-1.5">Terminal ID</label>
+              <input {...register("employeeNo")} className="input-field w-full font-mono font-medium" placeholder="Avtomatik" />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Telefon</label>
-              <input {...register("phone")} className="input-field" placeholder="+998901234567" />
+              <label className="block text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider mb-1.5">Telefon</label>
+              <input {...register("phone")} className="input-field w-full font-medium" placeholder="+998901234567" />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Tug'ilgan sana</label>
+              <label className="block text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider mb-1.5">Tug'ilgan sana</label>
               <input
                 {...register("birthDate")}
                 type="date"
-                className="input-field"
+                className="input-field w-full font-medium"
                 max={new Date().toISOString().slice(0, 10)}
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Asosiy maosh</label>
+            <div className="col-span-2 sm:col-span-1">
+              <label className="block text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider mb-1.5">Asosiy maosh</label>
               <input
                 {...register("baseSalary", { valueAsNumber: true })}
                 type="number"
-                className="input-field"
+                className="input-field w-full font-semibold"
                 placeholder="0"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Bo'lim *</label>
-              <select {...register("departmentId", { required: "Bo'lim tanlash shart" })} className="input-field">
+              <label className="block text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider mb-1.5">Bo'lim *</label>
+              <select {...register("departmentId", { required: "Bo'lim tanlash shart" })} className="input-field w-full font-medium">
                 <option value="">Tanlang</option>
                 {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
               </select>
-              {errors.departmentId && <p className="text-xs text-red-400 mt-1">{errors.departmentId.message}</p>}
+              {errors.departmentId && <p className="text-xs text-red-600 dark:text-red-400 mt-1 font-semibold">{errors.departmentId.message}</p>}
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Lavozim *</label>
-              <select {...register("positionId", { required: "Lavozim tanlash shart" })} className="input-field">
+            <div className="col-span-2 sm:col-span-1">
+              <label className="block text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider mb-1.5">Lavozim *</label>
+              <select {...register("positionId", { required: "Lavozim tanlash shart" })} className="input-field w-full font-medium">
                 <option value="">Tanlang</option>
                 {positions.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
-              {errors.positionId && <p className="text-xs text-red-400 mt-1">{errors.positionId.message}</p>}
+              {errors.positionId && <p className="text-xs text-red-600 dark:text-red-400 mt-1 font-semibold">{errors.positionId.message}</p>}
             </div>
           </div>
 
-          {/* ── Mobil kirish (login) ma'lumotlari ── */}
-          <div className="border border-[var(--border)] rounded-xl p-4 space-y-3 bg-[var(--bg-hover)]/30">
-            <div className="flex items-center gap-2">
-              <KeyRound className="w-4 h-4 text-indigo-400" />
-              <span className="text-xs font-semibold text-[var(--text-primary)] uppercase tracking-wide">Mobil Login</span>
+          <div className="border border-[var(--border)] rounded-2xl p-4 space-y-3 bg-[var(--bg-hover)]/30">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <KeyRound className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                <span className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider">Mobil Kirish (Login)</span>
+              </div>
               {hasAccount && (
-                <span className="text-[10px] bg-emerald-500/15 text-emerald-400 px-1.5 py-0.5 rounded-full font-medium">
+                <span className="text-[10px] bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-full font-bold">
                   Mavjud: {employee?.user?.username}
                 </span>
               )}
             </div>
-            <p className="text-xs text-[var(--text-muted)]">
+            <p className="text-xs text-[var(--text-muted)] font-medium">
               {hasAccount
-                ? "Username yoki parolni o'zgartirish uchun to'ldiring (bo'sh qoldirsangiz o'zgarmaydi)"
-                : "Xodim mobil ilovaga kirishi uchun username va parol belgilang"}
+                ? "Username yoki parolni o'zgartirish uchun kiriting (aks holda o'zgarmaydi)"
+                : "Xodim mobil ilovaga kirishi uchun login ma'lumotlarini yarating"}
             </p>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Username</label>
+                <label className="block text-xs font-bold text-[var(--text-primary)] mb-1.5">Username</label>
                 <input
                   {...register("username")}
-                  className="input-field"
-                  placeholder={hasAccount ? employee?.user?.username : "masalan: emp001"}
+                  className="input-field w-full font-medium"
+                  placeholder={hasAccount ? employee?.user?.username : "emp001"}
                   autoComplete="off"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Parol</label>
+                <label className="block text-xs font-bold text-[var(--text-primary)] mb-1.5">Parol</label>
                 <div className="relative">
                   <input
                     {...register("password")}
                     type={showPassword ? "text" : "password"}
-                    className="input-field pr-8"
-                    placeholder={hasAccount ? "••••••••" : "kamida 6 ta belgi"}
+                    className="input-field w-full pr-9 font-medium"
+                    placeholder={hasAccount ? "••••••••" : "min 6 belgi"}
                     autoComplete="new-password"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(v => !v)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1"
                   >
-                    {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="btn-secondary flex-1">Bekor</button>
-            <button type="submit" disabled={mutation.isPending} className="btn-primary flex-1">
+          <div className="flex gap-3 pt-3">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1 py-2.5 font-bold">Bekor</button>
+            <button type="submit" disabled={mutation.isPending} className="btn-primary flex-1 py-2.5 font-bold">
               {mutation.isPending ? "Saqlanmoqda..." : (employee ? "Yangilash" : "Qo'shish")}
             </button>
           </div>
         </form>
       </div>
 
-      {/* Rasm manbasi tanlash menyusi */}
       {showPhotoMenu && (
         <div className="fixed inset-0 z-[60] flex items-end justify-center" onClick={() => setShowPhotoMenu(false)}>
-          <div className="w-full max-w-lg bg-[var(--bg-card)] rounded-t-2xl border-t border-[var(--border)] p-4 pb-8 space-y-1" onClick={e => e.stopPropagation()}>
-            <div className="w-10 h-1 rounded-full bg-[var(--border)] mx-auto mb-4" />
+          <div className="w-full max-w-lg bg-[var(--bg-card)] rounded-t-2xl border-t border-[var(--border)] p-4 pb-8 space-y-2 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="w-12 h-1.5 rounded-full bg-[var(--border)] mx-auto mb-3 opacity-60" />
             <button type="button"
-              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-[var(--bg-hover)] text-[var(--text-primary)] transition-colors"
+              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-[var(--bg-hover)] text-[var(--text-primary)] font-bold transition-colors"
               onClick={() => { setShowPhotoMenu(false); photoRefCamera.current?.click(); }}>
-              <Camera className="w-5 h-5 text-indigo-400" />
-              <span className="font-medium">Kamera</span>
+              <Camera className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+              <span>Kameradan rasmga olish</span>
             </button>
             <button type="button"
-              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-[var(--bg-hover)] text-[var(--text-primary)] transition-colors"
+              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-[var(--bg-hover)] text-[var(--text-primary)] font-bold transition-colors"
               onClick={() => { setShowPhotoMenu(false); photoRef.current?.click(); }}>
-              <ImageIcon className="w-5 h-5 text-indigo-400" />
-              <span className="font-medium">Galereya</span>
+              <ImageIcon className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+              <span>Galereyadan tanlash</span>
             </button>
           </div>
         </div>
@@ -491,62 +492,57 @@ function FireModal({
   if (!open || !employee) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative card w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={onClose} />
+      <div className="relative card w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl border border-[var(--border)] shadow-2xl bg-[var(--bg-card)] text-[var(--text-primary)]">
         
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border)]">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-orange-500/15 flex items-center justify-center">
-              <span className="text-lg">👋</span>
+            <div className="w-10 h-10 rounded-full bg-orange-500/15 border border-orange-500/30 flex items-center justify-center text-orange-600 dark:text-orange-400">
+              <UserX className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="font-semibold text-[var(--text-primary)] text-sm">Ishdan bo'shatish</h2>
-              <p className="text-xs text-[var(--text-muted)]">{employee.fullName}</p>
+              <h2 className="font-bold text-[var(--text-primary)] text-base">Ishdan bo'shatish</h2>
+              <p className="text-xs text-[var(--text-muted)] font-medium">{employee.fullName}</p>
             </div>
           </div>
-          <button onClick={onClose} className="btn-ghost p-1.5">
+          <button onClick={onClose} className="p-2 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Body */}
-        <div className="p-5 space-y-4">
-          
-          {/* Xodim info */}
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--bg-hover)]">
+        <div className="p-6 space-y-4">
+          <div className="flex items-center gap-3 p-3.5 rounded-xl bg-[var(--bg-hover)]/40 border border-[var(--border)]">
             {employee.photoUrl ? (
               <img
                 src={buildPhotoUrl(employee.photoUrl)}
                 alt={employee.fullName}
-                className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                className="w-11 h-11 rounded-full object-cover flex-shrink-0"
               />
             ) : (
-              <div className={cn("w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0", getAvatarColor(employee.fullName))}>
+              <div className={cn("w-11 h-11 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0", getAvatarColor(employee.fullName))}>
                 {getInitials(employee.fullName)}
               </div>
             )}
             <div>
-              <p className="font-medium text-[var(--text-primary)] text-sm">{employee.fullName}</p>
-              <p className="text-xs text-[var(--text-muted)]">
+              <p className="font-bold text-[var(--text-primary)] text-sm">{employee.fullName}</p>
+              <p className="text-xs text-[var(--text-muted)] font-medium mt-0.5">
                 {employee.department?.name} · {employee.position?.name}
               </p>
-              <p className="text-xs text-[var(--text-muted)] mt-0.5">
+              <p className="text-[11px] text-[var(--text-muted)] font-semibold opacity-90 mt-0.5">
                 Ishga kirgan: {dayjs(employee.hiredAt).format("DD.MM.YYYY")}
               </p>
             </div>
           </div>
 
-          {/* Ketish sababi */}
           <div>
-            <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">
+            <label className="block text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider mb-1.5">
               Ketish sababi *
             </label>
             <select
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              className="input-field w-full"
+              className="input-field w-full font-medium"
             >
               {FIRE_REASONS.map((r) => (
                 <option key={r.value} value={r.value}>{r.label}</option>
@@ -554,56 +550,52 @@ function FireModal({
             </select>
           </div>
 
-          {/* Ketgan sana */}
           <div>
-            <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">
+            <label className="block text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider mb-1.5">
               Ketgan sana *
             </label>
             <input
               type="date"
               value={firedAt}
               onChange={(e) => setFiredAt(e.target.value)}
-              className="input-field w-full"
+              className="input-field w-full font-medium"
               max={dayjs().format("YYYY-MM-DD")}
             />
           </div>
 
-          {/* Izoh */}
           <div>
-            <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">
-              Qo'shimcha izoh <span className="opacity-50">(ixtiyoriy)</span>
+            <label className="block text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider mb-1.5">
+              Qo'shimcha izoh <span className="normal-case opacity-60 font-normal">(ixtiyoriy)</span>
             </label>
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              className="input-field w-full resize-none"
+              className="input-field w-full resize-none font-medium"
               rows={3}
-              placeholder="Masalan: Shaxsiy sabablarga ko'ra ishdan ketdi..."
+              placeholder="Masalan: Shaxsiy sabablarga ko'ra..."
             />
           </div>
 
-          {/* Warning */}
-          <div className="flex items-start gap-2 p-3 rounded-xl bg-orange-500/10 border border-orange-500/20">
-            <span className="text-orange-400 text-base flex-shrink-0">⚠️</span>
-            <p className="text-xs text-orange-300">
-              Xodim ishdan bo'shatilgandan so'ng arxivga o'tadi. 
-              Barcha tarixi (davomat, maosh) saqlanib qoladi.
+          <div className="flex items-start gap-2.5 p-3 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-800 dark:text-orange-300 font-medium">
+            <AlertTriangle className="w-4 h-4 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
+            <p className="text-xs leading-relaxed">
+              Xodim ishdan bo'shatilgach arxivga o'tkaziladi. 
+              Barcha tarixi (davomat, maosh) saqlanadi.
             </p>
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="flex gap-3 px-5 pb-5">
+        <div className="flex gap-3 px-6 pb-6">
           <button
             onClick={onClose}
-            className="btn-secondary flex-1"
+            className="btn-secondary flex-1 py-2.5 font-bold"
           >
             Bekor
           </button>
           <button
             onClick={() => mutation.mutate()}
             disabled={mutation.isPending}
-            className="flex-1 px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold transition-colors disabled:opacity-50"
+            className="flex-1 px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-sm font-bold transition-colors disabled:opacity-50 shadow-lg shadow-orange-500/20"
           >
             {mutation.isPending ? "Saqlanmoqda..." : "Bo'shatishni tasdiqlash"}
           </button>
@@ -630,15 +622,18 @@ const EmpRow = memo(function EmpRow({
   onSelect: (id: string, checked: boolean) => void;
 }) {
   return (
-    <tr className={cn("border-b border-[var(--border)] table-row-hover", selected && "bg-indigo-500/5")}>
-      <td className="pl-4 pr-2 py-3.5 w-8">
+    <tr className={cn(
+      "border-b border-[var(--border)] transition-colors hover:bg-[var(--bg-hover)]/60",
+      selected && "bg-indigo-500/10 hover:bg-indigo-500/15"
+    )}>
+      <td className="pl-5 pr-2 py-3.5 w-10">
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onSelect(emp.id, !selected); }}
-          className="text-[var(--text-muted)] hover:text-indigo-400 transition-colors"
+          className="text-[var(--text-muted)] hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
         >
           {selected
-            ? <CheckSquare className="w-4 h-4 text-indigo-400" />
+            ? <CheckSquare className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
             : <Square className="w-4 h-4" />}
         </button>
       </td>
@@ -646,73 +641,73 @@ const EmpRow = memo(function EmpRow({
         <div className="flex items-center gap-3">
           <button onClick={(e) => { e.stopPropagation(); onPhoto(emp.id); }} className="relative group flex-shrink-0">
             {emp.photoUrl ? (
-              <img src={buildPhotoUrl(emp.photoUrl)} alt={emp.fullName} className="w-9 h-9 rounded-full object-cover" />
+              <img src={buildPhotoUrl(emp.photoUrl)} alt={emp.fullName} className="w-10 h-10 rounded-full object-cover border border-[var(--border)]" />
             ) : (
-              <div className={cn("w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold text-white", getAvatarColor(emp.fullName))}>
+              <div className={cn("w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-inner", getAvatarColor(emp.fullName))}>
                 {getInitials(emp.fullName)}
               </div>
             )}
-            <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-              <Camera className="w-3.5 h-3.5 text-white" />
+            <div className="absolute inset-0 rounded-full bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <Camera className="w-4 h-4 text-white" />
             </div>
             {uploadingId === emp.id && (
-              <div className="absolute inset-0 rounded-full bg-black/60 flex items-center justify-center">
-                <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <div className="absolute inset-0 rounded-full bg-black/70 flex items-center justify-center">
+                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               </div>
             )}
           </button>
-          <button onClick={() => router.push(`/dashboard/employees/${emp.id}`)} className="text-left hover:text-indigo-400 transition-colors group/name">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <p className="font-medium text-[var(--text-primary)] group-hover/name:text-indigo-400">{emp.fullName}</p>
+          <button onClick={() => router.push(`/dashboard/employees/${emp.id}`)} className="text-left group/name">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="font-bold text-sm text-[var(--text-primary)] group-hover/name:text-indigo-600 dark:group-hover/name:text-indigo-400 transition-colors">{emp.fullName}</p>
               {lunchLate && lunchLate > 0 ? (
-            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-400 whitespace-nowrap">
-                  <Coffee className="w-2.5 h-2.5" />+{lunchLate}min
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-500/15 border border-orange-500/30 text-orange-700 dark:text-orange-400 whitespace-nowrap">
+                  <Coffee className="w-3 h-3" />+{lunchLate}m
                 </span>
               ) : null}
               {onLeave && (
                 <span
                   title={`${LEAVE_LABELS[onLeave.type]?.label ?? onLeave.type} · ${onLeave.startDate?.slice(0,10)} – ${onLeave.endDate?.slice(0,10)}`}
-                  className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 whitespace-nowrap cursor-help"
+                  className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 whitespace-nowrap cursor-help"
                 >
-                  <Palmtree className="w-2.5 h-2.5" />
+                  <Palmtree className="w-3 h-3" />
                   {LEAVE_LABELS[onLeave.type]?.emoji} Ta'tilda
                 </span>
               )}
             </div>
-            <p className="text-xs text-[var(--text-muted)]">{emp.phone || "—"}</p>
+            <p className="text-xs text-[var(--text-muted)] font-medium mt-0.5">{emp.phone || "—"}</p>
           </button>
         </div>
       </td>
-      <td className="px-5 py-3.5 text-[var(--text-primary)]">{emp.department?.name}</td>
-      <td className="px-5 py-3.5 text-[var(--text-muted)]">{emp.position?.name}</td>
-      <td className="px-5 py-3.5 font-mono text-xs text-[var(--text-muted)]">{emp.employeeNo || <span className="opacity-40">—</span>}</td>
-      <td className="px-5 py-3.5">{formatMoney(emp.baseSalary)}</td>
+      <td className="px-5 py-3.5 font-bold text-[var(--text-primary)]">{emp.department?.name || "—"}</td>
+      <td className="px-5 py-3.5 text-[var(--text-muted)] font-semibold">{emp.position?.name || "—"}</td>
+      <td className="px-5 py-3.5 font-mono text-xs font-semibold text-[var(--text-muted)]">{emp.employeeNo || <span className="opacity-30">—</span>}</td>
+      <td className="px-5 py-3.5 font-extrabold text-[var(--text-primary)]">{formatMoney(emp.baseSalary)}</td>
       <td className="px-5 py-3.5">
       {emp.firedAt || emp.status === 'FIRED'
-        ? <span className="badge-red">Ketgan</span>
+        ? <span className="inline-flex items-center text-xs font-bold px-2.5 py-1 rounded-full bg-red-500/15 border border-red-500/30 text-red-700 dark:text-red-400">Ketgan</span>
         : emp.status === 'ON_LEAVE'
-        ? <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-400">Ta'tilda</span>
-        : <span className="badge-green">Faol</span>
+        ? <span className="inline-flex items-center text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400">Ta'tilda</span>
+        : <span className="inline-flex items-center text-xs font-bold px-2.5 py-1 rounded-full bg-green-500/15 border border-green-500/30 text-green-700 dark:text-green-400">Faol</span>
       }
       </td>
       <td className="px-5 py-3.5">
         <div className="flex items-center gap-1 justify-end">
           <button onClick={() => onEdit(emp)} 
-            className="text-indigo-400 hover:text-indigo-300 px-2 py-1 rounded text-xs font-medium">
+            className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:bg-indigo-500/10 px-2.5 py-1 rounded-lg text-xs font-bold transition-colors">
             Tahrirlash
           </button>
           {!emp.firedAt && (
             <button
               onClick={() => onFire(emp)}
-              className="px-2 py-1 rounded text-xs font-medium text-orange-400 hover:text-orange-300 hover:bg-orange-500/10"
+              className="px-2.5 py-1 rounded-lg text-xs font-bold text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300 hover:bg-orange-500/10 transition-colors"
               title="Ishdan bo'shatish">
               Bo'shatish
             </button>
           )}
           <button
             onClick={() => confirm("O'chirishni tasdiqlaysizmi?") && onDelete(emp.id)}
-            className="p-1.5 rounded text-[var(--text-muted)] hover:text-red-400 hover:bg-red-500/10">
-          <Trash2 className="w-3.5 h-3.5" />
+            className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-red-600 dark:hover:text-red-400 hover:bg-red-500/10 transition-colors">
+            <Trash2 className="w-4 h-4" />
           </button>
         </div>
       </td>
@@ -731,33 +726,31 @@ export default function EmployeesPage() {
     : undefined;
   const params = targetHospitalId ? { targetHospitalId } : undefined;
 
-  const [searchInput, setSearchInput] = useState("");  // foydalanuvchi kiritgan (Lotin/Kirill)
-  const [search, setSearch]           = useState("");  // API ga ketadigan (normallashtirilgan)
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch]           = useState("");
   const [deptFilter, setDeptFilter]   = useState("");
   const [photoFilter, setPhotoFilter] = useState<"all" | "with" | "without">("all");
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editEmp, setEditEmp]     = useState<any>(null);
+  const [modalOpen, setModalOpen]     = useState(false);
+  const [editEmp, setEditEmp]         = useState<any>(null);
   const [uploadingEmpId, setUploadingEmpId]     = useState<string | null>(null);
   const [showPhotoMenuMain, setShowPhotoMenuMain] = useState(false);
-  const [importing, setImporting] = useState(false);
-  const [fixing, setFixing]       = useState(false);
+  const [importing, setImporting]     = useState(false);
+  const [fixing, setFixing]           = useState(false);
   const [fireModalOpen, setFireModalOpen] = useState(false);
-  const [fireEmp, setFireEmp] = useState<any>(null);
-  const [statusFilter, setStatusFilter] = useState(""); // "" | ACTIVE | ON_LEAVE | FIRED
+  const [fireEmp, setFireEmp]         = useState<any>(null);
+  const [statusFilter, setStatusFilter] = useState("");
 
-  // ── Bulk selection ───────────────────────────
   const [selectedIds, setSelectedIds]   = useState<string[]>([]);
   const [showBulkDept, setShowBulkDept] = useState(false);
   const [bulkDeptId, setBulkDeptId]     = useState("");
 
-  const photoInputRef      = useRef<HTMLInputElement>(null); // galereya
-  const photoInputCameraRef = useRef<HTMLInputElement>(null); // kamera
+  const photoInputRef      = useRef<HTMLInputElement>(null);
+  const photoInputCameraRef = useRef<HTMLInputElement>(null);
   const csvInputRef        = useRef<HTMLInputElement>(null);
   const sentinelRef        = useRef<HTMLDivElement>(null);
   const mobileSentinelRef  = useRef<HTMLDivElement>(null);
   const tableContainerRef  = useRef<HTMLDivElement>(null);
 
-  // ── Infinite query ───────────────────────────
   const {
     data,
     fetchNextPage,
@@ -784,11 +777,9 @@ export default function EmployeesPage() {
     initialPageParam: 1,
   });
 
-  // Flatten all pages
   const allLoaded  = data?.pages.flatMap((p: any) => p?.data ?? []) ?? [];
   const total      = data?.pages[0]?.meta?.total ?? 0;
 
-  // ── Photo stats — alohida to'liq query (scroll ta'sir qilmaydi) ──
   const { data: statsRaw, isLoading: statsLoading } = useQuery({
     queryKey: ["employees-photo-stats", deptFilter, targetHospitalId],
     queryFn: () => employeesApi.list({
@@ -812,14 +803,12 @@ export default function EmployeesPage() {
 
   const photoStats = statsRaw ?? { total: 0, withPhoto: 0, withoutPhoto: 0, pct: 0 };
 
-  // Photo filter (client-side, faqat yuklangan sahifalar ichida)
   const employees = photoFilter === "with"
     ? allLoaded.filter((e: any) => !!e.photoUrl)
     : photoFilter === "without"
     ? allLoaded.filter((e: any) => !e.photoUrl)
     : allLoaded;
 
-  // ── IntersectionObserver for infinite scroll ─
   const handleObserver = useCallback(
     (entries: IntersectionObserverEntry[]) => {
       if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
@@ -829,7 +818,6 @@ export default function EmployeesPage() {
     [fetchNextPage, hasNextPage, isFetchingNextPage],
   );
 
-  // Desktop: sentinel table container ichida — root = tableContainerRef
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el) return;
@@ -841,7 +829,6 @@ export default function EmployeesPage() {
     return () => observer.disconnect();
   }, [handleObserver]);
 
-  // Mobile: sentinel window da — root = null (viewport)
   useEffect(() => {
     const el = mobileSentinelRef.current;
     if (!el) return;
@@ -850,7 +837,6 @@ export default function EmployeesPage() {
     return () => observer.disconnect();
   }, [handleObserver]);
 
-  // Kasalxona o'zgarganda filtrlni tozalaymiz (eski bo'lim IDsi yangi kasalxonada yo'q)
   useEffect(() => {
     setDeptFilter("");
     setSearchInput("");
@@ -860,24 +846,20 @@ export default function EmployeesPage() {
     setSelectedIds([]);
   }, [targetHospitalId]);
 
-  // Debounce ref
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
-  // Search: kiritishni ko'rsatadi, 350ms kutib API ga normallashtirilgan yuboradi
   const handleSearchChange = (val: string) => {
     setSearchInput(val);
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      setSearch(val.trim()); // raw input — normalizatsiya backend tomonida
+      setSearch(val.trim());
     }, 350);
   };
 
   useEffect(() => () => clearTimeout(debounceRef.current), []);
 
-  // Reset scroll when filters change
   useEffect(() => { window.scrollTo(0, 0); }, [search, deptFilter, targetHospitalId]);
 
-  // ── Departments / Positions ──────────────────
   const { data: departments = [] } = useQuery({
     queryKey: ["departments", targetHospitalId],
     queryFn: () => departmentsApi.list(params),
@@ -888,7 +870,6 @@ export default function EmployeesPage() {
     queryFn: () => positionsApi.list(params),
   });
 
-  // ── Today attendance ─────────────────────────
   const today = dayjs().format("YYYY-MM-DD");
   const { data: todayAttRaw } = useQuery({
     queryKey: ["attendance-daily-lunch", today, targetHospitalId],
@@ -929,14 +910,12 @@ export default function EmployeesPage() {
     return map;
   }, [onLeaveRecords]);
 
-  // ── Delete ───────────────────────────────────
   const deleteMutation = useMutation({
     mutationFn: (id: string) => employeesApi.delete(id, params),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["employees"] }); toast.success("Xodim o'chirildi"); },
     onError: (e: any) => toast.error(e?.response?.data?.message || "O'chirishda xatolik"),
   });
 
-  // ── Bulk mutations ───────────────────────────
   const bulkDeleteMutation = useMutation({
     mutationFn: () => employeesApi.bulkDelete(selectedIds, params),
     onSuccess: () => {
@@ -959,7 +938,6 @@ export default function EmployeesPage() {
     onError: (e: any) => toast.error(e?.response?.data?.message || "Xatolik"),
   });
 
-  // ── Bulk selection helpers ───────────────────
   const toggleSelect = (id: string, checked: boolean) => {
     setSelectedIds(prev => checked ? [...prev, id] : prev.filter(x => x !== id));
   };
@@ -968,7 +946,6 @@ export default function EmployeesPage() {
     setSelectedIds(isAllSelected ? [] : employees.map((e: any) => e.id));
   };
 
-  // ── Excel export ─────────────────────────────
   const handleExcel = async () => {
     try {
       const res = await employeesApi.exportExcel(params);
@@ -976,7 +953,6 @@ export default function EmployeesPage() {
     } catch { toast.error("Export xatoligi"); }
   };
 
-  // ── Fix employee numbers ─────────────────────
   const handleFixNumbers = async () => {
     setFixing(true);
     try {
@@ -989,7 +965,6 @@ export default function EmployeesPage() {
     } finally { setFixing(false); }
   };
 
-  // ── CSV import ───────────────────────────────
   const handleCsvChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1018,7 +993,6 @@ export default function EmployeesPage() {
     } finally { setImporting(false); }
   };
 
-  // ── Photo upload ─────────────────────────────
   const handlePhotoClick = (empId: string) => {
     setUploadingEmpId(empId);
     setShowPhotoMenuMain(true);
@@ -1039,49 +1013,46 @@ export default function EmployeesPage() {
   };
 
   return (
-    <div>
-      <Topbar title="Xodimlar" subtitle={`Jami ${total} nafar`} />
+    <div className="min-h-screen bg-[var(--bg-main)] text-[var(--text-primary)]">
+      <Topbar title="Xodimlar" subtitle={`Jami ${total} nafar xodim`} />
 
       <input ref={csvInputRef}         type="file" accept=".csv"    className="hidden" onChange={handleCsvChange} />
       <input ref={photoInputRef}       type="file" accept="image/*"                    className="hidden" onChange={handlePhotoChange} />
       <input ref={photoInputCameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoChange} />
 
-      <div className="p-4 lg:p-6 space-y-4">
+      <div className="p-4 lg:p-6 space-y-5 max-w-[1600px] mx-auto">
         {isSuperLike(user?.role) && !selectedHospital && (
-          <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm">
-            <span className="text-base">⚠️</span>
-            <span>Kasalxona tanlanmagan. <a href="/dashboard/hospitals" className="underline font-medium">Tanlash →</a></span>
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-sm font-semibold shadow-sm">
+            <AlertTriangle className="w-5 h-5 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+            <span>Kasalxona tanlanmagan. <a href="/dashboard/hospitals" className="underline font-bold hover:text-amber-800 dark:hover:text-amber-300">Tanlash →</a></span>
           </div>
         )}
 
-        {/* ── Toolbar ── */}
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
-          {/* Search — full width on mobile, flex-1 on sm+ */}
-          <div className="relative sm:flex-1 sm:min-w-48">
-            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)] z-10" />
-            <input
-              value={searchInput}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              placeholder="Ism, familiya, ID..."
-              className="input-field w-full"
-              style={{ paddingLeft: '2.25rem' }}
-            />
-            {searchInput && (
-              <button
-                onClick={() => handleSearchChange("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
+        {/* ── Filter & Search Toolbar ── */}
+        <div className="card p-4 space-y-3 sm:space-y-0 sm:flex sm:items-center sm:justify-between sm:gap-4 border border-[var(--border)] shadow-sm bg-[var(--bg-card)]">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
+            <div className="relative flex-1 min-w-[220px]">
+              <Search className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
+              <input
+                value={searchInput}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                placeholder="Ism, familiya, ID..."
+                className="input-field w-full pl-10 pr-9 text-sm font-medium"
+              />
+              {searchInput && (
+                <button
+                  onClick={() => handleSearchChange("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
 
-          {/* Row 2 on mobile: dept select + action buttons (sm:contents unwraps into outer flex-row) */}
-          <div className="flex flex-wrap items-center gap-2 sm:contents">
             <select
               value={deptFilter}
               onChange={(e) => setDeptFilter(e.target.value)}
-              className="input-field flex-1 sm:w-44 sm:flex-none sm:flex-shrink-0"
+              className="input-field text-sm sm:w-48 font-medium"
             >
               <option value="">Barcha bo'limlar</option>
               {(departments as any[]).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -1090,225 +1061,213 @@ export default function EmployeesPage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="input-field flex-1 sm:w-44 sm:flex-none sm:flex-shrink-0"
+              className="input-field text-sm sm:w-40 font-medium"
             >
               <option value="">Barcha holat</option>
               <option value="ACTIVE">✅ Faol</option>
               <option value="ON_LEAVE">🏖 Ta'tilda</option>
               <option value="FIRED">❌ Ketgan</option>
             </select>
+          </div>
 
-            <div className="flex flex-wrap items-center gap-2 ml-auto sm:ml-auto">
-              <button
-                onClick={async () => {
-                  try {
-                    const res = await employeesApi.csvTemplate();
-                    downloadBlob(res.data, "hodimlar_shablon.csv");
-                  } catch { toast.error("Shablon yuklab bo'lmadi"); }
-                }}
-                className="btn-ghost gap-1.5 text-xs"
-                title="CSV shablon"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Shablon</span>
-              </button>
+          <div className="flex items-center gap-2 overflow-x-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-[var(--border)]">
+            <button
+              onClick={async () => {
+                try {
+                  const res = await employeesApi.csvTemplate();
+                  downloadBlob(res.data, "hodimlar_shablon.csv");
+                } catch { toast.error("Shablon yuklab bo'lmadi"); }
+              }}
+              className="btn-ghost gap-1.5 text-xs px-3 py-2 font-bold"
+              title="CSV shablon"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Shablon</span>
+            </button>
 
-              <button
-                onClick={() => csvInputRef.current?.click()}
-                disabled={importing}
-                className="btn-secondary gap-1.5 text-xs sm:text-sm"
-              >
-                <Upload className="w-4 h-4" />
-                {importing ? "Import..." : <><span className="hidden sm:inline">Import </span>CSV</>}
-              </button>
+            <button
+              onClick={() => csvInputRef.current?.click()}
+              disabled={importing}
+              className="btn-secondary gap-1.5 text-xs sm:text-sm px-3 py-2 font-bold"
+            >
+              <Upload className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+              {importing ? "Import..." : <><span className="hidden sm:inline">Import </span>CSV</>}
+            </button>
 
-              <button
-                onClick={handleFixNumbers}
-                disabled={fixing}
-                className="btn-secondary gap-1.5 text-xs sm:text-sm"
-                title="Terminal IDlarni tuzatish"
-              >
-                <span className="font-mono">#</span>
-                <span className="hidden sm:inline">{fixing ? "Tuzatilmoqda..." : "ID tuzatish"}</span>
-              </button>
+            <button
+              onClick={handleFixNumbers}
+              disabled={fixing}
+              className="btn-secondary gap-1.5 text-xs sm:text-sm px-3 py-2 font-bold"
+              title="Terminal IDlarni tuzatish"
+            >
+              <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">#</span>
+              <span className="hidden sm:inline">{fixing ? "..." : "ID tuzatish"}</span>
+            </button>
 
-              <button onClick={handleExcel} className="btn-secondary gap-1.5 text-xs sm:text-sm">
-                <FileSpreadsheet className="w-4 h-4" />
-                <span className="hidden sm:inline">Excel</span>
-              </button>
+            <button onClick={handleExcel} className="btn-secondary gap-1.5 text-xs sm:text-sm px-3 py-2 font-bold">
+              <FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <span className="hidden sm:inline">Excel</span>
+            </button>
 
-              <button onClick={() => { setEditEmp(null); setModalOpen(true); }} className="btn-primary gap-1.5 text-xs sm:text-sm">
-                <Plus className="w-4 h-4" />
-                <span className="hidden sm:inline">Xodim</span> qo&apos;shish
-              </button>
-            </div>
+            <button onClick={() => { setEditEmp(null); setModalOpen(true); }} className="btn-primary gap-1.5 text-xs sm:text-sm px-3.5 py-2 font-bold whitespace-nowrap">
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Xodim</span> qo&apos;shish
+            </button>
           </div>
         </div>
 
-        <p className="text-xs text-[var(--text-muted)] hidden sm:block">
-          CSV ustunlar: <code className="font-mono bg-[var(--bg-hover)] px-1 rounded">ism_familiya, jinsi, bolim_kodi, lavozim, telefon</code>
-        </p>
-
-        {/* ── Photo stats progress ── */}
+        {/* ── Photo stats progress card ── */}
         {(statsLoading || photoStats.total > 0) && (
-          <div className="card p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <div className="card p-4 border border-[var(--border)] shadow-sm space-y-3 bg-[var(--bg-card)]">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-[var(--text-primary)]">Profil rasmi holati</span>
+                <span className="text-xs font-extrabold text-[var(--text-primary)] uppercase tracking-wider">Profil rasmi holati</span>
                 {statsLoading && (
-                  <span className="text-[10px] text-[var(--text-muted)] animate-pulse">yuklanmoqda...</span>
+                  <span className="text-[10px] text-indigo-600 dark:text-indigo-400 animate-pulse font-bold">yuklanmoqda...</span>
                 )}
               </div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 bg-[var(--bg-hover)]/60 p-1 rounded-xl border border-[var(--border)]">
                 {([
                   { v: "all",     l: "Barchasi",  count: photoStats.total,        color: "text-[var(--text-muted)]" },
-                  { v: "with",    l: "✓ Rasmli",  count: photoStats.withPhoto,    color: "text-green-400"           },
-                  { v: "without", l: "✕ Rasmsiz", count: photoStats.withoutPhoto, color: "text-amber-400"           },
+                  { v: "with",    l: "✓ Rasmli",  count: photoStats.withPhoto,    color: "text-green-700 dark:text-green-400" },
+                  { v: "without", l: "✕ Rasmsiz", count: photoStats.withoutPhoto, color: "text-amber-700 dark:text-amber-400" },
                 ] as const).map((f) => (
                   <button
                     key={f.v}
                     onClick={() => setPhotoFilter(f.v)}
                     className={cn(
-                      "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors",
+                      "flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all",
                       photoFilter === f.v
                         ? f.v === "without"
-                          ? "bg-amber-500/20 border-amber-500/40 text-amber-300"
+                          ? "bg-amber-500/20 border border-amber-500/40 text-amber-800 dark:text-amber-300 shadow-sm"
                           : f.v === "with"
-                          ? "bg-green-500/20 border-green-500/40 text-green-300"
-                          : "bg-[var(--bg-hover)] border-[var(--border)] text-[var(--text-primary)]"
-                        : "border-transparent text-[var(--text-muted)] hover:border-[var(--border)]"
+                          ? "bg-green-500/20 border border-green-500/40 text-green-800 dark:text-green-300 shadow-sm"
+                          : "bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-primary)] shadow-sm"
+                        : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                     )}
                   >
                     <span className={photoFilter !== f.v ? f.color : ""}>{f.l}</span>
-                    <span className="font-semibold">{f.count}</span>
+                    <span className="bg-slate-200 dark:bg-black/20 px-1.5 py-0.5 rounded-full text-[10px] text-[var(--text-primary)]">{f.count}</span>
                   </button>
                 ))}
               </div>
             </div>
-            {/* Progress bar */}
-            <div className="h-2.5 bg-[var(--bg-hover)] rounded-full overflow-hidden">
+
+            <div className="h-2 bg-[var(--bg-hover)] rounded-full overflow-hidden p-0.5">
               <div
                 className={cn(
                   "h-full rounded-full transition-all duration-700",
-                  statsLoading ? "animate-pulse bg-[var(--bg-hover)] w-full" : "bg-gradient-to-r from-green-600 to-green-400"
+                  statsLoading ? "animate-pulse bg-indigo-500/40 w-full" : "bg-gradient-to-r from-emerald-500 to-green-500"
                 )}
                 style={statsLoading ? {} : { width: `${photoStats.pct}%` }}
               />
             </div>
-            <div className="flex justify-between text-[10px] text-[var(--text-muted)] mt-1.5">
-              <span className="text-green-400 font-medium">{photoStats.withPhoto} ta rasmli</span>
-              <span className="font-semibold text-[var(--text-primary)]">{photoStats.pct}%</span>
-              <span className="text-amber-400 font-medium">{photoStats.withoutPhoto} ta rasmsiz</span>
+            <div className="flex justify-between text-[11px] font-bold text-[var(--text-muted)]">
+              <span className="text-green-700 dark:text-green-400 font-bold">{photoStats.withPhoto} ta rasmli ({photoStats.pct}%)</span>
+              <span className="text-amber-700 dark:text-amber-400 font-bold">{photoStats.withoutPhoto} ta rasmsiz</span>
             </div>
           </div>
         )}
 
         {/* ── Mobile cards ── */}
-<div className="sm:hidden space-y-3">
-  {isLoading && [...Array(5)].map((_, i) => (
-    <div key={i} className="card p-4 animate-pulse">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-[var(--bg-hover)]" />
-        <div className="flex-1 space-y-2">
-          <div className="h-4 rounded bg-[var(--bg-hover)] w-3/4" />
-          <div className="h-3 rounded bg-[var(--bg-hover)] w-1/2" />
-        </div>
-      </div>
-    </div>
-  ))}
-  {!isLoading && employees.length === 0 && (
-    <div className="card p-8 text-center text-[var(--text-muted)] text-sm">Xodimlar topilmadi</div>
-  )}
-  {employees.map((emp: any) => (
-    <div key={emp.id} className={cn("card p-4", selectedIds.includes(emp.id) && "ring-1 ring-indigo-500/40 bg-indigo-500/5")}>
-      
-      {/* Yuqori qator: checkbox + avatar + ism + badge */}
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={() => toggleSelect(emp.id, !selectedIds.includes(emp.id))}
-          className="text-[var(--text-muted)] hover:text-indigo-400 transition-colors flex-shrink-0"
-        >
-          {selectedIds.includes(emp.id)
-            ? <CheckSquare className="w-4 h-4 text-indigo-400" />
-            : <Square className="w-4 h-4" />}
-        </button>
-
-        <button onClick={() => handlePhotoClick(emp.id)} className="relative group flex-shrink-0">
-          {emp.photoUrl
-            ? <img src={buildPhotoUrl(emp.photoUrl)} alt={emp.fullName} className="w-10 h-10 rounded-full object-cover" />
-            : <div className={cn("w-10 h-10 rounded-full flex items-center justify-center text-xs font-semibold text-white", getAvatarColor(emp.fullName))}>
-                {getInitials(emp.fullName)}
+        <div className="sm:hidden space-y-3">
+          {isLoading && [...Array(5)].map((_, i) => (
+            <div key={i} className="card p-4 animate-pulse space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[var(--bg-hover)]" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 rounded bg-[var(--bg-hover)] w-3/4" />
+                  <div className="h-3 rounded bg-[var(--bg-hover)] w-1/2" />
+                </div>
               </div>
-          }
-          <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-            <Camera className="w-3.5 h-3.5 text-white" />
-          </div>
-        </button>
-
-        <button className="flex-1 min-w-0 text-left" onClick={() => router.push(`/dashboard/employees/${emp.id}`)}>
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <p className="font-medium text-[var(--text-primary)] text-sm">{emp.fullName}</p>
-            {lunchLateMap.has(emp.id) && (
-              <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-400">
-                <Coffee className="w-2.5 h-2.5" />+{lunchLateMap.get(emp.id)}min
-              </span>
-            )}
-            {onLeaveMap.has(emp.id) && (
-              <span
-                title={`${LEAVE_LABELS[onLeaveMap.get(emp.id)?.type]?.label} · ${onLeaveMap.get(emp.id)?.startDate?.slice(0,10)} – ${onLeaveMap.get(emp.id)?.endDate?.slice(0,10)}`}
-                className="inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 cursor-help"
-              >
-                <Palmtree className="w-2.5 h-2.5" />
-                {LEAVE_LABELS[onLeaveMap.get(emp.id)?.type]?.emoji} Ta'tilda
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-[var(--text-muted)] truncate">{emp.department?.name} · {emp.position?.name}</p>
-        </button>
-
-        {/* Status badge */}
-        {emp.firedAt || emp.status === 'FIRED'
-          ? <span className="badge-red flex-shrink-0">Ketgan</span>
-          : emp.status === 'ON_LEAVE'
-          ? <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 flex-shrink-0">Ta'tilda</span>
-          : <span className="badge-green flex-shrink-0">Faol</span>
-        }
-      </div>
-
-      {/* Quyi qator: employeeNo + maosh + tugmalar */}
-      <div className="flex items-center gap-3 mt-3 pt-3 border-t border-[var(--border)]">
-        <span className="font-mono text-xs text-[var(--text-muted)]">{emp.employeeNo || "—"}</span>
-        <span className="text-xs text-[var(--text-primary)] font-medium">{formatMoney(emp.baseSalary)}</span>
-        <div className="ml-auto flex items-center gap-1">
-          <button
-            onClick={() => { setEditEmp(emp); setModalOpen(true); }}
-            className="text-indigo-400 hover:text-indigo-300 px-2 py-1 rounded text-xs font-medium"
-          >
-            Tahrirlash
-          </button>
-          {!emp.firedAt && emp.status !== 'FIRED' && (
-            <button
-              onClick={() => { setFireEmp(emp); setFireModalOpen(true); }}
-              className="text-orange-400 hover:text-orange-300 px-2 py-1 rounded text-xs font-medium"
-            >
-              Bo'shatish
-            </button>
+            </div>
+          ))}
+          {!isLoading && employees.length === 0 && (
+            <div className="card p-8 text-center text-[var(--text-muted)] font-medium text-sm border border-[var(--border)]">Xodimlar topilmadi</div>
           )}
-          <button
-            onClick={() => confirm("O'chirishni tasdiqlaysizmi?") && deleteMutation.mutate(emp.id)}
-            className="p-1.5 rounded text-[var(--text-muted)] hover:text-red-400 hover:bg-red-500/10"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
+          {employees.map((emp: any) => (
+            <div key={emp.id} className={cn("card p-4 border border-[var(--border)] transition-all bg-[var(--bg-card)]", selectedIds.includes(emp.id) && "ring-2 ring-indigo-500 bg-indigo-500/5")}>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => toggleSelect(emp.id, !selectedIds.includes(emp.id))}
+                  className="text-[var(--text-muted)] hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors flex-shrink-0"
+                >
+                  {selectedIds.includes(emp.id)
+                    ? <CheckSquare className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                    : <Square className="w-5 h-5" />}
+                </button>
+
+                <button onClick={() => handlePhotoClick(emp.id)} className="relative group flex-shrink-0">
+                  {emp.photoUrl
+                    ? <img src={buildPhotoUrl(emp.photoUrl)} alt={emp.fullName} className="w-11 h-11 rounded-full object-cover border border-[var(--border)]" />
+                    : <div className={cn("w-11 h-11 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-inner", getAvatarColor(emp.fullName))}>
+                        {getInitials(emp.fullName)}
+                      </div>
+                  }
+                  <div className="absolute inset-0 rounded-full bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Camera className="w-4 h-4 text-white" />
+                  </div>
+                </button>
+
+                <button className="flex-1 min-w-0 text-left" onClick={() => router.push(`/dashboard/employees/${emp.id}`)}>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <p className="font-bold text-sm text-[var(--text-primary)]">{emp.fullName}</p>
+                    {lunchLateMap.has(emp.id) && (
+                      <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-700 dark:text-orange-400">
+                        <Coffee className="w-2.5 h-2.5" />+{lunchLateMap.get(emp.id)}m
+                      </span>
+                    )}
+                    {onLeaveMap.has(emp.id) && (
+                      <span
+                        className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                      >
+                        <Palmtree className="w-2.5 h-2.5" />
+                        {LEAVE_LABELS[onLeaveMap.get(emp.id)?.type]?.emoji} Ta'tilda
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-[var(--text-muted)] font-medium truncate mt-0.5">{emp.department?.name} · {emp.position?.name}</p>
+                </button>
+
+                {emp.firedAt || emp.status === 'FIRED'
+                  ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500/15 text-red-700 dark:text-red-400 border border-red-500/30 flex-shrink-0">Ketgan</span>
+                  : emp.status === 'ON_LEAVE'
+                  ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 flex-shrink-0">Ta'tilda</span>
+                  : <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-500/15 text-green-700 dark:text-green-400 border border-green-500/30 flex-shrink-0">Faol</span>
+                }
+              </div>
+
+              <div className="flex items-center gap-3 mt-3 pt-3 border-t border-[var(--border)]">
+                <span className="font-mono text-xs font-semibold text-[var(--text-muted)]">{emp.employeeNo || "—"}</span>
+                <span className="text-xs font-bold text-[var(--text-primary)]">{formatMoney(emp.baseSalary)}</span>
+                <div className="ml-auto flex items-center gap-1">
+                  <button
+                    onClick={() => { setEditEmp(emp); setModalOpen(true); }}
+                    className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 px-2 py-1 rounded text-xs font-bold"
+                  >
+                    Tahrirlash
+                  </button>
+                  {!emp.firedAt && emp.status !== 'FIRED' && (
+                    <button
+                      onClick={() => { setFireEmp(emp); setFireModalOpen(true); }}
+                      className="text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300 px-2 py-1 rounded text-xs font-bold"
+                    >
+                      Bo'shatish
+                    </button>
+                  )}
+                  <button
+                    onClick={() => confirm("O'chirishni tasdiqlaysizmi?") && deleteMutation.mutate(emp.id)}
+                    className="p-1.5 rounded text-[var(--text-muted)] hover:text-red-600 dark:hover:text-red-400 hover:bg-red-500/10"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
-      </div>
 
-    </div>
-  ))}
-</div>
-
-        {/* Mobile sentinel — infinite scroll uchun */}
         <div ref={mobileSentinelRef} className="h-4 sm:hidden" />
         {isFetchingNextPage && (
           <div className="flex justify-center py-3 sm:hidden">
@@ -1316,23 +1275,23 @@ export default function EmployeesPage() {
           </div>
         )}
 
-        {/* ── Desktop table ── */}
-        <div className="hidden sm:block card overflow-hidden">
-          <div ref={tableContainerRef} className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-240px)]">
+        {/* ── Desktop Table ── */}
+        <div className="hidden sm:block card overflow-hidden border border-[var(--border)] shadow-md bg-[var(--bg-card)]">
+          <div ref={tableContainerRef} className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-250px)]">
             <table className="w-full text-sm">
               <thead className="sticky top-0 z-20">
-                <tr className="border-b border-[var(--border)]">
-                  <th className="bg-[var(--bg-card)] pl-4 pr-2 py-3 w-8">
-                    <button type="button" onClick={toggleSelectAll} className="text-[var(--text-muted)] hover:text-indigo-400 transition-colors">
+                <tr className="border-b border-[var(--border)] bg-[var(--bg-card)]/90 backdrop-blur-md">
+                  <th className="pl-5 pr-2 py-3.5 w-10">
+                    <button type="button" onClick={toggleSelectAll} className="text-[var(--text-muted)] hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
                       {isAllSelected
-                        ? <CheckSquare className="w-4 h-4 text-indigo-400" />
+                        ? <CheckSquare className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                         : selectedIds.length > 0
-                        ? <Square className="w-4 h-4 text-indigo-400/60" />
+                        ? <Square className="w-4 h-4 text-indigo-600/60 dark:text-indigo-400/60" />
                         : <Square className="w-4 h-4" />}
                     </button>
                   </th>
                   {["Xodim", "Bo'lim", "Lavozim", "Terminal ID", "Asosiy maosh", "Holat", ""].map((h) => (
-                    <th key={h} className="bg-[var(--bg-card)] text-left px-5 py-3 text-xs font-medium text-[var(--text-muted)] uppercase tracking-wide whitespace-nowrap">
+                    <th key={h} className="text-left px-5 py-3.5 text-xs font-extrabold text-[var(--text-muted)] uppercase tracking-wider whitespace-nowrap">
                       {h}
                     </th>
                   ))}
@@ -1368,7 +1327,7 @@ export default function EmployeesPage() {
 
                 {!isLoading && employees.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-5 py-12 text-center text-[var(--text-muted)] text-sm">
+                    <td colSpan={8} className="px-5 py-12 text-center text-[var(--text-muted)] text-sm font-bold">
                       Xodimlar topilmadi
                     </td>
                   </tr>
@@ -1376,23 +1335,21 @@ export default function EmployeesPage() {
               </tbody>
             </table>
 
-            {/* Sentinel container ichida — IntersectionObserver root bilan ishlaydi */}
             <div ref={sentinelRef} className="h-4" />
             {isFetchingNextPage && (
-              <div className="flex justify-center py-3">
-                <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+              <div className="flex justify-center py-4">
+                <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
               </div>
             )}
             {!hasNextPage && employees.length > 0 && !isLoading && (
-              <p className="text-center text-xs text-[var(--text-muted)] py-2">
+              <p className="text-center text-xs text-[var(--text-muted)] font-bold py-3 border-t border-[var(--border)]">
                 Barcha {total} ta xodim yuklandi ✓
               </p>
             )}
           </div>
 
-          {/* Ko'rsatilmoqda footer */}
           {employees.length > 0 && (
-            <div className="px-5 py-2.5 border-t border-[var(--border)] text-xs text-[var(--text-muted)]">
+            <div className="px-5 py-3 border-t border-[var(--border)] bg-[var(--bg-card)]/50 text-xs font-bold text-[var(--text-muted)]">
               {employees.length} / {total} ta ko'rsatilmoqda
             </div>
           )}
@@ -1409,22 +1366,21 @@ export default function EmployeesPage() {
         currentUserRole={user?.role}
       />
       <FireModal 
-      open={fireModalOpen} 
-      onClose={() => { setFireModalOpen(false); setFireEmp(null); }} 
-      employee={fireEmp} 
-      targetHospitalId={targetHospitalId}
+        open={fireModalOpen} 
+        onClose={() => { setFireModalOpen(false); setFireEmp(null); }} 
+        employee={fireEmp} 
+        targetHospitalId={targetHospitalId}
       />
 
-      {/* ── Bulk action bar ──────────────────────── */}
+      {/* ── Bulk Action Floating Bar ── */}
       {selectedIds.length > 0 && (
-        <div className="fixed bottom-20 sm:bottom-6 inset-x-4 z-50 max-w-2xl mx-auto">
-          {/* Dept picker */}
+        <div className="fixed bottom-6 inset-x-4 z-50 max-w-xl mx-auto animate-in slide-in-from-bottom-5 duration-200">
           {showBulkDept && (
-            <div className="mb-2 bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] p-3 shadow-2xl">
-              <p className="text-xs text-[var(--text-muted)] mb-2">Bo'lim tanlang</p>
+            <div className="mb-2 bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] p-3.5 shadow-2xl space-y-2">
+              <p className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">O'tkaziladigan bo'limni tanlang</p>
               <div className="flex gap-2">
                 <select
-                  className="input-field flex-1 text-sm"
+                  className="input-field flex-1 text-sm font-medium"
                   value={bulkDeptId}
                   onChange={(e) => setBulkDeptId(e.target.value)}
                 >
@@ -1436,62 +1392,62 @@ export default function EmployeesPage() {
                 <button
                   onClick={() => bulkDeptId && bulkDeptMutation.mutate(bulkDeptId)}
                   disabled={!bulkDeptId || bulkDeptMutation.isPending}
-                  className="btn-primary text-sm px-4"
+                  className="btn-primary text-sm px-4 whitespace-nowrap font-bold"
                 >
                   {bulkDeptMutation.isPending ? "..." : "Saqlash"}
                 </button>
               </div>
             </div>
           )}
-          {/* Action bar */}
-          <div className="bg-indigo-600 rounded-2xl px-4 py-3 shadow-2xl flex items-center gap-3">
-            <span className="flex-1 text-white font-semibold text-sm">
-              {selectedIds.length} ta tanlandi
+          <div className="bg-indigo-600 rounded-2xl px-5 py-3 shadow-2xl flex items-center justify-between gap-3 border border-indigo-400/30">
+            <span className="text-white font-extrabold text-sm">
+              {selectedIds.length} ta xodim tanlandi
             </span>
-            <button
-              onClick={() => { setShowBulkDept(v => !v); setBulkDeptId(""); }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-medium transition-colors"
-            >
-              <Building2 className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Bo'lim</span>
-            </button>
-            <button
-              onClick={() => {
-                if (confirm(`${selectedIds.length} ta xodimni o'chirasizmi? Bu amalni qaytarib bo'lmaydi.`))
-                  bulkDeleteMutation.mutate();
-              }}
-              disabled={bulkDeleteMutation.isPending}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/80 hover:bg-red-500 text-white text-xs font-medium transition-colors"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              {bulkDeleteMutation.isPending ? "..." : <span className="hidden sm:inline">O'chirish</span>}
-            </button>
-            <button
-              onClick={() => { setSelectedIds([]); setShowBulkDept(false); }}
-              className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => { setShowBulkDept(v => !v); setBulkDeptId(""); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-bold transition-colors"
+              >
+                <Building2 className="w-4 h-4" />
+                <span>Bo'lim</span>
+              </button>
+              <button
+                onClick={() => {
+                  if (confirm(`${selectedIds.length} ta xodimni o'chirasizmi? Bu amalni qaytarib bo'lmaydi.`))
+                    bulkDeleteMutation.mutate();
+                }}
+                disabled={bulkDeleteMutation.isPending}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/80 hover:bg-red-500 text-white text-xs font-bold transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                {bulkDeleteMutation.isPending ? "..." : <span>O'chirish</span>}
+              </button>
+              <button
+                onClick={() => { setSelectedIds([]); setShowBulkDept(false); }}
+                className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Rasm manbasi — kamera yoki galereya */}
       {showPhotoMenuMain && (
         <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={() => { setShowPhotoMenuMain(false); setUploadingEmpId(null); }}>
-          <div className="w-full max-w-lg bg-[var(--bg-card)] rounded-t-2xl border-t border-[var(--border)] p-4 pb-8 space-y-1" onClick={e => e.stopPropagation()}>
-            <div className="w-10 h-1 rounded-full bg-[var(--border)] mx-auto mb-4" />
+          <div className="w-full max-w-lg bg-[var(--bg-card)] rounded-t-2xl border-t border-[var(--border)] p-4 pb-8 space-y-2 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="w-12 h-1.5 rounded-full bg-[var(--border)] mx-auto mb-3 opacity-60" />
             <button type="button"
-              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-[var(--bg-hover)] text-[var(--text-primary)] transition-colors"
+              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-[var(--bg-hover)] text-[var(--text-primary)] font-bold transition-colors"
               onClick={() => { setShowPhotoMenuMain(false); photoInputCameraRef.current?.click(); }}>
-              <Camera className="w-5 h-5 text-indigo-400" />
-              <span className="font-medium">Kamera</span>
+              <Camera className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+              <span>Kameradan rasmga olish</span>
             </button>
             <button type="button"
-              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-[var(--bg-hover)] text-[var(--text-primary)] transition-colors"
+              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-[var(--bg-hover)] text-[var(--text-primary)] font-bold transition-colors"
               onClick={() => { setShowPhotoMenuMain(false); photoInputRef.current?.click(); }}>
-              <ImageIcon className="w-5 h-5 text-indigo-400" />
-              <span className="font-medium">Galereya</span>
+              <ImageIcon className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+              <span>Galereyadan tanlash</span>
             </button>
           </div>
         </div>

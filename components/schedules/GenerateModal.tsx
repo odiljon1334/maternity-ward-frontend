@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback, memo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { schedulesApi, shiftsApi } from "@/lib/api";
@@ -26,24 +26,28 @@ function toMin(t: string) {
   const [h, m] = t.split(":").map(Number);
   return h * 60 + m;
 }
+
 function fmtDur(min: number) {
   if (min <= 0) return "0 soat";
   const h = Math.floor(min / 60);
   const m = min % 60;
   return m > 0 ? `${h}s ${m}d` : `${h} soat`;
 }
+
 function calcGross(start: string, end: string) {
   if (!start || !end) return 0;
   let g = toMin(end) - toMin(start);
   if (g <= 0) g += 1440;
   return g;
 }
+
 function calcLunch(ls: string, le: string) {
   if (!ls || !le) return 0;
   let lm = toMin(le) - toMin(ls);
   if (lm <= 0) lm += 1440;
   return lm;
 }
+
 function isOvernightFn(start: string, end: string) {
   return toMin(end) < toMin(start);
 }
@@ -54,7 +58,7 @@ const MONTH_NAMES = [
 ];
 
 // ─── ShiftCard ────────────────────────────────────────────────────────────────
-function ShiftCard({
+const ShiftCard = memo(function ShiftCard({
   preset, active, onSelect, onChange,
 }: {
   preset: ShiftPreset;
@@ -75,68 +79,56 @@ function ShiftCard({
   const isNight = preset.type === "night";
   const isOff   = preset.type === "off";
 
-  const timeInputCls = cn(
-    "h-9 rounded-lg border text-sm font-medium px-3 w-28",
-    "bg-[var(--bg-primary)] text-[var(--text-primary)]",
-    "outline-none focus:ring-1",
-    active && isDay   && "border-blue-500/60 focus:ring-blue-500/40",
-    active && isNight && "border-violet-500/60 focus:ring-violet-500/40",
-    !active && "border-[var(--border)] focus:ring-[var(--border-strong)]",
-  );
-
   return (
     <div
       onClick={onSelect}
       className={cn(
-        "rounded-xl border-2 px-4 py-3 cursor-pointer transition-all select-none relative",
+        "rounded-xl border-2 px-4 py-3 cursor-pointer transition-colors select-none relative",
         active && isDay   && "border-blue-500 bg-blue-500/10",
         active && isNight && "border-violet-500 bg-violet-500/10",
         active && isOff   && "border-slate-500 bg-slate-500/10",
-        !active && "border-[var(--border)] bg-[var(--bg-card)] hover:border-[var(--border-strong)]",
+        !active && "border-[var(--border)] bg-[var(--bg-card)] hover:border-[var(--border-strong)]"
       )}
     >
-      {/* Active check */}
       {active && (
         <div className={cn(
           "absolute top-3 right-3 w-5 h-5 rounded-full flex items-center justify-center",
-          isDay && "bg-blue-500", isNight && "bg-violet-500", isOff && "bg-slate-500",
+          isDay && "bg-blue-500", isNight && "bg-violet-500", isOff && "bg-slate-500"
         )}>
           <Check className="w-3 h-3 text-white" />
         </div>
       )}
 
-      {/* Row 1: Icon + Title + Duration */}
       <div className="flex items-center gap-3 mb-3">
         <div className={cn(
           "w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0",
-          active && isDay   && "bg-blue-500",
-          active && isNight && "bg-violet-500",
-          active && isOff   && "bg-slate-500",
-          !active && "bg-[var(--bg-hover)] border border-[var(--border)]",
+          active && isDay   && "bg-blue-500 text-white",
+          active && isNight && "bg-violet-500 text-white",
+          active && isOff   && "bg-slate-500 text-white",
+          !active && "bg-[var(--bg-hover)] border border-[var(--border)] text-[var(--text-muted)]"
         )}>
-          {isDay   && <Sun    className={cn("w-4 h-4", active ? "text-white" : "text-[var(--text-muted)]")} />}
-          {isNight && <Moon   className={cn("w-4 h-4", active ? "text-white" : "text-[var(--text-muted)]")} />}
-          {isOff   && <Coffee className={cn("w-4 h-4", active ? "text-white" : "text-[var(--text-muted)]")} />}
+          {isDay   && <Sun className="w-4 h-4" />}
+          {isNight && <Moon className="w-4 h-4" />}
+          {isOff   && <Coffee className="w-4 h-4" />}
         </div>
         <div>
           <p className={cn(
             "text-sm font-semibold",
-            active && isDay   && "text-blue-400",
-            active && isNight && "text-violet-400",
-            active && isOff   && "text-slate-300",
-            !active && "text-[var(--text-primary)]",
+            active && isDay   && "text-blue-500 dark:text-blue-400",
+            active && isNight && "text-violet-500 dark:text-violet-400",
+            active && isOff   && "text-slate-400 dark:text-slate-300",
+            !active && "text-[var(--text-primary)]"
           )}>
             {isDay ? "Kunduzgi" : isNight ? "Tungi" : "Dam olish"}
           </p>
-          {!isOff && (
+          {!isOff ? (
             <p className="text-xs text-[var(--text-muted)] mt-0.5">
               {preset.lunchEnabled
-                ? <><span>{fmtDur(gross)}</span> → <span className="text-emerald-400 font-medium">{fmtDur(net)} sof</span></>
+                ? <><span>{fmtDur(gross)}</span> → <span className="text-emerald-500 font-medium">{fmtDur(net)} sof</span></>
                 : <span>{fmtDur(gross)} ish</span>
               }
             </p>
-          )}
-          {isOff && (
+          ) : (
             <p className="text-xs text-[var(--text-muted)] mt-0.5">
               {active ? "Kunlarga bosing" : "Ishlamaydigan kun"}
             </p>
@@ -144,55 +136,53 @@ function ShiftCard({
         </div>
       </div>
 
-      {/* Row 2: Time inputs (agar off emas) */}
       {!isOff && (
         <div className="flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
+          {/* DIQQAT: style={{ colorScheme: "dark" }} OLIB TASHALNDI! (Osilish sababi shu edi) */}
           <input
-            type="time" value={safeStart}
+            type="time"
+            value={safeStart}
             onChange={(e) => onChange({ startTime: e.target.value })}
-            style={{ colorScheme: "dark" }}
-            className={timeInputCls}
+            className="h-9 rounded-lg border text-sm font-medium px-3 w-28 bg-[var(--bg-primary)] text-[var(--text-primary)] border-[var(--border)] outline-none focus:ring-1 focus:ring-indigo-500"
           />
           <span className="text-[var(--text-muted)]">–</span>
           <input
-            type="time" value={safeEnd}
+            type="time"
+            value={safeEnd}
             onChange={(e) => onChange({ endTime: e.target.value })}
-            style={{ colorScheme: "dark" }}
-            className={timeInputCls}
+            className="h-9 rounded-lg border text-sm font-medium px-3 w-28 bg-[var(--bg-primary)] text-[var(--text-primary)] border-[var(--border)] outline-none focus:ring-1 focus:ring-indigo-500"
           />
 
-          {/* Lunch toggle */}
           <div
             className="flex items-center gap-2 ml-2 cursor-pointer"
             onClick={(e) => { e.stopPropagation(); onChange({ lunchEnabled: !preset.lunchEnabled }); }}
           >
             <div className={cn(
-              "w-9 h-5 rounded-full transition-colors relative flex-shrink-0",
+              "w-9 h-5 rounded-full relative flex-shrink-0 transition-colors",
               preset.lunchEnabled ? "bg-amber-500" : "bg-[var(--bg-hover)] border border-[var(--border)]"
             )}>
               <div className={cn(
-                "absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform shadow-sm",
+                "absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-xs transition-transform",
                 preset.lunchEnabled ? "translate-x-4" : "translate-x-0.5"
               )} />
             </div>
             <span className="text-xs text-[var(--text-muted)] whitespace-nowrap">Tushlik</span>
           </div>
 
-          {/* Lunch times inline */}
           {preset.lunchEnabled && (
             <>
               <input
-                type="time" value={safeLs}
+                type="time"
+                value={safeLs}
                 onChange={(e) => onChange({ lunchStart: e.target.value })}
-                style={{ colorScheme: "dark" }}
-                className="h-9 rounded-lg border text-sm font-medium px-3 w-25 bg-amber-500/10 border-amber-500/40 text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-amber-500/40"
+                className="h-9 rounded-lg border text-sm font-medium px-3 w-25 bg-amber-500/10 border-amber-500/40 text-[var(--text-primary)] outline-none"
               />
-              <span className="text-amber-400 text-sm">–</span>
+              <span className="text-amber-500 text-sm">–</span>
               <input
-                type="time" value={safeLe}
+                type="time"
+                value={safeLe}
                 onChange={(e) => onChange({ lunchEnd: e.target.value })}
-                style={{ colorScheme: "dark" }}
-                className="h-9 rounded-lg border text-sm font-medium px-3 w-25 bg-amber-500/10 border-amber-500/40 text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-amber-500/40"
+                className="h-9 rounded-lg border text-sm font-medium px-3 w-25 bg-amber-500/10 border-amber-500/40 text-[var(--text-primary)] outline-none"
               />
             </>
           )}
@@ -200,10 +190,10 @@ function ShiftCard({
       )}
     </div>
   );
-}
+});
 
-// ─── Active shift indicator bar ───────────────────────────────────────────────
-function ActiveShiftBar({ activeShift, presets }: {
+// ─── ActiveShiftBar ───────────────────────────────────────────────────────────
+const ActiveShiftBar = memo(function ActiveShiftBar({ activeShift, presets }: {
   activeShift: ShiftType;
   presets: Record<ShiftType, ShiftPreset>;
 }) {
@@ -219,12 +209,12 @@ function ActiveShiftBar({ activeShift, presets }: {
   return (
     <div className={cn(
       "flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border",
-      activeShift === "day"   && "bg-blue-500/10 border-blue-500/30 text-blue-400",
-      activeShift === "night" && "bg-violet-500/10 border-violet-500/30 text-violet-400",
-      activeShift === "off"   && "bg-slate-500/10 border-slate-500/30 text-slate-400",
+      activeShift === "day"   && "bg-blue-500/10 border-blue-500/30 text-blue-500 dark:text-blue-400",
+      activeShift === "night" && "bg-violet-500/10 border-violet-500/30 text-violet-500 dark:text-violet-400",
+      activeShift === "off"   && "bg-slate-500/10 border-slate-500/30 text-slate-500 dark:text-slate-400"
     )}>
-      {activeShift === "day"   && <Sun    className="w-3.5 h-3.5 flex-shrink-0" />}
-      {activeShift === "night" && <Moon   className="w-3.5 h-3.5 flex-shrink-0" />}
+      {activeShift === "day"   && <Sun className="w-3.5 h-3.5 flex-shrink-0" />}
+      {activeShift === "night" && <Moon className="w-3.5 h-3.5 flex-shrink-0" />}
       {activeShift === "off"   && <Coffee className="w-3.5 h-3.5 flex-shrink-0" />}
       <span>
         {activeShift === "off"
@@ -234,10 +224,10 @@ function ActiveShiftBar({ activeShift, presets }: {
       </span>
     </div>
   );
-}
+});
 
 // ─── Calendar ─────────────────────────────────────────────────────────────────
-function ScheduleCalendar({
+const ScheduleCalendar = memo(function ScheduleCalendar({
   year, month, dayMap, dayPresets, activeShift, onDayClick, onCopyPrev,
 }: {
   year: number;
@@ -258,10 +248,8 @@ function ScheduleCalendar({
 
   return (
     <div>
-      {/* Active shift indicator */}
       <ActiveShiftBar activeShift={activeShift} presets={dayPresets} />
 
-      {/* Legend */}
       <div className="flex flex-wrap gap-3 mt-2.5 mb-2">
         {[
           { cls: "bg-blue-500",   label: "Kunduzgi" },
@@ -270,13 +258,12 @@ function ScheduleCalendar({
           { cls: "bg-[var(--bg-hover)] border border-[var(--border)]", label: "Dam olish" },
         ].map((l) => (
           <div key={l.label} className="flex items-center gap-1.5">
-            <div className={cn("w-2.5 h-2.5 rounded-sm flex-shrink-0", l.cls)} />
+            <div className={cn("w-2.5 h-2.5 rounded-xs flex-shrink-0", l.cls)} />
             <span className="text-[11px] text-[var(--text-muted)]">{l.label}</span>
           </div>
         ))}
       </div>
 
-      {/* Day headers */}
       <div className="grid grid-cols-7 gap-[2px] mb-[2px]">
         {["Du","Se","Ch","Pa","Ju","Sh","Ya"].map((d, i) => (
           <div key={d} className={cn(
@@ -288,7 +275,6 @@ function ScheduleCalendar({
         ))}
       </div>
 
-      {/* Days grid */}
       <div className="grid grid-cols-7 gap-[2px]">
         {Array.from({ length: offset }).map((_, i) => <div key={`e-${i}`} />)}
         {Array.from({ length: daysInMonth }, (_, i) => {
@@ -304,12 +290,12 @@ function ScheduleCalendar({
               key={day}
               onClick={() => onDayClick(day)}
               className={cn(
-                "rounded-md border cursor-pointer transition-all min-h-[44px] p-1 select-none",
+                "rounded-md border cursor-pointer min-h-[44px] p-1 select-none",
                 type === "day"   && "bg-blue-500/10 border-blue-500/50",
                 type === "night" && "bg-violet-500/10 border-violet-500/50",
                 type === "off"   && "bg-[var(--bg-hover)] border-[var(--border)]",
                 !type && isWk   && "border-[var(--border)] bg-transparent hover:bg-red-500/5 hover:border-red-500/30",
-                !type && !isWk  && "border-[var(--border)] bg-transparent hover:bg-[var(--bg-hover)] hover:border-[var(--border-strong)]",
+                !type && !isWk  && "border-[var(--border)] bg-transparent hover:bg-[var(--bg-hover)] hover:border-[var(--border-strong)]"
               )}
             >
               <div className={cn(
@@ -318,7 +304,7 @@ function ScheduleCalendar({
                 type === "night" && "text-violet-400",
                 type === "off"   && "text-[var(--text-muted)]",
                 !type && isWk   && "text-red-400",
-                !type && !isWk  && "text-[var(--text-muted)]",
+                !type && !isWk  && "text-[var(--text-muted)]"
               )}>
                 {day}
               </div>
@@ -327,7 +313,7 @@ function ScheduleCalendar({
                   "text-[8px] font-bold px-0.5 py-0.5 rounded text-center leading-tight",
                   type === "day"   && "bg-blue-500 text-white",
                   type === "night" && "bg-violet-500 text-white",
-                  type === "off"   && "bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-muted)]",
+                  type === "off"   && "bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-muted)]"
                 )}>
                   {type === "off"
                     ? "Dam"
@@ -344,16 +330,15 @@ function ScheduleCalendar({
         })}
       </div>
 
-      {/* Stats row */}
       <div className="flex items-center justify-between mt-3 pt-3 border-t border-[var(--border)]">
         <div className="flex gap-4 text-xs">
           <span className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-sm bg-blue-500 flex-shrink-0" />
+            <span className="w-2 h-2 rounded-xs bg-blue-500 flex-shrink-0" />
             <span className="text-[var(--text-muted)]">Ish:</span>
             <span className="font-semibold text-[var(--text-primary)]">{workedDays}</span>
           </span>
           <span className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-sm bg-[var(--bg-hover)] border border-[var(--border)] flex-shrink-0" />
+            <span className="w-2 h-2 rounded-xs bg-[var(--bg-hover)] border border-[var(--border)] flex-shrink-0" />
             <span className="text-[var(--text-muted)]">Dam:</span>
             <span className="font-semibold text-[var(--text-primary)]">{offDays}</span>
           </span>
@@ -365,6 +350,7 @@ function ScheduleCalendar({
         </div>
         <button
           onClick={onCopyPrev}
+          type="button"
           className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
         >
           <Copy className="w-3 h-3" />
@@ -373,10 +359,10 @@ function ScheduleCalendar({
       </div>
     </div>
   );
-}
+});
 
 // ─── Employee Multi-Select ────────────────────────────────────────────────────
-function EmployeeSelect({
+const EmployeeSelect = memo(function EmployeeSelect({
   employees, departments, selected, onToggle, onToggleAll,
 }: {
   employees: any[];
@@ -399,12 +385,11 @@ function EmployeeSelect({
     return list;
   }, [employees, dept, search]);
 
-  const filteredIds  = filtered.map((e) => e.id);
-  const allSelected  = filteredIds.length > 0 && filteredIds.every((id) => selected.has(id));
+  const filteredIds  = useMemo(() => filtered.map((e) => e.id), [filtered]);
+  const allSelected  = useMemo(() => filteredIds.length > 0 && filteredIds.every((id) => selected.has(id)), [filteredIds, selected]);
 
   return (
     <div className="space-y-2">
-      {/* Filters */}
       <div className="grid grid-cols-2 gap-2">
         <select
           value={dept}
@@ -428,7 +413,6 @@ function EmployeeSelect({
         </div>
       </div>
 
-      {/* Count + select all */}
       <div className="flex items-center justify-between">
         <span className="text-xs text-[var(--text-muted)]">
           {selected.size > 0
@@ -437,6 +421,7 @@ function EmployeeSelect({
           }
         </span>
         <button
+          type="button"
           onClick={() => onToggleAll(filteredIds)}
           className="text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-1"
         >
@@ -447,57 +432,44 @@ function EmployeeSelect({
         </button>
       </div>
 
-      {/* List with scroll fade */}
-      <div className="relative">
-        <div className="border border-[var(--border)] rounded-xl overflow-hidden max-h-44 overflow-y-auto">
-          {filtered.length === 0 && (
-            <div className="py-8 text-center text-xs text-[var(--text-muted)]">
-              <Search className="w-5 h-5 mx-auto mb-1.5 opacity-30" />
-              Topilmadi
-            </div>
-          )}
-          {filtered.map((emp) => {
-            const isSel = selected.has(emp.id);
-            return (
-              <div
-                key={emp.id}
-                onClick={() => onToggle(emp.id)}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 border-b border-[var(--border)] last:border-0 cursor-pointer transition-colors",
-                  isSel ? "bg-indigo-500/10" : "hover:bg-[var(--bg-hover)]"
-                )}
-              >
-                {/* Custom checkbox */}
-                <div className={cn(
-                  "w-4 h-4 rounded flex items-center justify-center flex-shrink-0 border transition-colors",
-                  isSel
-                    ? "bg-indigo-500 border-indigo-500"
-                    : "border-[var(--border)] bg-transparent"
-                )}>
-                  {isSel && <Check className="w-2.5 h-2.5 text-white" />}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className={cn(
-                    "text-sm truncate transition-colors",
-                    isSel ? "text-[var(--text-primary)] font-medium" : "text-[var(--text-primary)]"
-                  )}>
-                    {emp.fullName}
-                  </p>
-                  <p className="text-xs text-[var(--text-muted)] truncate">{emp.department?.name}</p>
-                </div>
-                {isSel && <Check className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0" />}
-              </div>
-            );
-          })}
-        </div>
-        {/* Scroll fade indicator */}
-        {filtered.length > 4 && (
-          <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-[var(--bg-card)] to-transparent rounded-b-xl pointer-events-none" />
+      <div className="border border-[var(--border)] rounded-xl overflow-hidden max-h-44 overflow-y-auto">
+        {filtered.length === 0 && (
+          <div className="py-8 text-center text-xs text-[var(--text-muted)]">
+            <Search className="w-5 h-5 mx-auto mb-1.5 opacity-30" />
+            Topilmadi
+          </div>
         )}
+        {filtered.map((emp) => {
+          const isSel = selected.has(emp.id);
+          return (
+            <div
+              key={emp.id}
+              onClick={() => onToggle(emp.id)}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2.5 border-b border-[var(--border)] last:border-0 cursor-pointer transition-colors",
+                isSel ? "bg-indigo-500/10" : "hover:bg-[var(--bg-hover)]"
+              )}
+            >
+              <div className={cn(
+                "w-4 h-4 rounded flex items-center justify-center flex-shrink-0 border transition-colors",
+                isSel ? "bg-indigo-500 border-indigo-500" : "border-[var(--border)] bg-transparent"
+              )}>
+                {isSel && <Check className="w-2.5 h-2.5 text-white" />}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm truncate text-[var(--text-primary)] font-medium">
+                  {emp.fullName}
+                </p>
+                <p className="text-xs text-[var(--text-muted)] truncate">{emp.department?.name}</p>
+              </div>
+              {isSel && <Check className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0" />}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
-}
+});
 
 // ─── GenerateModal ────────────────────────────────────────────────────────────
 export function GenerateModal({
@@ -514,11 +486,11 @@ export function GenerateModal({
   onMonthChange?: (m: number, y: number) => void;
 }) {
   const qc       = useQueryClient();
-  const apiParams = targetHospitalId ? { targetHospitalId } : undefined;
+  const apiParams = useMemo(() => targetHospitalId ? { targetHospitalId } : undefined, [targetHospitalId]);
 
   const [mode, setMode]               = useState<"single" | "multi">("single");
-  const [calMonth, setCalMonth]       = useState(dayjs().month() + 1);
-  const [calYear, setCalYear]         = useState(dayjs().year());
+  const [calMonth, setCalMonth]       = useState(() => dayjs().month() + 1);
+  const [calYear, setCalYear]         = useState(() => dayjs().year());
   const [singleEmpId, setSingleEmpId] = useState(preEmployeeId ?? "");
   const [multiSelected, setMultiSelected] = useState<Set<string>>(new Set());
   const [activeShift, setActiveShift] = useState<ShiftType>("day");
@@ -539,31 +511,35 @@ export function GenerateModal({
     if (!open) { setDayMap({}); setMultiSelected(new Set()); }
   }, [open]);
 
-  const navMonth = (dir: number) => {
-    const next = dayjs(`${calYear}-${String(calMonth).padStart(2, "0")}-01`).add(dir, "month");
-    setCalMonth(next.month() + 1);
-    setCalYear(next.year());
-  };
+  const navMonth = useCallback((dir: number) => {
+    setCalMonth((prevM) => {
+      const next = dayjs(`${calYear}-${String(prevM).padStart(2, "0")}-01`).add(dir, "month");
+      setCalYear(next.year());
+      return next.month() + 1;
+    });
+  }, [calYear]);
 
-  const handleDayClick = (day: number) => {
+  const handleDayClick = useCallback((day: number) => {
     setDayMap((prev) => ({ ...prev, [day]: activeShift }));
-  };
+  }, [activeShift]);
 
-  const handleCopyPrev = () => {
+  const handleCopyPrev = useCallback(() => {
     const daysInMonth = dayjs(`${calYear}-${String(calMonth).padStart(2, "0")}-01`).daysInMonth();
-    const newMap: Record<number, ShiftType> = { ...dayMap };
-    for (let d = 1; d <= daysInMonth; d++) {
-      if (!newMap[d]) {
-        const dow = dayjs(`${calYear}-${String(calMonth).padStart(2, "0")}-${String(d).padStart(2, "0")}`).day();
-        newMap[d] = (dow === 0 || dow === 6) ? "off" : "day";
+    setDayMap((prev) => {
+      const newMap: Record<number, ShiftType> = { ...prev };
+      for (let d = 1; d <= daysInMonth; d++) {
+        if (!newMap[d]) {
+          const dow = dayjs(`${calYear}-${String(calMonth).padStart(2, "0")}-${String(d).padStart(2, "0")}`).day();
+          newMap[d] = (dow === 0 || dow === 6) ? "off" : "day";
+        }
       }
-    }
-    setDayMap(newMap);
-  };
+      return newMap;
+    });
+  }, [calYear, calMonth]);
 
-  const updatePreset = (type: ShiftType, patch: Partial<ShiftPreset>) => {
+  const updatePreset = useCallback((type: ShiftType, patch: Partial<ShiftPreset>) => {
     setPresets((prev) => ({ ...prev, [type]: { ...prev[type], ...patch } }));
-  };
+  }, []);
 
   const resolveShift = async (preset: ShiftPreset): Promise<string | undefined> => {
     if (preset.type === "off") return undefined;
@@ -593,26 +569,6 @@ export function GenerateModal({
     return newShift.id;
   };
 
-  const buildEntries = async () => {
-    const cache   = new Map<ShiftType, string | undefined>();
-    const entries: Array<{ date: string; status: string; shiftId?: string }> = [];
-
-    for (const [dayStr, type] of Object.entries(dayMap)) {
-      const day     = Number(dayStr);
-      const dateStr = `${calYear}-${String(calMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-
-      if (type === "off") {
-        entries.push({ date: dateStr, status: "DAY_OFF" });
-        continue;
-      }
-      if (!cache.has(type)) {
-        cache.set(type, await resolveShift(presets[type]));
-      }
-      entries.push({ date: dateStr, status: "WORKING", shiftId: cache.get(type) });
-    }
-    return entries;
-  };
-
   const handleSubmit = async () => {
     const empIds = mode === "single"
       ? singleEmpId ? [singleEmpId] : []
@@ -623,7 +579,23 @@ export function GenerateModal({
 
     setSubmitting(true);
     try {
-      const entries = await buildEntries();
+      const cache   = new Map<ShiftType, string | undefined>();
+      const entries: Array<{ date: string; status: string; shiftId?: string }> = [];
+
+      for (const [dayStr, type] of Object.entries(dayMap)) {
+        const day     = Number(dayStr);
+        const dateStr = `${calYear}-${String(calMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
+        if (type === "off") {
+          entries.push({ date: dateStr, status: "DAY_OFF" });
+          continue;
+        }
+        if (!cache.has(type)) {
+          cache.set(type, await resolveShift(presets[type]));
+        }
+        entries.push({ date: dateStr, status: "WORKING", shiftId: cache.get(type) });
+      }
+
       let total = 0;
       for (const empId of empIds) {
         const res = await schedulesApi.bulkManual({ employeeId: empId, entries });
@@ -644,29 +616,29 @@ export function GenerateModal({
     }
   };
 
-  const toggleMulti = (id: string) => {
+  const toggleMulti = useCallback((id: string) => {
     setMultiSelected((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
-  };
+  }, []);
 
-  const toggleAllMulti = (ids: string[]) => {
+  const toggleAllMulti = useCallback((ids: string[]) => {
     setMultiSelected((prev) => {
       const allSel = ids.every((id) => prev.has(id));
       const next   = new Set(prev);
       ids.forEach((id) => allSel ? next.delete(id) : next.add(id));
       return next;
     });
-  };
+  }, []);
 
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative card w-full sm:max-w-2xl max-h-[92vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl">
+      <div className="relative bg-[var(--bg-card)] border border-[var(--border)] w-full sm:max-w-2xl max-h-[92vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl">
 
         {/* Header */}
         <div className="sticky top-0 z-10 bg-[var(--bg-card)] flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
@@ -695,6 +667,7 @@ export function GenerateModal({
             ] as const).map(({ v, l, icon: Icon }) => (
               <button
                 key={v}
+                type="button"
                 onClick={() => setMode(v)}
                 className={cn(
                   "flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-medium transition-all",
@@ -751,13 +724,13 @@ export function GenerateModal({
               Oy tanlang
             </label>
             <div className="flex items-center gap-1 bg-[var(--bg-primary)] border border-[var(--border)] rounded-lg px-1 py-0.5">
-              <button onClick={() => navMonth(-1)} className="btn-ghost p-1.5 rounded-md">
+              <button type="button" onClick={() => navMonth(-1)} className="btn-ghost p-1.5 rounded-md">
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <span className="text-sm font-semibold text-[var(--text-primary)] min-w-28 text-center">
                 {MONTH_NAMES[calMonth - 1]} {calYear}
               </span>
-              <button onClick={() => navMonth(1)} className="btn-ghost p-1.5 rounded-md">
+              <button type="button" onClick={() => navMonth(1)} className="btn-ghost p-1.5 rounded-md">
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
@@ -798,8 +771,9 @@ export function GenerateModal({
 
           {/* Footer */}
           <div className="flex gap-3 pt-1">
-            <button onClick={onClose} className="btn-secondary flex-1">Bekor</button>
+            <button type="button" onClick={onClose} className="btn-secondary flex-1">Bekor</button>
             <button
+              type="button"
               onClick={handleSubmit}
               disabled={submitting}
               className="btn-primary flex-1 gap-2"
