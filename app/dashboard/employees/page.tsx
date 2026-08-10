@@ -125,9 +125,23 @@ function EmployeeModal({
         positionId:   employee.positionId,
         username:     employee.user?.username || "",
         password:     "",
+        birthDate:    employee.birthDate ? employee.birthDate.split('T')[0] : "",
       });
     } else {
-      reset({ gender: "FEMALE", fullName: "", phone: "", employeeNo: "", baseSalary: 0, departmentId: "", positionId: "", username: "", password: "" });
+      reset({ 
+        gender: "FEMALE", 
+        fullName: "", 
+        phone: "", 
+        employeeNo: "", 
+        baseSalary: 0, 
+        departmentId: "", 
+        positionId: "", 
+        username: "", 
+        password: "",
+        birthDate: employee?.birthDate
+          ? new Date(employee.birthDate).toISOString().slice(0, 10)
+          : "",
+      });
     }
     setPhotoFile(null);
     setPhotoPreview(null);
@@ -147,8 +161,15 @@ function EmployeeModal({
     mutationFn: async (data: EmpForm) => {
       const { birthDate, ...rest } = data;
       const emp = employee
-        ? await employeesApi.update(employee.id, rest, params)
-        : await employeesApi.create({ ...rest, birthDate: birthDate || undefined }, params);
+        ? await employeesApi.update(
+            employee.id,
+            { ...rest, birthDate: birthDate || undefined },
+            params
+          )
+        : await employeesApi.create(
+            { ...rest, birthDate: birthDate || undefined },
+            params
+          );
       if (photoFile) await employeesApi.uploadPhoto(emp.id, photoFile, params);
       return emp;
     },
