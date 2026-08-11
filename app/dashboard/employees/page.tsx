@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef, useCallback, memo, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, memo, useMemo, useTransition } from "react";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -764,6 +764,7 @@ export default function EmployeesPage() {
   const [selectedIds, setSelectedIds]   = useState<string[]>([]);
   const [showBulkDept, setShowBulkDept] = useState(false);
   const [bulkDeptId, setBulkDeptId]     = useState("");
+  const [isPending, startTransition] = useTransition();
 
   const photoInputRef      = useRef<HTMLInputElement>(null);
   const photoInputCameraRef = useRef<HTMLInputElement>(null);
@@ -859,12 +860,14 @@ export default function EmployeesPage() {
   }, [handleObserver]);
 
   useEffect(() => {
-    setDeptFilter("");
-    setSearchInput("");
-    setSearch("");
-    setPhotoFilter("all");
-    setStatusFilter("");
-    setSelectedIds([]);
+    startTransition(() => {
+      setDeptFilter("");
+      setSearchInput("");
+      setSearch("");
+      setPhotoFilter("all");
+      setStatusFilter("");
+      setSelectedIds([]);
+    });
   }, [targetHospitalId]);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
@@ -1025,12 +1028,27 @@ export default function EmployeesPage() {
     e.target.value = "";
     const toastId = toast.loading("Rasm yuklanmoqda...");
     try {
-      await employeesApi.uploadPhoto(uploadingEmpId, file, params);
-      qc.invalidateQueries({ queryKey: ["employees"] });
+      const updatedEmp = await employeesApi.uploadPhoto(uploadingEmpId, file, params);
+  
+      qc.setQueriesData({ queryKey: ["employees"] }, (old: any) => {
+        if (!old?.pages) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page: any) => ({
+            ...page,
+            data: page.data.map((e: any) =>
+              e.id === uploadingEmpId ? { ...e, photoUrl: updatedEmp?.photoUrl } : e
+            ),
+          })),
+        };
+      });
+  
       toast.success("Rasm yuklandi", { id: toastId });
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Rasm yuklashda xatolik", { id: toastId });
-    } finally { setUploadingEmpId(null); }
+    } finally {
+      setUploadingEmpId(null);
+    }
   };
 
   return (
@@ -1192,7 +1210,7 @@ export default function EmployeesPage() {
 
         {/* ── Mobile cards ── */}
         <div className="sm:hidden space-y-3">
-          {isLoading && [...Array(5)].map((_, i) => (
+          {(isLoading || isPending) && [...Array(5)].map((_, i) => (
             <div key={i} className="card p-4 animate-pulse space-y-3">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-[var(--bg-hover)]" />
@@ -1203,7 +1221,7 @@ export default function EmployeesPage() {
               </div>
             </div>
           ))}
-          {!isLoading && employees.length === 0 && (
+          {!isLoading && !isPending && employees.length === 0 && (
             <div className="card p-8 text-center text-[var(--text-muted)] font-medium text-sm border border-[var(--border)]">Xodimlar topilmadi</div>
           )}
           {employees.map((emp: any) => (
@@ -1319,7 +1337,7 @@ export default function EmployeesPage() {
                 </tr>
               </thead>
               <tbody>
-                {isLoading && [...Array(6)].map((_, i) => (
+                {(isLoading || isPending) && [...Array(6)].map((_, i) => (
                   <tr key={i} className="border-b border-[var(--border)]">
                     {[...Array(8)].map((_, j) => (
                       <td key={j} className="px-5 py-4">
@@ -1329,7 +1347,7 @@ export default function EmployeesPage() {
                   </tr>
                 ))}
 
-                {!isLoading && employees.map((emp: any) => (
+                {!isLoading && !isPending && employees.map((emp: any) => (
                   <EmpRow
                     key={emp.id}
                     emp={emp}
@@ -1346,7 +1364,7 @@ export default function EmployeesPage() {
                   />
                 ))}
 
-                {!isLoading && employees.length === 0 && (
+                {!isLoading && !isPending && employees.length === 0 && (
                   <tr>
                     <td colSpan={8} className="px-5 py-12 text-center text-[var(--text-muted)] text-sm font-bold">
                       Xodimlar topilmadi
