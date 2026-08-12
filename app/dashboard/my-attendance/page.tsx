@@ -6,7 +6,7 @@ import { Topbar } from "@/components/layout/Topbar";
 import { formatMinutes, cn } from "@/lib/utils";
 import {
   ChevronLeft, ChevronRight,
-  Clock, CheckCircle2, XCircle, AlertTriangle, Coffee,
+  Clock, CheckCircle2, XCircle, AlertTriangle,
   TrendingUp, Calendar as CalendarIcon, Moon, Sun, Star,
 } from "lucide-react";
 import dayjs from "dayjs";
@@ -131,7 +131,7 @@ export default function MyAttendancePage() {
           </div>
         )}
 
-        {/* ── Oylik davomat taqvimi va Smena ikonkalari ── */}
+        {/* ── Oylik davomat taqvimi ── */}
         <div className="card p-4 sm:p-5 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -167,14 +167,13 @@ export default function MyAttendancePage() {
                   disabled={!item.dateStr}
                   className={cn(
                     "h-12 sm:h-14 rounded-2xl flex flex-col items-center justify-between p-1.5 relative transition-all border",
-                    !item.dateStr && "opacity-0 pointer-events-none", // bo'sh kataklarni ko'rsatmaslik yoki bosilmaydigan qilish
+                    !item.dateStr && "opacity-0 pointer-events-none",
                     isSelected 
                       ? "ring-2 ring-indigo-500 border-indigo-500 bg-indigo-500/10" 
                       : "border-[var(--border)] hover:bg-[var(--bg-hover)]",
                     st ? st.cls : (item.isWeekend ? "bg-[var(--bg-hover)] opacity-60" : "bg-transparent")
                   )}
                 >
-                  {/* Yuqori qism: Sana va bugun belgisi */}
                   <div className="w-full flex items-center justify-between">
                     <span className={cn("text-xs font-semibold", isToday && "text-indigo-500 font-bold underline")}>
                       {item.day}
@@ -184,7 +183,6 @@ export default function MyAttendancePage() {
                         <Star className="w-3 h-3 text-amber-400/70" />
                       </span>
                     ) : (
-                      // Sana raqami bo'yicha 1 hafta kunduzi, 1 hafta kechasi navbati
                       Math.floor((item.day ?? 1) / 7) % 2 === 1 ? (
                         <span title="Kechki smena">
                           <Moon className="w-3 h-3 text-indigo-400" />
@@ -197,7 +195,6 @@ export default function MyAttendancePage() {
                     )}
                   </div>
 
-                  {/* Pastki qism: Status nuqtasi yoki ikonka */}
                   <div className="flex items-center justify-center pb-0.5">
                     {st ? (
                       <span className={cn("w-2 h-2 rounded-full shadow-sm", st.dotCls)} />
@@ -209,63 +206,63 @@ export default function MyAttendancePage() {
               );
             })}
           </div>
-
-          {/* ── KREATIV STATUS CARD (Rangli holatlar bilan) ── */}
-          {(() => {
-            const isLate = selectedRecord?.status === "LATE";
-            const isPresent = selectedRecord?.status === "PRESENT";
-            const statusLabel = selectedRecord ? (STATUS_MAP[selectedRecord.status]?.label || selectedRecord.status) : "";
-
-            return (
-              <div className={cn(
-                "p-4 sm:p-5 rounded-3xl text-white shadow-xl space-y-2 mt-4 transition-all duration-300",
-                isLate 
-                  ? "bg-gradient-to-r from-amber-600 to-amber-800 shadow-amber-600/20" 
-                  : isPresent 
-                    ? "bg-gradient-to-r from-emerald-600 to-emerald-800 shadow-emerald-600/20" 
-                    : isSelectedWeekend 
-                      ? "bg-gradient-to-r from-slate-700 to-slate-900 shadow-slate-700/20"
-                      : "bg-gradient-to-r from-rose-600 to-rose-800 shadow-rose-600/20"
-              )}>
-                <div className="flex justify-between items-center">
-                  <span className="text-[11px] font-bold bg-white/20 backdrop-blur-md px-3 py-1 rounded-full">
-                    {selectedDayObj.format("DD MMMM, dddd")}
-                  </span>
-                  <span className="text-xs font-semibold flex items-center gap-1.5 text-white">
-                    {isSelectedWeekend ? (
-                      <>🌴 Dam olish kuni</>
-                    ) : selectedRecord ? (
-                      <span className="flex items-center gap-1">
-                        <span className={cn("w-2 h-2 rounded-full", isLate ? "bg-amber-300 animate-pulse" : "bg-emerald-300")} /> 
-                        {isLate ? "Kechikib kelingan" : "Ofisdasiz"}
-                      </span>
-                    ) : (
-                      <span className="text-rose-100 flex items-center gap-1">
-                        <AlertTriangle className="w-3.5 h-3.5" /> Ishdan tashqarida
-                      </span>
-                    )}
-                  </span>
-                </div>
-                
-                <h4 className="text-base font-bold pt-1">
-                  {isSelectedWeekend 
-                    ? "Dam olish kuningiz xayrli o'tsin! 🌴" 
-                    : selectedRecord 
-                      ? `Davomat qayd etilgan (${statusLabel})` 
-                      : "Bugun davomat belgilanmagan!"}
-                </h4>
-                
-                <p className="text-xs text-white/90 leading-relaxed">
-                  {isSelectedWeekend 
-                    ? "Bugun dam olish kuni. Vaqtingizni maroqli o'tkazing!" 
-                    : selectedRecord 
-                      ? `Kelish vaqti: ${selectedRecord.checkIn ? dayjs(selectedRecord.checkIn).format("HH:mm") : "—"}. Geofozadan muvaffaqiyatli o'tgansiz.` 
-                      : "Siz bugun ishga kelmadingiz yoki check-in qilishni unutgansiz."}
-                </p>
-              </div>
-            );
-          })()}
         </div>
+
+        {/* ── KREATIV STATUS CARD (Taqvim cardidan TASHQARIGA chiqarildi) ── */}
+        {(() => {
+          const isLate = selectedRecord?.status === "LATE";
+          const isPresent = selectedRecord?.status === "PRESENT";
+          const statusLabel = selectedRecord ? (STATUS_MAP[selectedRecord.status]?.label || selectedRecord.status) : "";
+
+          return (
+            <div className={cn(
+              "p-4 sm:p-5 rounded-3xl text-white shadow-xl space-y-2 transition-all duration-300",
+              isLate 
+                ? "bg-gradient-to-r from-amber-600 to-amber-800 shadow-amber-600/20" 
+                : isPresent 
+                  ? "bg-gradient-to-r from-emerald-600 to-emerald-800 shadow-emerald-600/20" 
+                  : isSelectedWeekend 
+                    ? "bg-gradient-to-r from-slate-700 to-slate-900 shadow-slate-700/20"
+                    : "bg-gradient-to-r from-rose-600 to-rose-800 shadow-rose-600/20"
+            )}>
+              <div className="flex justify-between items-center">
+                <span className="text-[11px] font-bold bg-white/25 backdrop-blur-md px-3 py-1 rounded-full">
+                  {selectedDayObj.format("DD MMMM, dddd")}
+                </span>
+                <span className="text-xs font-semibold flex items-center gap-1.5 text-white">
+                  {isSelectedWeekend ? (
+                    <>🌴 Dam olish kuni</>
+                  ) : selectedRecord ? (
+                    <span className="flex items-center gap-1">
+                      <span className={cn("w-2 h-2 rounded-full", isLate ? "bg-amber-300 animate-pulse" : "bg-emerald-300")} /> 
+                      {isLate ? "Kechikib kelingan" : "Ofisdasiz"}
+                    </span>
+                  ) : (
+                    <span className="text-rose-100 flex items-center gap-1">
+                      <AlertTriangle className="w-3.5 h-3.5" /> Ishdan tashqarida
+                    </span>
+                  )}
+                </span>
+              </div>
+              
+              <h4 className="text-base font-bold pt-1">
+                {isSelectedWeekend 
+                  ? "Dam olish kuningiz xayrli o'tsin! 🌴" 
+                  : selectedRecord 
+                    ? `Davomat qayd etilgan (${statusLabel})` 
+                    : "Bugun davomat belgilanmagan!"}
+              </h4>
+              
+              <p className="text-xs text-white/90 leading-relaxed">
+                {isSelectedWeekend 
+                  ? "Bugun dam olish kuni. Vaqtingizni maroqli o'tkazing!" 
+                  : selectedRecord 
+                    ? `Kelish vaqti: ${selectedRecord.checkIn ? dayjs(selectedRecord.checkIn).format("HH:mm") : "—"}. Geofozadan muvaffaqiyatli o'tgansiz.` 
+                    : "Siz bugun ishga kelmadingiz yoki check-in qilishni unutgansiz."}
+              </p>
+            </div>
+          );
+        })()}
 
         {/* ── Davomat foizi progress bar ── */}
         {!isLoading && stats.totalDays > 0 && (

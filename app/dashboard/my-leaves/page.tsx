@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Plus, CalendarDays, Clock, CheckCircle2, XCircle,
   AlertTriangle, Loader2, ChevronDown, X, Sparkles, Umbrella,
+  Calendar as CalendarIcon
 } from "lucide-react";
 import { leaveApi } from "@/lib/api";
 import { Topbar } from "@/components/layout/Topbar";
@@ -50,6 +51,7 @@ function NewLeaveForm({ onClose }: { onClose: () => void }) {
     reason:    "",
   });
   const [error, setError] = useState<string | null>(null);
+  const [isOpenSelect, setIsOpenSelect] = useState(false);
 
   const mutation = useMutation({
     mutationFn: () => leaveApi.create(form),
@@ -75,119 +77,151 @@ function NewLeaveForm({ onClose }: { onClose: () => void }) {
     daysCount > 0 &&
     daysCount <= 365;
 
+  const selectedType = LEAVE_TYPES.find((t) => t.value === form.type) ?? LEAVE_TYPES[0];
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="w-full max-w-lg rounded-3xl bg-[var(--bg-card)] border border-[var(--border)] p-6 space-y-5 shadow-2xl relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+      {/* Qat'iy dark ranglar berildi, shunda tema o'zgarsa ham fon va yozuvlar o'zgarmaydi */}
+      <div className="w-full max-w-lg max-h-[85vh] flex flex-col rounded-[2rem] bg-slate-950 border border-indigo-500/30 p-5 sm:p-6 shadow-2xl relative overflow-y-auto">
+        
         {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-[var(--border)]">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-800 flex-shrink-0">
           <div>
-            <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider">Ariza topshirish</span>
-            <h2 className="text-lg font-black text-[var(--text-primary)]">Yangi ta'til so'rovi</h2>
+            <span className="text-[10px] font-extrabold text-indigo-400 uppercase tracking-widest">
+              ARIZA TOPSHIRISH
+            </span>
+            <h2 className="text-lg font-black text-white tracking-tight">Yangi ta'til so'rovi</h2>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-all"
+            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-900 transition-all"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Ta'til turi */}
-        <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-[var(--text-muted)]">Ta'til turi</label>
-          <div className="relative">
-            <select
-              value={form.type}
-              onChange={(e) => setForm({ ...form, type: e.target.value })}
-              className="w-full appearance-none bg-[var(--bg-main)] border border-[var(--border)] rounded-2xl px-4 py-3 text-sm text-[var(--text-primary)] pr-10 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+        <div className="space-y-3.5 py-4">
+          {/* Ta'til turi (Custom dropdown) */}
+          <div className="space-y-1.5 relative">
+            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Ta'til turi</label>
+            <button
+              type="button"
+              onClick={() => setIsOpenSelect(!isOpenSelect)}
+              className="w-full flex items-center justify-between bg-slate-900 border border-slate-800 hover:border-indigo-500/50 rounded-2xl px-4 py-3 text-sm font-semibold text-white transition-all"
             >
-              {LEAVE_TYPES.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.emoji} {t.label}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)] pointer-events-none" />
-          </div>
-        </div>
+              <span className="flex items-center gap-2.5">
+                <span className="text-base">{selectedType.emoji}</span>
+                <span>{selectedType.label}</span>
+              </span>
+              <ChevronDown className={cn("w-4 h-4 text-indigo-400 transition-transform", isOpenSelect && "rotate-180")} />
+            </button>
 
-        {/* Sanalar */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {isOpenSelect && (
+              <div className="absolute left-0 right-0 top-full mt-1.5 z-30 bg-slate-900 border border-slate-800 rounded-2xl p-1.5 shadow-2xl space-y-1">
+                {LEAVE_TYPES.map((t) => (
+                  <button
+                    key={t.value}
+                    type="button"
+                    onClick={() => {
+                      setForm({ ...form, type: t.value });
+                      setIsOpenSelect(false);
+                    }}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-left transition-all",
+                      form.type === t.value ? "bg-indigo-600 text-white" : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                    )}
+                  >
+                    <span className="text-base">{t.emoji}</span>
+                    <span>{t.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Sanalar */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Boshlanish sanasi</label>
+              <input
+                type="date"
+                value={form.startDate}
+                min={dayjs().format("YYYY-MM-DD")}
+                onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+                className="w-full bg-slate-900 border border-slate-800 hover:border-indigo-500/50 rounded-2xl px-4 py-3 text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                style={{ colorScheme: 'dark' }}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Tugash sanasi</label>
+              <input
+                type="date"
+                value={form.endDate}
+                min={form.startDate || dayjs().format("YYYY-MM-DD")}
+                onChange={(e) => setForm({ ...form, endDate: e.target.value })}
+                className="w-full bg-slate-900 border border-slate-800 hover:border-indigo-500/50 rounded-2xl px-4 py-3 text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                style={{ colorScheme: 'dark' }}
+              />
+            </div>
+          </div>
+
+          {/* Kunlar soni badge */}
+          {daysCount > 0 && (
+            <div className="flex items-center justify-between px-3.5 py-2.5 rounded-2xl bg-indigo-950/60 border border-indigo-500/30 text-indigo-300">
+              <span className="text-xs font-bold">Tanlangan davomiyligi:</span>
+              <span className="text-xs font-black text-indigo-300 bg-indigo-600/30 px-2.5 py-1 rounded-xl">
+                {daysCount} kun
+              </span>
+            </div>
+          )}
+
+          {/* Sabab */}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-[var(--text-muted)]">📅 Boshlanish sanasi</label>
-            <input
-              type="date"
-              value={form.startDate}
-              min={dayjs().format("YYYY-MM-DD")}
-              onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-              className="w-full bg-[var(--bg-main)] border border-[var(--border)] rounded-2xl px-4 py-3 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex justify-between">
+              <span>Izoh yoki sabab</span>
+              <span className="text-[10px] text-indigo-400 font-normal">ixtiyoriy</span>
+            </label>
+            <textarea
+              value={form.reason}
+              onChange={(e) => setForm({ ...form, reason: e.target.value })}
+              rows={2}
+              placeholder="Qisqacha izoh kiriting..."
+              className="w-full resize-none bg-slate-900 border border-slate-800 hover:border-indigo-500/50 rounded-2xl p-3.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
             />
           </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-[var(--text-muted)]">📅 Tugash sanasi</label>
-            <input
-              type="date"
-              value={form.endDate}
-              min={form.startDate || dayjs().format("YYYY-MM-DD")}
-              onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-              className="w-full bg-[var(--bg-main)] border border-[var(--border)] rounded-2xl px-4 py-3 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-            />
-          </div>
+
+          {/* Xato xabari */}
+          {error && (
+            <div className="rounded-2xl border border-red-500/30 bg-red-950/40 p-3 text-xs font-semibold text-red-400">
+              {error}
+            </div>
+          )}
         </div>
-
-        {/* Kunlar soni badge */}
-        {daysCount > 0 && (
-          <div className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-bold">
-            <CalendarDays className="w-4 h-4" />
-            <span>Tanlangan davr: {daysCount} kun</span>
-          </div>
-        )}
-
-        {/* Sabab */}
-        <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-[var(--text-muted)]">
-            Izoh yoki sabab <span className="opacity-50">(ixtiyoriy)</span>
-          </label>
-          <textarea
-            value={form.reason}
-            onChange={(e) => setForm({ ...form, reason: e.target.value })}
-            rows={3}
-            placeholder="Qo'shimcha izoh kiriting..."
-            className="w-full resize-none bg-[var(--bg-main)] border border-[var(--border)] rounded-2xl p-4 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-          />
-        </div>
-
-        {/* Xato xabari */}
-        {error && (
-          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-3.5 flex items-start gap-2.5">
-            <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-            <p className="text-xs font-medium text-red-400">{error}</p>
-          </div>
-        )}
 
         {/* Tugmalar */}
-        <div className="flex gap-3 pt-2">
+        <div className="flex items-center gap-2.5 pt-3 border-t border-slate-800 flex-shrink-0">
+          <button
+            onClick={onClose}
+            className="px-4 py-3 rounded-2xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-slate-300 transition-all"
+          >
+            Bekor qilish
+          </button>
+          
           <button
             onClick={() => mutation.mutate()}
             disabled={!canSubmit}
             className={cn(
-              "flex-1 py-3 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-lg",
+              "flex-1 py-3 rounded-2xl text-xs font-black flex items-center justify-center gap-2 transition-all",
               canSubmit
-                ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-500/25"
-                : "bg-slate-700/50 text-slate-500 cursor-not-allowed",
+                ? "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-lg shadow-indigo-600/30"
+                : "bg-slate-900 text-slate-600 cursor-not-allowed border border-slate-800"
             )}
           >
             {mutation.isPending ? (
-              <><Loader2 className="w-4 h-4 animate-spin" /> Yuborilmoqda...</>
+              <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Yuborilmoqda...</>
             ) : (
-              <><CalendarDays className="w-4 h-4" /> So'rov yuborish</>
+              <><Sparkles className="w-3.5 h-3.5 text-indigo-300" /> So'rov yuborish</>
             )}
-          </button>
-          <button
-            onClick={onClose}
-            className="px-5 py-3 rounded-2xl text-sm font-semibold bg-[var(--bg-hover)] hover:bg-slate-700 text-[var(--text-muted)] hover:text-white transition-all"
-          >
-            Bekor qilish
           </button>
         </div>
       </div>
@@ -305,7 +339,7 @@ export default function MyLeavesPage() {
         {showForm && <NewLeaveForm onClose={() => setShowForm(false)} />}
 
         {/* Header Panel */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-900/40 via-purple-900/20 to-[var(--bg-card)] border p-6 shadow-xl backdrop-blur-xl">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-900/40 via-purple-900/20 to-[var(--bg-card)] border dark:border-indigo-900/50 p-6 shadow-xl backdrop-blur-xl">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
             <div>
               <div className="flex items-center gap-2 text-indigo-400 text-xs font-bold uppercase tracking-wider mb-1">
