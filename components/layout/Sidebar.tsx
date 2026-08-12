@@ -8,18 +8,21 @@ import {
   Activity, ChevronLeft, ChevronRight, Building2, Bell,
   CreditCard, UserPlus, Shield, Send, Eye, X, Video, 
   ScanFace, UserCircle, Palmtree, BarChart2, Wallet, Bot, Archive,
+  Sparkles
 } from "lucide-react";
 import { cn, getInitials, getAvatarColor } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth";
 import { useMobileMenu } from "@/contexts/mobile-menu";
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { authApi, photoUrl } from "@/lib/api";
 
 type NavItem = {
   href:   string;
   label:  string;
   icon:   React.ElementType;
   roles:  string[];
-  exact?: boolean;  // ← yangi
+  exact?: boolean;
 };
 
 const mainNavItems: NavItem[] = [
@@ -61,6 +64,24 @@ export function Sidebar() {
   // Navigatsiya qilinganda mobile menyu yopilsin
   useEffect(() => { close(); }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Xodim profil ma'lumotlarini to'g'ridan-to'g'ri olish (Login o'rniga ism chiqishi uchun)
+  const { data: profile } = useQuery({
+    queryKey: ["auth-profile"],
+    queryFn: () => authApi.profile(),
+    enabled: mounted && !!user,
+  });
+  
+  const emp = (profile as any)?.employee;
+  
+  const fullName = emp?.fullName 
+    ? emp.fullName 
+    : emp && (emp.firstName || emp.lastName)
+    ? `${emp.lastName || ""} ${emp.firstName || ""}`.trim()
+    : (user?.username || "Foydalanuvchi");
+
+  const roleName = emp?.position?.name || user?.role || "";
+  const userPhoto = emp?.photoUrl ? photoUrl(emp.photoUrl) : null;
+
   const navItems = mainNavItems.filter(
     (item) => !item.roles || (mounted && user?.role && item.roles.includes(user.role))
   );
@@ -75,7 +96,7 @@ export function Sidebar() {
       {/* ── Mobile backdrop ──────────────────────────────────── */}
       <div
         className={cn(
-          "fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity lg:hidden",
+          "fixed inset-0 z-40 bg-black/60 backdrop-blur-md transition-opacity lg:hidden",
           mobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         )}
         onClick={close}
@@ -84,68 +105,83 @@ export function Sidebar() {
       {/* ── Sidebar ──────────────────────────────────────────── */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex flex-col h-full transition-transform duration-300",
-          "bg-[var(--sidebar-bg)] backdrop-blur-2xl border-r border-[var(--border)] shadow-2xl shadow-black/20",
-          // Mobile: drawer — show/hide via transform
+          "fixed inset-y-0 left-0 z-50 flex flex-col h-full transition-all duration-300",
+          "bg-[var(--sidebar-bg)] backdrop-blur-2xl border-r border-[var(--border)] shadow-2xl shadow-black/25",
+          // Mobile: drawer
           mobileOpen ? "translate-x-0" : "-translate-x-full",
-          // Desktop: always visible, sticky, relative
+          // Desktop: sticky
           "lg:relative lg:translate-x-0 lg:h-screen lg:sticky lg:top-0",
           // Width
           "w-72 lg:w-auto",
-          collapsed ? "lg:w-16" : "lg:w-64"
+          collapsed ? "lg:w-20" : "lg:w-72"
         )}
       >
-        {/* Logo */}
-        <div className="flex items-center gap-3 px-4 py-5 border-b border-[var(--border)]">
-          <div className="flex-shrink-0 p-1.5 rounded-lg bg-indigo-600">
-            <Activity className="w-5 h-5 text-white" />
+       {/* Logo */}
+       <div className="flex items-center gap-3 px-5 py-5 border-b border-[var(--border)] relative overflow-hidden">
+          <div className="absolute -right-6 -top-6 opacity-10 pointer-events-none text-indigo-400">
+            <Sparkles className="w-20 h-20" />
           </div>
+
+          <div className="flex-shrink-0 p-2.5 rounded-2xl bg-gradient-to-br from-indigo-600 to-indigo-700 text-white shadow-lg shadow-indigo-500/30 border border-indigo-400/20">
+            <Activity className="w-5 h-5" />
+          </div>
+
           {!collapsed && (
-            <span className="font-bold text-white text-sm leading-tight">
-              MaternityCare
-            </span>
+            <div className="min-w-0">
+              <span className="font-black text-white text-sm tracking-tight block truncate">
+                MaternityCare
+              </span>
+              <span className="text-[10px] font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-widest block">
+                Enterprise
+              </span>
+            </div>
           )}
+
           {/* Desktop collapse toggle */}
           <button
             onClick={() => setCollapsed(!collapsed)}
             className={cn(
-              "hidden lg:block ml-auto p-1 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition-colors",
+              "hidden lg:flex items-center justify-center ml-auto p-2 rounded-2xl bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-all cursor-pointer shadow-sm",
               collapsed && "mx-auto"
             )}
+            title={collapsed ? "Kengaytirish" : "Yig'ish"}
           >
             {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </button>
+
           {/* Mobile close button */}
           <button
             onClick={close}
-            className="lg:hidden ml-auto p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+            className="lg:hidden ml-auto p-2 rounded-xl bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Nav items */}
-        <nav className="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto">
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto custom-scrollbar">
           {navItems.map((item) => {
             const { href, label, icon: Icon } = item;
             const active = item.exact
-            ? pathname === href
-            : pathname === href || pathname.startsWith(href + "/");
+              ? pathname === href
+              : pathname === href || pathname.startsWith(href + "/");
             return (
               <Link
                 key={href}
                 href={href}
                 className={cn(
-                  "nav-item",
-                  active && "active",
-                  collapsed && "lg:justify-center lg:px-0"
+                  "flex items-center gap-3 px-3.5 py-3 rounded-2xl text-xs font-bold transition-all group relative",
+                  active
+                    ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/25 border border-indigo-400/20"
+                    : "text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] border border-transparent",
+                  collapsed && "lg:justify-center lg:px-0 lg:py-3.5"
                 )}
                 title={collapsed ? label : undefined}
               >
-                <Icon className="w-5 h-5 flex-shrink-0" />
-                <span className={cn(collapsed && "lg:hidden")}>{label}</span>
+                <Icon className={cn("w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-110", active ? "text-white" : "text-indigo-400")} />
+                <span className={cn("truncate", collapsed && "lg:hidden")}>{label}</span>
                 {active && !collapsed && (
-                  <span className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-400 hidden lg:block" />
+                  <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white hidden lg:block shadow-md shadow-white" />
                 )}
               </Link>
             );
@@ -153,12 +189,12 @@ export function Sidebar() {
         </nav>
 
         {/* Bottom actions */}
-        <div className="px-2 pb-4 space-y-0.5 border-t border-[var(--border)] pt-4">
+        <div className="px-3 pb-3 space-y-1.5 border-t border-[var(--border)] pt-4">
           {mounted && user?.role === "SUPER_ADMIN" && (
             <Link
               href="/register"
               className={cn(
-                "nav-item text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10",
+                "flex items-center gap-3 px-3.5 py-3 rounded-2xl text-xs font-bold text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 border border-transparent transition-all",
                 collapsed && "lg:justify-center lg:px-0"
               )}
               title={collapsed ? "Admin yaratish" : undefined}
@@ -171,7 +207,10 @@ export function Sidebar() {
           {mounted && user?.role !== "MINISTRY" && user?.role !== "EMPLOYEE" && (
             <Link
               href="/dashboard/settings"
-              className={cn("nav-item", collapsed && "lg:justify-center lg:px-0")}
+              className={cn(
+                "flex items-center gap-3 px-3.5 py-3 rounded-2xl text-xs font-bold text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] border border-transparent transition-all",
+                collapsed && "lg:justify-center lg:px-0"
+              )}
               title={collapsed ? "Sozlamalar" : undefined}
             >
               <Settings className="w-5 h-5 flex-shrink-0" />
@@ -182,7 +221,7 @@ export function Sidebar() {
           <button
             onClick={handleLogout}
             className={cn(
-              "nav-item w-full text-left text-red-400 hover:text-red-300 hover:bg-red-500/10",
+              "w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl text-xs font-bold text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-transparent transition-all cursor-pointer",
               collapsed && "lg:justify-center lg:px-0"
             )}
             title={collapsed ? "Chiqish" : undefined}
@@ -192,21 +231,25 @@ export function Sidebar() {
           </button>
         </div>
 
-        {/* User profile */}
+        {/* User profile (Bottom) */}
         {user && (
           <div className={cn(
-            "flex items-center gap-3 px-3 py-3 border-t border-[var(--border)]",
-            collapsed && "lg:justify-center"
+            "flex items-center gap-3 px-3.5 py-4 border-t border-[var(--border)] bg-[var(--bg-main)]/50",
+            collapsed && "lg:justify-center lg:px-0"
           )}>
-            <div className={cn(
-              "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold text-white",
-              getAvatarColor(user.username)
-            )}>
-              {getInitials(user.username)}
+            <div className="relative w-10 h-10 rounded-2xl overflow-hidden border border-indigo-500/30 bg-indigo-500/10 flex items-center justify-center shadow-md flex-shrink-0">
+              {userPhoto ? (
+                <img src={userPhoto} alt={fullName} className="w-full h-full object-cover" />
+              ) : (
+                <div className={cn("w-full h-full flex items-center justify-center text-xs font-black text-white", getAvatarColor(fullName))}>
+                  {getInitials(fullName)}
+                </div>
+              )}
             </div>
-            <div className={cn("min-w-0", collapsed && "lg:hidden")}>
-              <p className="text-sm font-medium text-white truncate">{user.username}</p>
-              <p className="text-xs text-gray-500 truncate">{user.role}</p>
+
+            <div className={cn("min-w-0 flex-1", collapsed && "lg:hidden")}>
+              <p className="text-xs font-extrabold text-white truncate">{fullName}</p>
+              <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider truncate mt-0.5">{roleName || user.role}</p>
             </div>
           </div>
         )}

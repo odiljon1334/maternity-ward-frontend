@@ -28,10 +28,6 @@ function fmt(date?: string | Date | null) {
 }
 
 // ─── Camera capture hook ───────────────────────────────────────────────────────
-// iOS Safari muammosi: <video> shartli render bo'lsa, videoRef null bo'ladi va
-// srcObject o'rnatilmaydi → qora ekran.
-// Yechim: video elementni DOIM DOM da saqlaymiz (faqat CSS bilan yashiramiz).
-// srcObject useEffect orqali active=true bo'lgach o'rnatiladi.
 function useCameraCapture() {
   const videoRef   = useRef<HTMLVideoElement>(null);
   const canvasRef  = useRef<HTMLCanvasElement>(null);
@@ -41,22 +37,15 @@ function useCameraCapture() {
   const [capturedFile,  setCapturedFile]  = useState<File | null>(null);
   const [error,         setError]         = useState<string | null>(null);
 
-  // ── Stream olinib, active=true bo'lgach video elementga o'rnatamiz ──────────
-  // Bu iOS Safari da ishonchli ishlaydi: useEffect render dan keyin chaqiriladi,
-  // video element visible bo'lgach srcObject + play() ishlaydi.
   useEffect(() => {
     if (!active || !streamRef.current) return;
     const video = videoRef.current;
     if (!video) return;
 
-    // srcObject o'rnatilmagan bo'lsa — o'rnatamiz
     if (video.srcObject !== streamRef.current) {
       video.srcObject = streamRef.current;
     }
-    // iOS Safari: muted video ni play() bilan ishga tushirish kerak
-    video.play().catch(() => {
-      // autoPlay attributi orqali ham ishga tushishi mumkin — ignore
-    });
+    video.play().catch(() => {});
   }, [active]);
 
   const startCamera = useCallback(async () => {
@@ -69,7 +58,7 @@ function useCameraCapture() {
         audio: false,
       });
       streamRef.current = stream;
-      setActive(true); // useEffect srcObject + play() ni bajaradi
+      setActive(true);
     } catch {
       setError("Kamera ruxsati berilmadi. Brauzer sozlamalarida kamera ruxsatini bering.");
     }
@@ -89,7 +78,6 @@ function useCameraCapture() {
       const file = new File([blob], `selfie-${Date.now()}.jpg`, { type: "image/jpeg" });
       setCapturedFile(file);
       setPreview(URL.createObjectURL(blob));
-      // Kamerani to'xtatamiz (video element DOM da qoladi, stream to'xtaydi)
       streamRef.current?.getTracks().forEach(t => t.stop());
       streamRef.current = null;
       setActive(false);
@@ -189,22 +177,17 @@ export default function MyCheckinPage() {
   const gps  = useGPS();
   const { user, updateHospitalGps } = useAuthStore();
 
-  // Erta ketish ogohlantirishi uchun state
   const [showEarlyWarning, setShowEarlyWarning] = useState(false);
 
-  // Kasalxona GPS o'rnatish (birinchi marta)
-  // hospitalGpsSet: null = yuklanmoqda, false = o'rnatilmagan, true = o'rnatilgan
   const hospitalGpsReady = !!(user?.hospital?.gpsLat && user?.hospital?.gpsLng);
   const [hospitalSetupDone, setHospitalSetupDone] = useState(hospitalGpsReady);
   const [hospitalSetupStep, setHospitalSetupStep] = useState<"idle" | "confirming" | "saving">("idle");
   const [hospitalSaveError, setHospitalSaveError] = useState<string | null>(null);
 
-  // hospitalGpsReady o'zgarganda sinxronlaymiz (login refresh dan keyin)
   useEffect(() => {
     if (hospitalGpsReady) setHospitalSetupDone(true);
   }, [hospitalGpsReady]);
 
-  // Bugungi davomat record
   const today = dayjs();
   const { data, isLoading } = useQuery({
     queryKey: ["my-attendance-today", today.month() + 1, today.year()],
@@ -234,14 +217,12 @@ export default function MyCheckinPage() {
     },
   });
 
-  // Kasalxona GPS saqlash
   const saveHospitalGps = useCallback(async () => {
     if (!gps.coords) return;
     setHospitalSetupStep("saving");
     setHospitalSaveError(null);
     try {
       await attendanceApi.setHospitalGps(gps.coords.lat, gps.coords.lng);
-      // Auth store dagi hospital GPS ni ham yangilaymiz — banner qayta ko'rinmasin
       updateHospitalGps(gps.coords.lat, gps.coords.lng);
       setHospitalSetupDone(true);
       setHospitalSetupStep("idle");
@@ -249,7 +230,7 @@ export default function MyCheckinPage() {
       setHospitalSaveError(e?.response?.data?.message ?? "Saqlashda xatolik");
       setHospitalSetupStep("confirming");
     }
-  }, [gps.coords]);
+  }, [gps.coords, updateHospitalGps]);
 
   const isCheckedIn  = !!data?.checkIn;
   const isCheckedOut = !!data?.checkOut;
@@ -258,7 +239,6 @@ export default function MyCheckinPage() {
   const ActionIcon   = isCheckedIn ? LogOut : LogIn;
   const actionColor  = isCheckedIn ? "bg-red-600 hover:bg-red-700" : "bg-indigo-600 hover:bg-indigo-700";
 
-  // Check-in bo'lsa, 2 soat o'tganmi?
   const minutesSinceCheckIn = isCheckedIn && data?.checkIn
     ? dayjs().diff(dayjs(data.checkIn), "minute")
     : 999;
@@ -266,11 +246,9 @@ export default function MyCheckinPage() {
   const canCheckOut = minutesSinceCheckIn >= minWorkMinutes;
   const checkOutWaitMin = Math.max(0, minWorkMinutes - minutesSinceCheckIn);
 
-  // GPS va Selfie ikkalasi ham majburiy
   const canSubmit = !mutation.isPending && !isComplete && gps.coords != null && cam.capturedFile != null
-    && (!isCheckedIn || canCheckOut); // check-out uchun 2 soat o'tishi kerak
+    && (!isCheckedIn || canCheckOut);
 
-  // Erta ketish tekshiruvi — check-out da expectedCheckOut dan oldin ketayotgan bo'lsa
   const expectedCheckOut = data?.expectedCheckOut ? dayjs(data.expectedCheckOut) : null;
   const isEarlyLeave = isCheckedIn && !isCheckedOut && expectedCheckOut
     ? dayjs().isBefore(expectedCheckOut)
@@ -279,7 +257,6 @@ export default function MyCheckinPage() {
     ? expectedCheckOut.diff(dayjs(), "minute")
     : 0;
 
-  // Submit handler — erta ketish bo'lsa dialog ko'rsatadi
   const handleSubmit = () => {
     if (isCheckedIn && isEarlyLeave && !showEarlyWarning) {
       setShowEarlyWarning(true);
@@ -288,7 +265,6 @@ export default function MyCheckinPage() {
     mutation.mutate();
   };
 
-  // Holat haqida xabar
   const getMissingMsg = () => {
     if (!gps.coords && !cam.capturedFile) return "GPS manzil va selfie kerak";
     if (!gps.coords) return "GPS manzilni aniqlang";
@@ -299,7 +275,6 @@ export default function MyCheckinPage() {
 
   return (
     <div className="max-w-md mx-auto px-4 py-6 space-y-5">
-      {/* Header */}
       <div>
         <h1 className="text-xl font-bold text-[var(--text-primary)]">Mobil Davomat</h1>
         <p className="text-sm text-[var(--text-muted)] mt-1">
@@ -307,7 +282,6 @@ export default function MyCheckinPage() {
         </p>
       </div>
 
-      {/* ── Kasalxona GPS setup (birinchi marta) ─────────────────────────────── */}
       {!hospitalSetupDone && (
         <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 space-y-3">
           <div className="flex items-start gap-3">
@@ -315,15 +289,13 @@ export default function MyCheckinPage() {
             <div>
               <p className="text-sm font-semibold text-amber-300">Ish joyi manzilini belgilang</p>
               <p className="text-xs text-amber-400/80 mt-0.5">
-                Bu bir martalik sozlama. Hozirgi joylashuvingiz ish joyi sifatida saqlanadi
-                va kelajakdagi check-in larda shunga nisbatan masofa ko'rsatiladi.
+                Bu bir martalik sozlama. Hozirgi joylashuvingiz ish joyi sifatida saqlanadi.
               </p>
             </div>
           </div>
 
           {hospitalSetupStep === "idle" && (
             <div className="space-y-2">
-              {/* GPS yig'ish */}
               {!gps.coords ? (
                 <button
                   onClick={gps.locate}
@@ -360,7 +332,7 @@ export default function MyCheckinPage() {
           {hospitalSetupStep === "confirming" && (
             <div className="space-y-2">
               <p className="text-xs text-amber-300 font-medium">
-                ⚠️ Tasdiqlash: Hozirgi joylashuvingiz ({gps.coords?.lat.toFixed(5)}, {gps.coords?.lng.toFixed(5)}) ish joyi sifatida saqlansinmi?
+                ⚠️ Tasdiqlash: Hozirgi joylashuvingiz ish joyi sifatida saqlansinmi?
               </p>
               {hospitalSaveError && (
                 <p className="text-xs text-red-400">❌ {hospitalSaveError}</p>
@@ -391,7 +363,6 @@ export default function MyCheckinPage() {
         </div>
       )}
 
-      {/* Today card */}
       {isLoading ? (
         <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-4 animate-pulse h-32" />
       ) : data ? (
@@ -403,7 +374,6 @@ export default function MyCheckinPage() {
         </div>
       )}
 
-      {/* Completed banner */}
       {isComplete && (
         <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 flex items-center gap-3">
           <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
@@ -413,7 +383,6 @@ export default function MyCheckinPage() {
         </div>
       )}
 
-      {/* Success banner */}
       {mutation.isSuccess && (
         <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 flex items-center gap-3">
           <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
@@ -423,7 +392,6 @@ export default function MyCheckinPage() {
         </div>
       )}
 
-      {/* Error banner */}
       {mutation.isError && (
         <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 flex items-start gap-3">
           <XCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
@@ -436,7 +404,6 @@ export default function MyCheckinPage() {
 
       {!isComplete && (
         <>
-          {/* ── GPS section ─────────────────────────────────── */}
           <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -454,10 +421,6 @@ export default function MyCheckinPage() {
               )}
             </div>
 
-            <p className="text-xs text-[var(--text-muted)]">
-              Manzil direktor va rahbariyatga Telegram orqali yuboriladi
-            </p>
-
             {gps.coords ? (
               <div className="space-y-1.5">
                 <div className="text-xs text-[var(--text-muted)] space-y-1">
@@ -465,15 +428,6 @@ export default function MyCheckinPage() {
                   <p>Uzunlik: <span className="text-[var(--text-primary)]">{gps.coords.lng.toFixed(6)}</span></p>
                   <p>Aniqlik: <span className="text-[var(--text-primary)]">±{Math.round(gps.coords.accuracy)}m</span></p>
                 </div>
-                <a
-                  href={`https://yandex.uz/maps/?pt=${gps.coords.lng},${gps.coords.lat}&z=16&l=map`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
-                >
-                  <MapPin className="w-3 h-3" />
-                  Yandex Maps da ko&apos;rish
-                </a>
               </div>
             ) : (
               <p className="text-xs text-[var(--text-muted)]">
@@ -503,7 +457,6 @@ export default function MyCheckinPage() {
             </button>
           </div>
 
-          {/* ── Selfie section ───────────────────────────────── */}
           <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -521,7 +474,6 @@ export default function MyCheckinPage() {
               )}
             </div>
 
-            {/* Camera error */}
             {cam.error && (
               <p className="text-xs text-red-400 flex items-start gap-1.5">
                 <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
@@ -529,13 +481,7 @@ export default function MyCheckinPage() {
               </p>
             )}
 
-            {/* ── Video element DOIM DOM da — iOS safari uchun ── */}
-            {/* CSS bilan yashiramiz (conditional render emas!) */}
-            {/* active=false bo'lsa hidden, active=true bo'lsa ko'rinadi */}
-            <div className={cn(
-              "space-y-2",
-              !cam.active && "hidden",
-            )}>
+            <div className={cn("space-y-2", !cam.active && "hidden")}>
               <div className="relative rounded-xl overflow-hidden bg-black aspect-square">
                 <video
                   ref={cam.videoRef}
@@ -544,7 +490,6 @@ export default function MyCheckinPage() {
                   playsInline
                   muted
                 />
-                {/* Oval guide */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                   <div className="w-44 h-52 rounded-full border-2 border-white/60 border-dashed" />
                 </div>
@@ -567,7 +512,6 @@ export default function MyCheckinPage() {
               </div>
             </div>
 
-            {/* Preview — oldindan olingan selfie */}
             {cam.preview && !cam.active && (
               <div className="space-y-2">
                 <img
@@ -585,7 +529,6 @@ export default function MyCheckinPage() {
               </div>
             )}
 
-            {/* Start camera button — preview yo'q va kamera ochiq emas */}
             {!cam.preview && !cam.active && (
               <button
                 onClick={cam.startCamera}
@@ -597,7 +540,6 @@ export default function MyCheckinPage() {
             )}
           </div>
 
-          {/* ── Erta ketish ogohlantirishi (dialog) ─────────── */}
           {showEarlyWarning && (
             <div className="rounded-xl border border-orange-500/40 bg-orange-500/10 p-4 space-y-3">
               <div className="flex items-start gap-3">
@@ -605,16 +547,7 @@ export default function MyCheckinPage() {
                 <div>
                   <p className="text-sm font-semibold text-orange-300">Ish vaqti hali tugamadi</p>
                   <p className="text-xs text-orange-400/80 mt-1">
-                    Ish tugash vaqti:{" "}
-                    <span className="font-bold text-orange-300">
-                      {expectedCheckOut?.format("HH:mm")}
-                    </span>
-                    {remainingMin > 0 && (
-                      <> — yana <span className="font-bold text-orange-300">{remainingMin} daqiqa</span> qoldi</>
-                    )}
-                  </p>
-                  <p className="text-xs text-orange-400/70 mt-1">
-                    Erta ketish sifatida belgilanadi va rahbariyatga xabar yuboriladi.
+                    Ish tugash vaqti: <span className="font-bold text-orange-300">{expectedCheckOut?.format("HH:mm")}</span>
                   </p>
                 </div>
               </div>
@@ -637,7 +570,6 @@ export default function MyCheckinPage() {
             </div>
           )}
 
-          {/* ── Submit button ────────────────────────────────── */}
           {!showEarlyWarning && (
             <button
               onClick={handleSubmit}
@@ -658,20 +590,18 @@ export default function MyCheckinPage() {
             </button>
           )}
 
-          {/* 2 soat kutish ogohlantirishi */}
           {isCheckedIn && !isCheckedOut && !canCheckOut && (
             <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25">
               <span className="text-lg">⏳</span>
               <div>
                 <p className="text-xs font-medium text-amber-300">Check-out hali erta</p>
                 <p className="text-xs text-amber-400/80">
-                  {checkOutWaitMin} daqiqadan so'ng check-out qilish mumkin (minimum 2 soat)
+                  {checkOutWaitMin} daqiqadan so&apos;ng check-out qilish mumkin (minimum 2 soat)
                 </p>
               </div>
             </div>
           )}
 
-          {/* Hint */}
           {missingMsg && !mutation.isPending && !showEarlyWarning && canCheckOut && (
             <p className="text-center text-xs text-[var(--text-muted)]">
               ⬆ {missingMsg}

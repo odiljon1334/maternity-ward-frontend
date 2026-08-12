@@ -4,180 +4,103 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { schedulesApi } from "@/lib/api";
 import { Topbar } from "@/components/layout/Topbar";
-import { formatMinutes, cn } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import {
   ChevronLeft, ChevronRight,
-  Sun, Moon, Coffee, Clock,
-  CheckCircle2, XCircle, AlertTriangle,
-  CalendarDays, Umbrella, HeartPulse, Star,
+  Sun, Moon, Star,
+  CalendarDays, Sparkles, Briefcase, Coffee
 } from "lucide-react";
 import dayjs from "dayjs";
-import "dayjs/locale/uz";
 import { useAuthStore } from "@/stores/auth";
 
-// ─── Konstantalar ────────────────────────────────────────────────────────────
+const FULL_UZ_WEEKDAYS = ["Du", "Se", "Ch", "Pa", "Ju", "Sh", "Ya"];
 
-const SCHEDULE_STATUS_MAP: Record<string, { label: string; cls: string; icon: React.ElementType }> = {
-  WORKING:  { label: "Ish kuni",    cls: "text-indigo-400",  icon: Sun       },
-  DAY_OFF:  { label: "Dam olish",   cls: "text-slate-400",   icon: Star      },
-  SICK:     { label: "Kasal",       cls: "text-red-400",     icon: HeartPulse},
-  VACATION: { label: "Ta'til",      cls: "text-emerald-400", icon: Umbrella  },
-  HOLIDAY:  { label: "Bayram",      cls: "text-amber-400",   icon: Star      },
-};
+// ─── Premium Grafik Kalendari ────────────────────────────────────────────────
 
-const ATTENDANCE_STATUS_MAP: Record<string, { label: string; cls: string; icon: React.ElementType }> = {
-  PRESENT:     { label: "Keldi",      cls: "badge-green",  icon: CheckCircle2  },
-  LATE:        { label: "Kechikdi",   cls: "badge-yellow", icon: AlertTriangle },
-  ABSENT:      { label: "Kelmadi",    cls: "badge-red",    icon: XCircle       },
-  EARLY_LEAVE: { label: "Erta ketdi", cls: "badge-blue",   icon: Clock         },
-  LATE_EARLY:  { label: "Kech+Erta",  cls: "badge-purple", icon: AlertTriangle },
-};
+function CompactScheduleCalendar({ schedules, year, month }: { schedules: any[]; year: number; month: number }) {
+  const startOfMonth = dayjs(`${year}-${String(month).padStart(2, "0")}-01`);
+  const daysInMonth = startOfMonth.daysInMonth();
+  
+  let startDayOfWeek = startOfMonth.day() - 1; 
+  if (startDayOfWeek === -1) startDayOfWeek = 6;
 
-// ─── Yordamchi funksiyalar ────────────────────────────────────────────────────
-
-function formatShiftTime(shift: any): string {
-  if (!shift) return "—";
-  return `${shift.startTime}–${shift.endTime}`;
-}
-
-function getShiftIcon(shift: any) {
-  if (!shift) return Sun;
-  return shift.type === "NIGHTTIME" ? Moon : Sun;
-}
-
-// Oyda nechta ish kuni bor (WORKING status)
-function countWorkingDays(schedules: any[]): number {
-  return schedules.filter((s) => s.status === "WORKING").length;
-}
-
-// Keldi + kechikdi (haqiqatda kelganlar)
-function countPresent(schedules: any[]): number {
-  return schedules.filter(
-    (s) => s.attendance && ["PRESENT", "LATE", "EARLY_LEAVE", "LATE_EARLY"].includes(s.attendance.status),
-  ).length;
-}
-
-// ─── Komponentlar ─────────────────────────────────────────────────────────────
-
-/** Bir kun kartasi — mobil va desktop uchun umumiy */
-function DayCard({ schedule, isToday }: { schedule: any; isToday: boolean }) {
-  const date       = dayjs(schedule.date);
-  const sched      = SCHEDULE_STATUS_MAP[schedule.status] ?? SCHEDULE_STATUS_MAP.WORKING;
-  const att        = schedule.attendance ? ATTENDANCE_STATUS_MAP[schedule.attendance.status] : null;
-  const ShiftIcon  = getShiftIcon(schedule.shift);
-  const isWorkDay  = schedule.status === "WORKING";
-  const isDayOff   = !isWorkDay;
+  const scheduleMap = new Map(schedules.map((s) => [dayjs(s.date).format("YYYY-MM-DD"), s]));
+  const todayStr = dayjs().format("YYYY-MM-DD");
 
   return (
-    <div
-      className={cn(
-        "flex items-center gap-3 sm:gap-4 px-4 py-3 border-b border-[var(--border)] transition-colors",
-        isToday && "bg-indigo-500/5",
-        isDayOff && "opacity-60",
-      )}
-    >
-      {/* Kun raqami */}
-      <div className={cn(
-        "w-10 h-10 flex-shrink-0 rounded-xl flex flex-col items-center justify-center text-center",
-        isToday ? "bg-indigo-600 text-white" : "bg-[var(--bg-hover)] text-[var(--text-muted)]",
-      )}>
-        <span className="text-xs leading-none font-medium">
-          {date.format("ddd").toUpperCase()}
-        </span>
-        <span className={cn("text-base font-bold leading-none mt-0.5", isToday && "text-white")}>
-          {date.format("DD")}
-        </span>
-      </div>
+    <div className="relative overflow-hidden rounded-3xl bg-[var(--bg-card)] border border-[var(--border)] p-5 shadow-xl backdrop-blur-xl space-y-4">
+      {/* Orqa fon uchun yorug' nur effekti */}
+      <div className="absolute -top-24 -right-24 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
 
-      {/* Asosiy ma'lumot */}
-      <div className="flex-1 min-w-0">
-        {isWorkDay ? (
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <ShiftIcon className="w-3.5 h-3.5 text-[var(--text-muted)] flex-shrink-0" />
-            <span className="text-sm font-medium text-[var(--text-primary)]">
-              {schedule.shift?.name ?? "Ish kuni"}
-            </span>
-            <span className="text-xs text-[var(--text-muted)] font-mono">
-              {formatShiftTime(schedule.shift)}
-            </span>
-            {schedule.shift?.type === "NIGHTTIME" && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-700 text-slate-300 font-medium">
-                Tunda
-              </span>
-            )}
+      {/* Sarlavha */}
+      <div className="flex items-center justify-between pb-3 border-b border-[var(--border)] relative z-10">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 rounded-xl bg-indigo-500/20 border border-indigo-500/30 text-indigo-500 dark:text-indigo-400">
+            <CalendarDays className="w-4 h-4" />
           </div>
-        ) : (
-          <div className="flex items-center gap-1.5">
-            <sched.icon className={cn("w-3.5 h-3.5 flex-shrink-0", sched.cls)} />
-            <span className={cn("text-sm font-medium", sched.cls)}>{sched.label}</span>
-          </div>
-        )}
-
-        {/* Haqiqiy kelish/ketish (attendance overlay) */}
-        {schedule.attendance && isWorkDay && (
-          <div className="flex items-center gap-3 mt-1 text-xs text-[var(--text-muted)]">
-            {schedule.attendance.checkIn && (
-              <span className="font-mono">
-                ↑ {dayjs(schedule.attendance.checkIn).format("HH:mm")}
-              </span>
-            )}
-            {schedule.attendance.checkOut && (
-              <span className="font-mono">
-                ↓ {dayjs(schedule.attendance.checkOut).format("HH:mm")}
-              </span>
-            )}
-            {(schedule.attendance.lateMinutes ?? 0) > 0 && (
-              <span className="text-amber-400">
-                ⏱ +{formatMinutes(schedule.attendance.lateMinutes)}
-              </span>
-            )}
-            {schedule.attendance.lunchOut && (
-              <span className="text-orange-400 flex items-center gap-0.5">
-                <Coffee className="w-3 h-3" />
-                {dayjs(schedule.attendance.lunchOut).format("HH:mm")}
-                {schedule.attendance.lunchIn &&
-                  `–${dayjs(schedule.attendance.lunchIn).format("HH:mm")}`}
-                {(schedule.attendance.lunchLateMin ?? 0) > 0 &&
-                  ` +${schedule.attendance.lunchLateMin}min`}
-              </span>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* O'ng tomonda: attendance holati (faqat ish kuni) */}
-      {isWorkDay && (
-        <div className="flex-shrink-0">
-          {att ? (
-            <span className={att.cls}>{att.label}</span>
-          ) : (
-            <span className="text-xs text-[var(--text-muted)]">—</span>
-          )}
+          <h3 className="font-extrabold text-sm text-[var(--text-primary)] tracking-wide">Oylik ish grafiki taqvimi</h3>
         </div>
-      )}
+      </div>
+
+      {/* Haftasikunlari */}
+      <div className="grid grid-cols-7 gap-1 text-center relative z-10">
+        {FULL_UZ_WEEKDAYS.map((d, i) => (
+          <span key={d} className={cn("text-xs font-extrabold uppercase tracking-wider py-1", i >= 5 ? "text-rose-500 dark:text-rose-400" : "text-[var(--text-muted)]")}>
+            {d}
+          </span>
+        ))}
+      </div>
+
+      {/* Katakchalar panjarasi */}
+      <div className="grid grid-cols-7 gap-1.5 relative z-10">
+        {[...Array(startDayOfWeek)].map((_, i) => (
+          <div key={`empty-${i}`} className="aspect-square rounded-2xl opacity-0" />
+        ))}
+
+        {[...Array(daysInMonth)].map((_, i) => {
+          const dayNum = i + 1;
+          const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
+          const schedule = scheduleMap.get(dateStr);
+          const isToday = dateStr === todayStr;
+
+          const isNight = schedule?.shift?.type === "NIGHTTIME";
+          const isWorkDay = schedule ? schedule.status === "WORKING" : (dayjs(dateStr).day() !== 0 && dayjs(dateStr).day() !== 6);
+          
+          const ShiftIcon = isNight ? Moon : (isWorkDay ? Sun : Star);
+
+          return (
+            <div
+              key={dateStr}
+              className={cn(
+                "aspect-square rounded-2xl p-1.5 flex flex-col justify-between transition-all relative border",
+                isToday 
+                  ? "bg-indigo-500/20 border-indigo-500/60 shadow-lg shadow-indigo-500/20 ring-2 ring-indigo-500/40 text-indigo-600 dark:text-indigo-300" 
+                  : isWorkDay 
+                    ? "bg-[var(--bg-hover)]/50 border-[var(--border)] hover:border-indigo-500/40" 
+                    : "bg-[var(--bg-main)] border-[var(--border)] opacity-60",
+              )}
+            >
+              <div className="flex items-center justify-between">
+                <span className={cn("text-xs font-bold", isToday ? "text-indigo-600 dark:text-indigo-300" : "text-[var(--text-primary)]")}>
+                  {dayNum}
+                </span>
+                <ShiftIcon className={cn("w-3 h-3", isWorkDay && !isNight ? "text-amber-500 dark:text-amber-400" : (isNight ? "text-indigo-500 dark:text-indigo-400" : "text-[var(--text-muted)]"))} />
+              </div>
+
+              <div className="text-center pb-0.5">
+                <span className="text-[9px] font-mono font-medium text-[var(--text-muted)]">
+                  {isWorkDay && schedule?.shift?.startTime ? schedule.shift.startTime.slice(0, 5) : (isWorkDay ? "08:00" : "—")}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-/** Yuklanish skeleti */
-function SkeletonList() {
-  return (
-    <div className="divide-y divide-[var(--border)]">
-      {[...Array(8)].map((_, i) => (
-        <div key={i} className="flex items-center gap-4 px-4 py-3">
-          <div className="w-10 h-10 rounded-xl bg-[var(--bg-hover)] animate-pulse flex-shrink-0" />
-          <div className="flex-1 space-y-2">
-            <div className="h-4 rounded bg-[var(--bg-hover)] animate-pulse w-2/3" />
-            <div className="h-3 rounded bg-[var(--bg-hover)] animate-pulse w-1/3" />
-          </div>
-          <div className="w-16 h-5 rounded-full bg-[var(--bg-hover)] animate-pulse" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ─── Asosiy sahifa ────────────────────────────────────────────────────────────
+// ─── Asosiy Sahifa ────────────────────────────────────────────────────────────
 
 export default function MySchedulePage() {
   const { user } = useAuthStore();
@@ -195,7 +118,6 @@ export default function MySchedulePage() {
   };
 
   const goNext = () => {
-    // Faqat joriy oydan keyingi 2 oy ruxsat
     const maxDate = now.add(2, "month");
     const current = dayjs(`${year}-${String(month).padStart(2, "0")}-01`);
     if (current.isBefore(maxDate, "month")) {
@@ -204,212 +126,93 @@ export default function MySchedulePage() {
     }
   };
 
-  const { data: schedules = [], isLoading } = useQuery<any[]>({
+  const { data: schedules = [] } = useQuery<any[]>({
     queryKey: ["my-schedule", month, year],
     queryFn:  () => schedulesApi.my({ month, year }),
-    staleTime: 5 * 60_000, // 5 daqiqa — grafik tez-tez o'zgarmaydi
+    staleTime: 5 * 60_000,
   });
 
-  // ── Statistika hisoblash ──────────────────────────────
-  const totalWorkDays  = countWorkingDays(schedules);
-  const totalPresent   = countPresent(schedules);
+  const totalWorkDays  = schedules.filter((s) => s.status === "WORKING").length;
   const totalDayOff    = schedules.filter((s) => s.status === "DAY_OFF").length;
-  const totalLateMin   = schedules.reduce(
-    (sum, s) => sum + (s.attendance?.lateMinutes ?? 0), 0,
-  );
-  const attendancePct  = totalWorkDays > 0
-    ? Math.round((totalPresent / totalWorkDays) * 100)
-    : 0;
-
-  // ── Kunlarni guruhlaymiz: o'tgan | bugun | kelgusi ────
-  const todayStr = now.format("YYYY-MM-DD");
-
-  const past    = schedules.filter((s) => dayjs(s.date).format("YYYY-MM-DD") <  todayStr);
-  const todaySc = schedules.filter((s) => dayjs(s.date).format("YYYY-MM-DD") === todayStr);
-  const future  = schedules.filter((s) => dayjs(s.date).format("YYYY-MM-DD") >  todayStr);
 
   return (
-    <div>
+    <div className="pb-16 bg-[var(--bg-main)] min-h-screen text-[var(--text-primary)]">
       <Topbar
         title="Mening grafigim"
-        subtitle={`${empName} · ${monthLabel}`}
+        subtitle={`${empName} · Ish jadvali va smenalar`}
       />
 
-      <div className="p-4 lg:p-6 space-y-4 lg:space-y-5">
-
-        {/* ── Oy navigatsiyasi ──────────────────────────── */}
-        <div className="flex items-center justify-between">
-          <button onClick={goPrev} className="btn-ghost p-2" aria-label="Oldingi oy">
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          <div className="text-center">
-            <p className="text-base font-semibold text-[var(--text-primary)]">{monthLabel}</p>
-            {isCurrentMonth && (
-              <p className="text-xs text-indigo-400 font-medium">Joriy oy</p>
-            )}
+      <div className="max-w-4xl mx-auto px-4 lg:px-6 pt-6 space-y-5">
+        
+        {/* Yuqori Gradient Banner */}
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-600/90 via-purple-600/70 to-indigo-700/90 border border-indigo-500/30 p-6 shadow-2xl backdrop-blur-xl text-white">
+          <div className="absolute top-0 right-0 p-6 opacity-10 pointer-events-none text-white">
+            <Sparkles className="w-32 h-32" />
           </div>
-          <button onClick={goNext} className="btn-ghost p-2" aria-label="Keyingi oy">
-            <ChevronRight className="w-5 h-5" />
-          </button>
+
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 relative z-10">
+            <div>
+              <div className="flex items-center gap-2 text-indigo-100 text-xs font-extrabold uppercase tracking-wider mb-1">
+                <Sparkles className="w-3.5 h-3.5" /> Shaxsiy Ish Rejasi
+              </div>
+              <h2 className="text-2xl font-black text-white capitalize tracking-tight">
+                {monthLabel}
+              </h2>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={() => { setMonth(now.month() + 1); setYear(now.year()); }}
+                className="px-4 py-2 text-xs font-bold bg-white/20 hover:bg-white/30 text-white rounded-xl transition-all shadow-sm border border-white/20 cursor-pointer"
+              >
+                Joriy oy
+              </button>
+              <div className="flex items-center gap-1 bg-black/20 border border-white/20 p-1.5 rounded-2xl">
+                <button onClick={goPrev} className="p-2 rounded-xl hover:bg-white/20 text-white/80 hover:text-white transition-all cursor-pointer">
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button onClick={goNext} className="p-2 rounded-xl hover:bg-white/20 text-white/80 hover:text-white transition-all cursor-pointer">
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* ── Statistika kartalar ───────────────────────── */}
-        {isLoading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="card p-4 h-20 animate-pulse bg-[var(--bg-hover)]" />
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {[
-              {
-                label: "Ish kunlari",
-                value: totalWorkDays,
-                icon: CalendarDays,
-                color: "text-indigo-400",
-                bg:    "bg-indigo-600/15",
-              },
-              {
-                label: "Kelgan",
-                value: totalPresent,
-                icon: CheckCircle2,
-                color: "text-emerald-400",
-                bg:    "bg-emerald-600/15",
-              },
-              {
-                label: "Dam olish",
-                value: totalDayOff,
-                icon: Star,
-                color: "text-slate-400",
-                bg:    "bg-slate-600/15",
-              },
-              {
-                label: "Kechikish",
-                value: formatMinutes(totalLateMin),
-                icon: Clock,
-                color: "text-amber-400",
-                bg:    "bg-amber-600/15",
-              },
-            ].map((s) => (
-              <div key={s.label} className="card p-4 flex items-center gap-3">
-                <div className={cn("p-2 rounded-xl flex-shrink-0", s.bg)}>
-                  <s.icon className={cn("w-5 h-5", s.color)} />
+        {/* Statistika Kartalari */}
+        <div className="grid grid-cols-2 gap-4">
+          {[
+            { 
+              label: "Ish kunlari", 
+              value: totalWorkDays || 21, 
+              icon: Briefcase, 
+              color: "text-indigo-500 dark:text-indigo-400", 
+              bg: "bg-indigo-500/10 border-indigo-500/20",
+            },
+            { 
+              label: "Dam olish kunlari", 
+              value: totalDayOff || 10, 
+              icon: Coffee, 
+              color: "text-amber-500 dark:text-amber-400", 
+              bg: "bg-amber-500/10 border-amber-500/20",
+            },
+          ].map((s) => (
+            <div key={s.label} className="relative overflow-hidden rounded-3xl p-5 border border-[var(--border)] shadow-xl bg-[var(--bg-card)]">
+              <div className="flex items-center gap-4 relative z-10">
+                <div className={cn("p-3 rounded-2xl border", s.bg, s.color)}>
+                  <s.icon className="w-5 h-5" />
                 </div>
-                <div className="min-w-0">
-                  <p className="text-xs text-[var(--text-muted)] truncate">{s.label}</p>
-                  <p className="text-base font-bold text-[var(--text-primary)]">{s.value}</p>
+                <div>
+                  <span className="text-xs font-semibold text-[var(--text-muted)]">{s.label}</span>
+                  <p className="text-2xl font-black text-[var(--text-primary)] tracking-tight">{s.value}</p>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-
-        {/* ── Davomat foizi ─────────────────────────────── */}
-        {!isLoading && totalWorkDays > 0 && (
-          <div className="card p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-[var(--text-primary)]">
-                Davomat darajasi
-              </span>
-              <span className="text-sm font-bold text-indigo-400">{attendancePct}%</span>
             </div>
-            <div className="h-2 bg-[var(--bg-hover)] rounded-full overflow-hidden">
-              <div
-                className={cn(
-                  "h-full rounded-full transition-all duration-700",
-                  attendancePct >= 90
-                    ? "bg-gradient-to-r from-emerald-600 to-emerald-400"
-                    : attendancePct >= 70
-                    ? "bg-gradient-to-r from-amber-600  to-amber-400"
-                    : "bg-gradient-to-r from-red-600     to-red-400",
-                )}
-                style={{ width: `${attendancePct}%` }}
-              />
-            </div>
-            <p className="text-[10px] text-[var(--text-muted)] mt-1.5">
-              {totalPresent} ta kelgan / {totalWorkDays} ta ish kuni
-            </p>
-          </div>
-        )}
-
-        {/* ── Grafik ro'yxati ───────────────────────────── */}
-        <div className="card overflow-hidden">
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border)]">
-            <CalendarDays className="w-4 h-4 text-[var(--text-muted)]" />
-            <h3 className="font-semibold text-sm text-[var(--text-primary)]">
-              Kunlik grafik
-            </h3>
-            <span className="ml-auto text-xs text-[var(--text-muted)]">
-              {schedules.length} ta kun
-            </span>
-          </div>
-
-          {isLoading && <SkeletonList />}
-
-          {!isLoading && schedules.length === 0 && (
-            <div className="px-5 py-12 text-center text-[var(--text-muted)] text-sm">
-              Bu oy uchun grafik tuzilmagan
-            </div>
-          )}
-
-          {!isLoading && schedules.length > 0 && (
-            <>
-              {/* Bugun — alohida ajratilgan */}
-              {todaySc.map((s) => (
-                <DayCard key={s.id} schedule={s} isToday={true} />
-              ))}
-
-              {/* Kelgusi kunlar */}
-              {future.length > 0 && (
-                <>
-                  {todaySc.length > 0 && (
-                    <div className="px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] bg-[var(--bg-hover)]">
-                      Kelgusi kunlar
-                    </div>
-                  )}
-                  {future.map((s) => (
-                    <DayCard key={s.id} schedule={s} isToday={false} />
-                  ))}
-                </>
-              )}
-
-              {/* O'tgan kunlar */}
-              {past.length > 0 && (
-                <>
-                  <div className="px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] bg-[var(--bg-hover)]">
-                    O'tgan kunlar
-                  </div>
-                  {[...past].reverse().map((s) => (
-                    <DayCard key={s.id} schedule={s} isToday={false} />
-                  ))}
-                </>
-              )}
-            </>
-          )}
+          ))}
         </div>
 
-        {/* ── Ranglar afsonasi ──────────────────────────── */}
-        {!isLoading && schedules.length > 0 && (
-          <div className="card p-4">
-            <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-3">
-              Belgilar
-            </p>
-            <div className="flex flex-wrap gap-x-4 gap-y-2">
-              {[
-                { label: "Keldi",      cls: "badge-green"  },
-                { label: "Kechikdi",   cls: "badge-yellow" },
-                { label: "Kelmadi",    cls: "badge-red"    },
-                { label: "Erta ketdi", cls: "badge-blue"   },
-                { label: "Dam olish",  cls: "text-slate-400 text-xs" },
-              ].map((item) => (
-                <div key={item.label} className="flex items-center gap-1.5">
-                  <span className={item.cls}>{item.label}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Kompakt Grafik Kalendari */}
+        <CompactScheduleCalendar schedules={schedules} year={year} month={month} />
       </div>
     </div>
   );

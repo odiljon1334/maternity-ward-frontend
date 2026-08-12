@@ -2,12 +2,11 @@
 import { useTheme } from "next-themes";
 import { Sun, Moon, Bell, Building2, X, CheckCheck, Menu } from "lucide-react";
 import { useAuthStore } from "@/stores/auth";
-import { getAvatarColor, getInitials, isSuperLike } from "@/lib/utils";
+import { getAvatarColor, getInitials, isSuperLike, cn } from "@/lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { telegramApi, notificationsApi } from "@/lib/api";
+import { telegramApi, notificationsApi, authApi, photoUrl } from "@/lib/api";
 import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
-import { cn } from "@/lib/utils";
 import { useMobileMenu } from "@/contexts/mobile-menu";
 
 interface TopbarProps {
@@ -61,32 +60,32 @@ function NotificationDropdown({ onClose }: { onClose: () => void }) {
   return (
     <div
       ref={ref}
-      className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] max-w-sm sm:w-96 card z-50 shadow-2xl overflow-hidden"
+      className="absolute right-0 top-full mt-3 w-[calc(100vw-2rem)] max-w-sm sm:w-96 rounded-3xl bg-[var(--bg-card)] border border-[var(--border)] z-50 shadow-2xl overflow-hidden backdrop-blur-2xl"
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)]">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)] bg-[var(--bg-main)]/50">
         <div className="flex items-center gap-2">
-          <Bell className="w-4 h-4 text-[var(--text-muted)]" />
-          <span className="font-semibold text-sm text-[var(--text-primary)]">Bildirishnomalar</span>
+          <Bell className="w-4 h-4 text-indigo-400" />
+          <span className="font-black text-xs uppercase tracking-wider text-[var(--text-primary)]">Bildirishnomalar</span>
           {unread > 0 && (
-            <span className="px-1.5 py-0.5 rounded-full text-xs font-bold bg-indigo-500 text-white">
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-600 text-white shadow-md shadow-indigo-500/25">
               {unread}
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {unread > 0 && (
             <button
               onClick={() => markAllMut.mutate()}
-              className="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1"
+              className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition-colors"
             >
-              <CheckCheck className="w-3.5 h-3.5" /> Hammasini o&apos;qi
+              <CheckCheck className="w-3.5 h-3.5" /> Hammasini o&apos;qish
             </button>
           )}
           <Link
             href="/dashboard/notifications"
             onClick={onClose}
-            className="text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+            className="text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
           >
             Barchasi →
           </Link>
@@ -94,9 +93,9 @@ function NotificationDropdown({ onClose }: { onClose: () => void }) {
       </div>
 
       {/* List */}
-      <div className="max-h-80 overflow-y-auto">
+      <div className="max-h-80 overflow-y-auto divide-y divide-[var(--border)]">
         {list.length === 0 ? (
-          <p className="px-4 py-8 text-center text-sm text-[var(--text-muted)]">
+          <p className="px-4 py-12 text-center text-xs font-medium text-[var(--text-muted)]">
             Bildirishnomalar yo&apos;q
           </p>
         ) : (
@@ -105,18 +104,18 @@ function NotificationDropdown({ onClose }: { onClose: () => void }) {
               key={n.id}
               onClick={() => !n.isRead && markReadMut.mutate(n.id)}
               className={cn(
-                "px-4 py-3 border-b border-[var(--border)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors",
-                !n.isRead && "bg-indigo-500/5 border-l-2 border-l-indigo-500"
+                "p-4 cursor-pointer hover:bg-[var(--bg-hover)] transition-colors relative",
+                !n.isRead && "bg-indigo-500/5 border-l-4 border-l-indigo-500"
               )}
             >
-              <div className="flex items-start gap-2">
-                <span className="text-base flex-shrink-0 mt-0.5">
+              <div className="flex items-start gap-3">
+                <span className="text-lg flex-shrink-0 p-2 rounded-2xl bg-[var(--bg-main)] border border-[var(--border)]">
                   {TYPE_ICONS[n.type] || "🔔"}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-[var(--text-primary)] leading-tight">{n.title}</p>
-                  <p className="text-xs text-[var(--text-muted)] mt-0.5 leading-relaxed">{n.message}</p>
-                  <p className="text-xs text-[var(--text-muted)]/60 mt-1">
+                  <p className="text-xs font-bold text-[var(--text-primary)] leading-tight">{n.title}</p>
+                  <p className="text-xs text-[var(--text-muted)] mt-1 leading-relaxed">{n.message}</p>
+                  <p className="text-[10px] font-semibold text-[var(--text-muted)]/60 mt-1.5">
                     {new Date(n.createdAt).toLocaleString("uz-UZ", {
                       day: "2-digit", month: "2-digit",
                       hour: "2-digit", minute: "2-digit",
@@ -124,7 +123,7 @@ function NotificationDropdown({ onClose }: { onClose: () => void }) {
                   </p>
                 </div>
                 {!n.isRead && (
-                  <span className="w-2 h-2 rounded-full bg-indigo-500 flex-shrink-0 mt-1.5" />
+                  <span className="w-2 h-2 rounded-full bg-indigo-500 flex-shrink-0 mt-1 shadow-md shadow-indigo-500/50" />
                 )}
               </div>
             </div>
@@ -143,6 +142,19 @@ export function Topbar({ title, subtitle }: TopbarProps) {
 
   const isSuperAdmin = isSuperLike(user?.role);
   const isDirector = user?.role === "DIRECTOR";
+
+  // Xodim profil ma'lumotlarini olish (rasm chiqishi uchun)
+  const { data: profile } = useQuery({
+    queryKey: ["auth-profile"],
+    queryFn: () => authApi.profile(),
+  });
+
+  const emp = (profile as any)?.employee;
+  const fullName = emp
+    ? `${emp.lastName || ""} ${emp.firstName || ""}`.trim() || user?.username
+    : user?.username;
+  const roleName = emp?.position?.name || user?.role || "EMPLOYEE";
+  const userPhoto = emp?.photoUrl ? photoUrl(emp.photoUrl) : null;
 
   const { data: tgStatus } = useQuery({
     queryKey: ["telegram-status"],
@@ -163,21 +175,21 @@ export function Topbar({ title, subtitle }: TopbarProps) {
     <div>
       {/* SUPER_ADMIN: selected hospital banner */}
       {isSuperAdmin && selectedHospital && (
-        <div className="flex items-center gap-2 px-6 py-2 bg-indigo-600/20 border-b border-indigo-500/30 text-sm">
+        <div className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600/10 border-b border-indigo-500/20 text-xs backdrop-blur-md">
           <Building2 className="w-4 h-4 text-indigo-400 flex-shrink-0" />
-          <span className="text-indigo-300 font-medium">{selectedHospital.name}</span>
-          <span className="text-indigo-400/60 text-xs">({selectedHospital.code})</span>
-          <span className="text-indigo-400/50 text-xs ml-1">— shu kasalxona ma&apos;lumotlari ko&apos;rsatilmoqda</span>
-          <div className="flex items-center gap-2 ml-auto">
+          <span className="text-indigo-300 font-bold">{selectedHospital.name}</span>
+          <span className="text-indigo-400/60 font-mono">({selectedHospital.code})</span>
+          <span className="text-indigo-400/50 ml-1 hidden sm:inline">— shu kasalxona ma&apos;lumotlari ko&apos;rsatilmoqda</span>
+          <div className="flex items-center gap-3 ml-auto">
             <Link
               href="/dashboard/hospitals"
-              className="text-xs text-indigo-400 hover:text-indigo-300 underline transition-colors"
+              className="text-indigo-400 hover:text-indigo-300 underline font-semibold transition-colors"
             >
               O&apos;zgartirish
             </Link>
             <button
               onClick={() => setSelectedHospital(null)}
-              className="p-0.5 rounded text-indigo-400/60 hover:text-indigo-300 transition-colors"
+              className="p-1 rounded-xl bg-indigo-500/10 text-indigo-400/80 hover:text-indigo-300 hover:bg-indigo-500/20 transition-all cursor-pointer"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -185,34 +197,35 @@ export function Topbar({ title, subtitle }: TopbarProps) {
         </div>
       )}
 
-      <header className="sticky top-0 z-30 flex items-center gap-3 justify-between px-4 lg:px-6 py-3 lg:py-4 border-b border-[var(--border)] bg-[var(--bg-secondary)] backdrop-blur-2xl shadow-sm shadow-black/5">
+      <header className="sticky top-0 z-30 flex items-center gap-3 justify-between px-4 lg:px-6 py-3.5 lg:py-4 border-b border-[var(--border)] bg-[var(--bg-primary)]/80 backdrop-blur-2xl shadow-sm shadow-black/5">
         <div className="flex items-center gap-3 min-w-0">
           {/* Hamburger — mobile only */}
           <button
             onClick={toggleMenu}
-            className="lg:hidden flex-shrink-0 p-2 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+            className="lg:hidden flex-shrink-0 p-2.5 rounded-2xl bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-all cursor-pointer shadow-sm"
             aria-label="Menyuni ochish"
           >
-            <Menu className="w-5 h-5" />
+            <Menu className="w-4 h-4" />
           </button>
           <div className="min-w-0">
-            <h1 className="text-base lg:text-lg font-semibold text-[var(--text-primary)] truncate">{title}</h1>
-            {subtitle && <p className="text-xs lg:text-sm text-[var(--text-muted)] truncate">{subtitle}</p>}
+            <h1 className="text-base lg:text-lg font-black text-[var(--text-primary)] truncate tracking-tight">{title}</h1>
+            {subtitle && <p className="text-xs text-[var(--text-muted)] truncate font-medium mt-0.5">{subtitle}</p>}
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           {/* TG status — only DIRECTOR */}
           {isDirector && tgStatus !== undefined && (
             <div
               title={tgStatus.active ? `Telegram bot ulangan (${tgStatus.count} ta)` : "Telegram bot ulanmagan"}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
+              className={cn(
+                "hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-2xl text-xs font-bold border transition-all shadow-sm",
                 tgStatus.active
-                  ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                  : "bg-[var(--bg-hover)] text-[var(--text-muted)] border border-[var(--border)]"
-              }`}
+                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                  : "bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border)]"
+              )}
             >
-              <span className={`w-1.5 h-1.5 rounded-full ${tgStatus.active ? "bg-emerald-400" : "bg-gray-500"}`} />
+              <span className={cn("w-2 h-2 rounded-full", tgStatus.active ? "bg-emerald-400 shadow-md shadow-emerald-500/50 animate-pulse" : "bg-gray-500")} />
               TG {tgStatus.active ? "Active" : "Inactive"}
             </div>
           )}
@@ -220,9 +233,10 @@ export function Topbar({ title, subtitle }: TopbarProps) {
           {/* Theme toggle */}
           <button
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            className="p-2 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+            className="p-2.5 rounded-2xl bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-all cursor-pointer shadow-sm"
+            title="Mavzuni o'zgartirish"
           >
-            {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            {theme === "dark" ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-400" />}
           </button>
 
           {/* Notification Bell — SUPER_ADMIN only */}
@@ -230,11 +244,12 @@ export function Topbar({ title, subtitle }: TopbarProps) {
             <div className="relative">
               <button
                 onClick={() => setNotifOpen((v) => !v)}
-                className="relative p-2 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
+                className="relative p-2.5 rounded-2xl bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-all cursor-pointer shadow-sm"
+                title="Bildirishnomalar"
               >
                 <Bell className="w-4 h-4" />
                 {(unreadCount as number) > 0 && (
-                  <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-indigo-500 text-white text-[10px] font-bold leading-none">
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-indigo-600 text-white text-[10px] font-black leading-none shadow-lg shadow-indigo-500/50">
                     {(unreadCount as number) > 99 ? "99+" : unreadCount}
                   </span>
                 )}
@@ -243,15 +258,22 @@ export function Topbar({ title, subtitle }: TopbarProps) {
             </div>
           )}
 
-          {/* Avatar */}
+          {/* Avatar & User Info */}
           {user && (
-            <div className="flex items-center gap-2 pl-2 border-l border-[var(--border)]">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold text-white ${getAvatarColor(user.username)}`}>
-                {getInitials(user.username)}
+            <div className="flex items-center gap-3 pl-3 border-l border-[var(--border)]">
+              <div className="text-right hidden sm:block">
+                <p className="text-xs font-extrabold text-[var(--text-primary)] leading-none">{fullName}</p>
+                <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider mt-1">{roleName}</p>
               </div>
-              <div className="hidden sm:block">
-                <p className="text-sm font-medium text-[var(--text-primary)]">{user.username}</p>
-                <p className="text-xs text-[var(--text-muted)]">{user.role}</p>
+
+              <div className="relative w-10 h-10 rounded-2xl overflow-hidden border border-indigo-500/30 bg-indigo-500/10 flex items-center justify-center shadow-lg shadow-indigo-500/10 flex-shrink-0">
+                {userPhoto ? (
+                  <img src={userPhoto} alt={fullName} className="w-full h-full object-cover" />
+                ) : (
+                  <div className={cn("w-full h-full flex items-center justify-center text-xs font-black text-white", getAvatarColor(user.username))}>
+                    {getInitials(fullName || user.username)}
+                  </div>
+                )}
               </div>
             </div>
           )}
