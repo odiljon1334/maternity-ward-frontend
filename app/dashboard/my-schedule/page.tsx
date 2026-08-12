@@ -63,8 +63,11 @@ function CompactScheduleCalendar({ schedules, year, month }: { schedules: any[];
           const schedule = scheduleMap.get(dateStr);
           const isToday = dateStr === todayStr;
 
+          // Agar backend'dan schedule ma'lumoti kelmagan bo'lsa, uni avtomatik ish kuni deb taxmin qilmaymiz (- qo'yamiz)
+          const hasScheduleData = !!schedule;
           const isNight = schedule?.shift?.type === "NIGHTTIME";
-          const isWorkDay = schedule ? schedule.status === "WORKING" : (dayjs(dateStr).day() !== 0 && dayjs(dateStr).day() !== 6);
+          const isWorkDay = hasScheduleData ? schedule.status === "WORKING" : false;
+          const isDayOff = hasScheduleData ? schedule.status === "DAY_OFF" : true;
           
           const ShiftIcon = isNight ? Moon : (isWorkDay ? Sun : Star);
 
@@ -84,12 +87,18 @@ function CompactScheduleCalendar({ schedules, year, month }: { schedules: any[];
                 <span className={cn("text-xs font-bold", isToday ? "text-indigo-600 dark:text-indigo-300" : "text-[var(--text-primary)]")}>
                   {dayNum}
                 </span>
-                <ShiftIcon className={cn("w-3 h-3", isWorkDay && !isNight ? "text-amber-500 dark:text-amber-400" : (isNight ? "text-indigo-500 dark:text-indigo-400" : "text-[var(--text-muted)]"))} />
+                {hasScheduleData ? (
+                  <ShiftIcon className={cn("w-3 h-3", isWorkDay && !isNight ? "text-amber-500 dark:text-amber-400" : (isNight ? "text-indigo-500 dark:text-indigo-400" : "text-[var(--text-muted)]"))} />
+                ) : (
+                  <span className="text-[10px] text-[var(--text-muted)]">—</span>
+                )}
               </div>
 
               <div className="text-center pb-0.5">
                 <span className="text-[9px] font-mono font-medium text-[var(--text-muted)]">
-                  {isWorkDay && schedule?.shift?.startTime ? schedule.shift.startTime.slice(0, 5) : (isWorkDay ? "08:00" : "—")}
+                  {hasScheduleData && isWorkDay && schedule?.shift?.startTime 
+                    ? schedule.shift.startTime.slice(0, 5) 
+                    : "—"}
                 </span>
               </div>
             </div>

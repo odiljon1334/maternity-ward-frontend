@@ -144,24 +144,24 @@ function NewLeaveForm({ onClose }: { onClose: () => void }) {
             <div className="space-y-1.5">
               <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Boshlanish sanasi</label>
               <input
-                type="date"
-                value={form.startDate}
-                min={dayjs().format("YYYY-MM-DD")}
-                onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-                className="w-full bg-slate-900 border border-slate-800 hover:border-indigo-500/50 rounded-2xl px-4 py-3 text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-                style={{ colorScheme: 'dark' }}
-              />
+  type="date"
+  value={form.startDate}
+  min={dayjs().format("YYYY-MM-DD")}
+  onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+  style={{ colorScheme: 'dark' }}
+  className="w-full bg-slate-900 border border-slate-800 hover:border-indigo-500/50 rounded-2xl px-4 py-3 text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40 block appearance-none min-h-[46px]"
+/>
             </div>
             <div className="space-y-1.5">
               <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Tugash sanasi</label>
               <input
-                type="date"
-                value={form.endDate}
-                min={form.startDate || dayjs().format("YYYY-MM-DD")}
-                onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-                className="w-full bg-slate-900 border border-slate-800 hover:border-indigo-500/50 rounded-2xl px-4 py-3 text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-                style={{ colorScheme: 'dark' }}
-              />
+  type="date"
+  value={form.endDate}
+  min={form.startDate || dayjs().format("YYYY-MM-DD")}
+  onChange={(e) => setForm({ ...form, endDate: e.target.value })}
+  style={{ colorScheme: 'dark' }}
+  className="w-full bg-slate-900 border border-slate-800 hover:border-indigo-500/50 rounded-2xl px-4 py-3 text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40 block appearance-none min-h-[46px]"
+/>
             </div>
           </div>
 

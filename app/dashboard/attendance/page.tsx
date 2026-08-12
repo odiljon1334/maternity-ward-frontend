@@ -103,10 +103,9 @@ export default function AttendancePage() {
 
       // Shift
       if (shiftFilter !== "ALL") {
-        const shiftHour = r.expectedCheckIn ? dayjs(r.expectedCheckIn).hour() : null;
-        if (shiftHour === null) return false;
-        if (shiftFilter === "DAY" && shiftHour >= 14) return false;
-        if (shiftFilter === "NIGHT" && shiftHour < 14) return false;
+        const isNight = r.schedule?.shift?.type === "NIGHTTIME" || (r.expectedCheckIn ? dayjs(r.expectedCheckIn).hour() >= 14 : false);
+        if (shiftFilter === "DAY" && isNight) return false;
+        if (shiftFilter === "NIGHT" && !isNight) return false;
       }
 
       return true;
@@ -337,7 +336,10 @@ export default function AttendancePage() {
 
               {!isLoading && filteredRecords.map((r: any) => {
                 const st = STATUS_CONFIG[r.status] || { label: r.status, badgeCls: "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700" };
-                const shiftHour = r.expectedCheckIn ? dayjs(r.expectedCheckIn).hour() : null;
+                
+                // Aniqlash: Agar schedule yoki shift mavjud bo'lsa shunga qaraymiz, aks holda —
+                const hasSchedule = !!r.schedule || !!r.expectedCheckIn;
+                const isNight = r.schedule?.shift?.type === "NIGHTTIME" || (r.expectedCheckIn ? dayjs(r.expectedCheckIn).hour() >= 14 : false);
 
                 return (
                   <tr
@@ -378,15 +380,15 @@ export default function AttendancePage() {
 
                     {/* Shift Type */}
                     <td className="px-4 py-3 whitespace-nowrap">
-                      {shiftHour !== null ? (
+                      {hasSchedule ? (
                         <span className={cn(
                           "inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded border",
-                          shiftHour < 14 
+                          !isNight 
                             ? "bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/20" 
                             : "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20"
                         )}>
-                          {shiftHour < 14 ? <Sun className="w-2.5 h-2.5" /> : <Moon className="w-2.5 h-2.5" />}
-                          {shiftHour < 14 ? "Kunduzgi" : "Kechki"}
+                          {!isNight ? <Sun className="w-2.5 h-2.5" /> : <Moon className="w-2.5 h-2.5" />}
+                          {!isNight ? "Kunduzgi" : "Kechki"}
                         </span>
                       ) : (
                         <span className="text-slate-400 dark:text-slate-600 font-mono">—</span>
