@@ -4,22 +4,24 @@ import { useRef, useState, useCallback, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Camera, MapPin, CheckCircle2, XCircle, Loader2,
-  RefreshCw, AlertTriangle, Clock, LogIn, LogOut, Building2,
+  RefreshCw, AlertTriangle, Clock, LogIn, LogOut, Building2, Sparkles, User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { attendanceApi, photoUrl } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth";
+import { Topbar } from "@/components/layout/Topbar";
+import { YMaps, Map, Placemark } from "@pbe/react-yandex-maps";
 import dayjs from "dayjs";
 import "dayjs/locale/uz";
 dayjs.locale("uz");
 
 // ─── Status badge ─────────────────────────────────────────────────────────────
 const STATUS_MAP: Record<string, { label: string; cls: string }> = {
-  PRESENT:    { label: "Keldi",           cls: "bg-emerald-500/20 text-emerald-400" },
-  LATE:       { label: "Kech keldi",      cls: "bg-amber-500/20  text-amber-400"   },
-  ABSENT:     { label: "Kelmadi",         cls: "bg-red-500/20    text-red-400"      },
-  EARLY_LEAVE:{ label: "Erta ketdi",      cls: "bg-orange-500/20 text-orange-400"  },
-  LATE_EARLY: { label: "Kech+Erta",       cls: "bg-red-500/20    text-red-400"      },
+  PRESENT:    { label: "Keldi",           cls: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" },
+  LATE:       { label: "Kech keldi",      cls: "bg-amber-500/20  text-amber-400 border-amber-500/30"   },
+  ABSENT:     { label: "Kelmadi",         cls: "bg-red-500/20    text-red-400 border-red-500/30"      },
+  EARLY_LEAVE:{ label: "Erta ketdi",      cls: "bg-orange-500/20 text-orange-400 border-orange-500/30"  },
+  LATE_EARLY: { label: "Kech+Erta",       cls: "bg-red-500/20    text-red-400 border-red-500/30"      },
 };
 
 function fmt(date?: string | Date | null) {
@@ -129,43 +131,70 @@ function useGPS() {
   return { coords, loading, error, locate };
 }
 
-// ─── Today status card ─────────────────────────────────────────────────────────
+// ─── Today status card (Profil sahifasidagi kabi gradientli va bezakli card) ────
 function TodayCard({ record }: { record: any }) {
-  const status = STATUS_MAP[record.status] ?? { label: record.status, cls: "bg-slate-500/20 text-slate-400" };
+  const status = STATUS_MAP[record.status] ?? { label: record.status, cls: "bg-slate-500/20 text-slate-400 border-slate-500/30" };
+  
   return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-[var(--text-primary)]">Bugungi holat</span>
-        <span className={cn("text-xs font-semibold px-2.5 py-1 rounded-full", status.cls)}>
+    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-950/60 via-[var(--bg-card)] to-purple-950/40 border border-[var(--border)] p-6 shadow-2xl space-y-5">
+      {/* Orqa fondagi nafis yulduzcha/bezak elementlari */}
+      <div className="absolute -right-6 -top-6 text-indigo-500/10 pointer-events-none">
+        <Sparkles className="w-36 h-36" />
+      </div>
+
+      {/* Yuqori qism: Sarlavha va Status */}
+      <div className="flex items-center justify-between relative z-10">
+        <div className="flex items-center gap-2.5">
+          <div className="w-3 h-3 rounded-full bg-emerald-400 shadow-lg shadow-emerald-400/50 animate-pulse" />
+          <span className="text-sm font-extrabold text-[var(--text-primary)]">Bugungi holat</span>
+        </div>
+        <span className={cn("text-xs font-bold px-3 py-1.5 rounded-xl border shadow-sm", status.cls)}>
           {status.label}
         </span>
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div className="rounded-lg bg-[var(--bg-main)] p-3 text-center">
-          <p className="text-[10px] text-[var(--text-muted)] mb-1 flex items-center justify-center gap-1">
-            <LogIn className="w-3 h-3" /> Keldi
+
+      {/* Markaziy qism: Vaqtlar va Selfie */}
+      <div className="grid grid-cols-3 items-center gap-2 bg-[var(--bg-main)]/80 backdrop-blur-md rounded-2xl p-4 border border-[var(--border)] relative z-10">
+        {/* Keldi vaqti */}
+        <div className="text-center border-r border-[var(--border)] pr-2">
+          <p className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] mb-1.5 flex items-center justify-center gap-1 font-bold">
+            <LogIn className="w-3 h-3 text-emerald-400" /> Keldi
           </p>
-          <p className="text-lg font-bold text-emerald-400">{fmt(record.checkIn)}</p>
+          <p className="text-xl font-black text-emerald-400 tracking-tight">{fmt(record.checkIn)}</p>
           {record.lateMinutes > 0 && (
-            <p className="text-[10px] text-amber-400 mt-0.5">+{record.lateMinutes}min kech</p>
+            <span className="inline-block text-[9px] text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded mt-1 font-semibold border border-amber-500/20">
+              +{record.lateMinutes} min kech
+            </span>
           )}
         </div>
-        <div className="rounded-lg bg-[var(--bg-main)] p-3 text-center">
-          <p className="text-[10px] text-[var(--text-muted)] mb-1 flex items-center justify-center gap-1">
-            <LogOut className="w-3 h-3" /> Ketdi
+
+        {/* Selfie */}
+        <div className="flex justify-center">
+          {record.selfieUrl ? (
+            <div className="relative">
+              <img
+                src={photoUrl(record.selfieUrl)}
+                alt="selfie"
+                className="w-14 h-14 rounded-2xl object-cover ring-2 ring-indigo-500/40 shadow-lg"
+              />
+            </div>
+          ) : (
+            <div className="w-14 h-14 rounded-2xl bg-[var(--border)] flex items-center justify-center text-[var(--text-muted)]">
+              <User className="w-6 h-6" />
+            </div>
+          )}
+        </div>
+
+        {/* Ketdi vaqti */}
+        <div className="text-center pl-2">
+          <p className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] mb-1.5 flex items-center justify-center gap-1 font-bold">
+            <LogOut className="w-3 h-3 text-rose-400" /> Ketdi
           </p>
-          <p className={cn("text-lg font-bold", record.checkOut ? "text-red-400" : "text-[var(--text-muted)]")}>
+          <p className={cn("text-xl font-black tracking-tight", record.checkOut ? "text-rose-400" : "text-[var(--text-muted)] opacity-60")}>
             {fmt(record.checkOut)}
           </p>
         </div>
       </div>
-      {record.selfieUrl && (
-        <img
-          src={photoUrl(record.selfieUrl)}
-          alt="selfie"
-          className="w-16 h-16 rounded-full object-cover mx-auto ring-2 ring-indigo-500/40"
-        />
-      )}
     </div>
   );
 }
@@ -176,6 +205,8 @@ export default function MyCheckinPage() {
   const cam  = useCameraCapture();
   const gps  = useGPS();
   const { user, updateHospitalGps } = useAuthStore();
+
+  const empName = user?.employee?.fullName ?? user?.username ?? "Xodim";
 
   const [showEarlyWarning, setShowEarlyWarning] = useState(false);
 
@@ -237,7 +268,7 @@ export default function MyCheckinPage() {
   const isComplete   = isCheckedIn && isCheckedOut;
   const actionLabel  = isCheckedIn ? "Check-out" : "Check-in";
   const ActionIcon   = isCheckedIn ? LogOut : LogIn;
-  const actionColor  = isCheckedIn ? "bg-red-600 hover:bg-red-700" : "bg-indigo-600 hover:bg-indigo-700";
+  const actionColor  = isCheckedIn ? "bg-red-600 hover:bg-red-700 shadow-red-600/25" : "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/25";
 
   const minutesSinceCheckIn = isCheckedIn && data?.checkIn
     ? dayjs().diff(dayjs(data.checkIn), "minute")
@@ -253,9 +284,6 @@ export default function MyCheckinPage() {
   const isEarlyLeave = isCheckedIn && !isCheckedOut && expectedCheckOut
     ? dayjs().isBefore(expectedCheckOut)
     : false;
-  const remainingMin = isEarlyLeave && expectedCheckOut
-    ? expectedCheckOut.diff(dayjs(), "minute")
-    : 0;
 
   const handleSubmit = () => {
     if (isCheckedIn && isEarlyLeave && !showEarlyWarning) {
@@ -274,341 +302,374 @@ export default function MyCheckinPage() {
   const missingMsg = getMissingMsg();
 
   return (
-    <div className="max-w-md mx-auto px-4 py-6 space-y-5">
-      <div>
-        <h1 className="text-xl font-bold text-[var(--text-primary)]">Mobil Davomat</h1>
-        <p className="text-sm text-[var(--text-muted)] mt-1">
-          {today.format("DD MMMM YYYY, dddd")}
-        </p>
-      </div>
+    <div className="min-h-screen bg-[var(--bg-main)] pb-16">
+      {/* Ta'til sahifasidagi kabi yagona Topbar */}
+      <Topbar
+        title="Bugungi holat"
+        subtitle={`${empName} · Shaxsiy vaqt nazorati`}
+      />
 
-      {!hospitalSetupDone && (
-        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 space-y-3">
-          <div className="flex items-start gap-3">
-            <Building2 className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-semibold text-amber-300">Ish joyi manzilini belgilang</p>
-              <p className="text-xs text-amber-400/80 mt-0.5">
-                Bu bir martalik sozlama. Hozirgi joylashuvingiz ish joyi sifatida saqlanadi.
-              </p>
+      <div className="max-w-4xl mx-auto px-4 lg:px-6 pt-6 space-y-6">
+        <div className="px-1">
+          <h2 className="text-sm font-bold text-[var(--text-primary)]">Sana</h2>
+          <p className="text-xs font-medium text-[var(--text-muted)] capitalize mt-0.5">
+            {today.format("DD MMMM YYYY, dddd")}
+          </p>
+        </div>
+
+        {!hospitalSetupDone && (
+          <div className="rounded-3xl border border-amber-500/40 bg-amber-500/10 p-6 space-y-4 shadow-xl">
+            <div className="flex items-start gap-3">
+              <Building2 className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-bold text-amber-300">Ish joyi manzilini belgilang</p>
+                <p className="text-xs text-amber-400/80 mt-0.5">
+                  Bu bir martalik sozlama. Hozirgi joylashuvingiz ish joyi sifatida saqlanadi.
+                </p>
+              </div>
             </div>
-          </div>
 
-          {hospitalSetupStep === "idle" && (
-            <div className="space-y-2">
-              {!gps.coords ? (
-                <button
-                  onClick={gps.locate}
-                  disabled={gps.loading}
-                  className="w-full py-2.5 rounded-lg text-sm font-medium bg-amber-600 hover:bg-amber-700 text-white flex items-center justify-center gap-2 transition-colors"
-                >
-                  {gps.loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4" />}
-                  {gps.loading ? "Aniqlanmoqda..." : "Joylashuvni aniqlash"}
-                </button>
-              ) : (
-                <div className="space-y-2">
-                  <div className="rounded-lg bg-amber-900/30 p-2.5 text-xs text-amber-200 space-y-1">
-                    <p>📍 Kenglik: <span className="font-mono">{gps.coords.lat.toFixed(6)}</span></p>
-                    <p>📍 Uzunlik: <span className="font-mono">{gps.coords.lng.toFixed(6)}</span></p>
-                    <p>🎯 Aniqlik: ±{Math.round(gps.coords.accuracy)}m</p>
-                  </div>
+            {hospitalSetupStep === "idle" && (
+              <div className="space-y-3">
+                {!gps.coords ? (
                   <button
-                    onClick={() => setHospitalSetupStep("confirming")}
-                    className="w-full py-2.5 rounded-lg text-sm font-medium bg-amber-600 hover:bg-amber-700 text-white flex items-center justify-center gap-2 transition-colors"
+                    onClick={gps.locate}
+                    disabled={gps.loading}
+                    className="w-full py-3 rounded-2xl text-sm font-bold bg-amber-600 hover:bg-amber-700 text-white flex items-center justify-center gap-2 transition-colors shadow-lg shadow-amber-600/25"
                   >
-                    <Building2 className="w-4 h-4" />
-                    Shu joylashuvni ish joyi sifatida saqlash
+                    {gps.loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4" />}
+                    {gps.loading ? "Aniqlanmoqda..." : "Joylashuvni aniqlash"}
+                  </button>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="rounded-2xl bg-[var(--bg-main)] p-4 text-xs text-amber-200 space-y-1 border border-amber-500/20">
+                      <p>📍 Kenglik: <span className="font-mono">{gps.coords.lat.toFixed(6)}</span></p>
+                      <p>📍 Uzunlik: <span className="font-mono">{gps.coords.lng.toFixed(6)}</span></p>
+                      <p>🎯 Aniqlik: ±{Math.round(gps.coords.accuracy)}m</p>
+                    </div>
+
+                    <div className="w-full h-48 rounded-2xl overflow-hidden border border-amber-500/30">
+                      <YMaps query={{ apikey: "SIZNING_YANDEX_MAP_KEYINGIZ" }}>
+                        <Map
+                          state={{ center: [gps.coords.lat, gps.coords.lng], zoom: 16 }}
+                          style={{ width: "100%", height: "100%" }}
+                        >
+                          <Placemark geometry={[gps.coords.lat, gps.coords.lng]} />
+                        </Map>
+                      </YMaps>
+                    </div>
+
+                    <button
+                      onClick={() => setHospitalSetupStep("confirming")}
+                      className="w-full py-3 rounded-2xl text-sm font-bold bg-amber-600 hover:bg-amber-700 text-white flex items-center justify-center gap-2 transition-colors shadow-lg shadow-amber-600/25"
+                    >
+                      <Building2 className="w-4 h-4" />
+                      Shu joylashuvni ish joyi sifatida saqlash
+                    </button>
+                  </div>
+                )}
+                {gps.error && (
+                  <p className="text-xs text-red-400 flex items-start gap-1.5 font-medium">
+                    <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" /> {gps.error}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {hospitalSetupStep === "confirming" && (
+              <div className="space-y-3">
+                <p className="text-xs text-amber-300 font-semibold">
+                  ⚠️ Tasdiqlash: Hozirgi joylashuvingiz ish joyi sifatida saqlansinmi?
+                </p>
+                {hospitalSaveError && (
+                  <p className="text-xs text-red-400 font-medium">❌ {hospitalSaveError}</p>
+                )}
+                <div className="flex gap-3">
+                  <button
+                    onClick={saveHospitalGps}
+                    className="flex-1 py-2.5 rounded-2xl text-sm font-bold bg-amber-600 hover:bg-amber-700 text-white transition-colors"
+                  >
+                    Ha, saqlash
+                  </button>
+                  <button
+                    onClick={() => { setHospitalSetupStep("idle"); gps.locate(); }}
+                    className="flex-1 py-2.5 rounded-2xl text-sm font-bold bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors"
+                  >
+                    Qayta aniqlash
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {hospitalSetupStep === "saving" && (
+              <div className="flex items-center justify-center gap-2 py-2 text-amber-300 text-sm font-semibold">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Saqlanmoqda...
+              </div>
+            )}
+          </div>
+        )}
+
+        {isLoading ? (
+          <div className="rounded-3xl border border-[var(--border)] bg-[var(--bg-card)] p-6 animate-pulse h-36" />
+        ) : data ? (
+          <TodayCard record={data} />
+        ) : (
+          <div className="rounded-3xl border border-[var(--border)] bg-[var(--bg-card)] p-8 text-center text-sm text-[var(--text-muted)] space-y-3 shadow-xl">
+            <Clock className="w-8 h-8 mx-auto opacity-40 text-indigo-400" />
+            <p className="font-semibold">Bugun hali davomat belgilanmagan</p>
+          </div>
+        )}
+
+        {isComplete && (
+          <div className="rounded-3xl border border-emerald-500/30 bg-emerald-500/10 p-5 flex items-center gap-3 shadow-lg">
+            <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+            <p className="text-sm text-emerald-400 font-bold">
+              Bugungi davomat to&apos;liq belgilandi!
+            </p>
+          </div>
+        )}
+
+        {mutation.isSuccess && (
+          <div className="rounded-3xl border border-emerald-500/30 bg-emerald-500/10 p-5 flex items-center gap-3 shadow-lg">
+            <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+            <p className="text-sm text-emerald-400 font-bold">
+              {mutation.data?.action === "CHECK_IN" ? "Check-in muvaffaqiyatli!" : "Check-out muvaffaqiyatli!"}
+            </p>
+          </div>
+        )}
+
+        {mutation.isError && (
+          <div className="rounded-3xl border border-red-500/30 bg-red-500/10 p-5 flex items-start gap-3 shadow-lg">
+            <XCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-red-400 font-medium">
+              {(mutation.error as any)?.response?.data?.message
+                ?? "Xatolik yuz berdi. Qayta urinib ko'ring."}
+            </p>
+          </div>
+        )}
+
+        {!isComplete && (
+          <div className="space-y-5">
+            {/* Ish joyi cardi */}
+            <div className="rounded-3xl border border-[var(--border)] bg-[var(--bg-card)] p-6 space-y-4 shadow-xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-indigo-400" />
+                  <span className="text-sm font-bold text-[var(--text-primary)]">Hozirgi ish joyi</span>
+                </div>
+                {gps.coords ? (
+                  <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full font-bold border border-emerald-500/20">
+                    Aniqlandi ✓
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full font-bold border border-amber-500/20">
+                    Majburiy
+                  </span>
+                )}
+              </div>
+
+              {gps.coords ? (
+                <div className="space-y-3">
+                  <div className="text-xs text-[var(--text-muted)] space-y-1 bg-[var(--bg-main)] p-3.5 rounded-2xl border border-[var(--border)] font-medium">
+                    <p>Kenglik: <span className="text-[var(--text-primary)] font-mono">{gps.coords.lat.toFixed(6)}</span></p>
+                    <p>Uzunlik: <span className="text-[var(--text-primary)] font-mono">{gps.coords.lng.toFixed(6)}</span></p>
+                    <p>Aniqlik: <span className="text-[var(--text-primary)] font-mono">±{Math.round(gps.coords.accuracy)}m</span></p>
+                  </div>
+
+                  <div className="w-full h-48 rounded-2xl overflow-hidden border border-[var(--border)] shadow-inner">
+                    <YMaps query={{ apikey: "SIZNING_YANDEX_MAP_KEYINGIZ" }}>
+                      <Map
+                        state={{ center: [gps.coords.lat, gps.coords.lng], zoom: 16 }}
+                        style={{ width: "100%", height: "100%" }}
+                      >
+                        <Placemark geometry={[gps.coords.lat, gps.coords.lng]} />
+                      </Map>
+                    </YMaps>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-[var(--text-muted)] font-medium">
+                  Ish joyingizning manzilini aniqlash uchun quyidagi tugmani bosing
+                </p>
+              )}
+
+              {gps.error && (
+                <p className="text-xs text-red-400 flex items-start gap-1.5 font-medium">
+                  <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                  {gps.error}
+                </p>
+              )}
+
+              <button
+                onClick={gps.locate}
+                disabled={gps.loading}
+                className={cn(
+                  "w-full py-3 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-sm",
+                  gps.coords
+                    ? "bg-[var(--bg-main)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] border border-[var(--border)]"
+                    : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-600/25",
+                )}
+              >
+                {gps.loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4" />}
+                {gps.loading ? "Aniqlanmoqda..." : gps.coords ? "Qayta aniqlash" : "Manzilni aniqlash"}
+              </button>
+            </div>
+
+            {/* Selfie cardi */}
+            <div className="rounded-3xl border border-[var(--border)] bg-[var(--bg-card)] p-6 space-y-4 shadow-xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Camera className="w-4 h-4 text-indigo-400" />
+                  <span className="text-sm font-bold text-[var(--text-primary)]">Selfie</span>
+                </div>
+                {cam.capturedFile ? (
+                  <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full font-bold border border-emerald-500/20">
+                    Olindi ✓
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full font-bold border border-amber-500/20">
+                    Majburiy
+                  </span>
+                )}
+              </div>
+
+              {cam.error && (
+                <p className="text-xs text-red-400 flex items-start gap-1.5 font-medium">
+                  <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                  {cam.error}
+                </p>
+              )}
+
+              <div className={cn("space-y-3", !cam.active && "hidden")}>
+                <div className="relative rounded-2xl overflow-hidden bg-black aspect-square shadow-inner">
+                  <video
+                    ref={cam.videoRef}
+                    className="w-full h-full object-cover"
+                    autoPlay
+                    playsInline
+                    muted
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="w-44 h-52 rounded-full border-2 border-white/60 border-dashed" />
+                  </div>
+                </div>
+                <canvas ref={cam.canvasRef} className="hidden" />
+                <div className="flex gap-3">
+                  <button
+                    onClick={cam.capture}
+                    className="flex-1 py-3 rounded-2xl text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center gap-2 transition-colors shadow-lg shadow-indigo-600/25"
+                  >
+                    <Camera className="w-4 h-4" />
+                    Suratga olish
+                  </button>
+                  <button
+                    onClick={cam.stopCamera}
+                    className="px-5 py-3 rounded-2xl text-sm font-bold bg-[var(--bg-main)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] transition-colors border border-[var(--border)]"
+                  >
+                    Bekor
+                  </button>
+                </div>
+              </div>
+
+              {cam.preview && !cam.active && (
+                <div className="space-y-3 text-center">
+                  <img
+                    src={cam.preview}
+                    alt="selfie preview"
+                    className="w-32 h-32 rounded-2xl object-cover mx-auto ring-4 ring-indigo-500/30 shadow-lg"
+                  />
+                  <button
+                    onClick={cam.reset}
+                    className="w-full py-3 rounded-2xl text-sm font-bold bg-[var(--bg-main)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] flex items-center justify-center gap-2 transition-colors border border-[var(--border)]"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Qayta olish
                   </button>
                 </div>
               )}
-              {gps.error && (
-                <p className="text-xs text-red-400 flex items-start gap-1.5">
-                  <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" /> {gps.error}
-                </p>
-              )}
-            </div>
-          )}
 
-          {hospitalSetupStep === "confirming" && (
-            <div className="space-y-2">
-              <p className="text-xs text-amber-300 font-medium">
-                ⚠️ Tasdiqlash: Hozirgi joylashuvingiz ish joyi sifatida saqlansinmi?
-              </p>
-              {hospitalSaveError && (
-                <p className="text-xs text-red-400">❌ {hospitalSaveError}</p>
-              )}
-              <div className="flex gap-2">
+              {!cam.preview && !cam.active && (
                 <button
-                  onClick={saveHospitalGps}
-                  className="flex-1 py-2 rounded-lg text-sm font-medium bg-amber-600 hover:bg-amber-700 text-white transition-colors"
-                >
-                  Ha, saqlash
-                </button>
-                <button
-                  onClick={() => { setHospitalSetupStep("idle"); gps.locate(); }}
-                  className="flex-1 py-2 rounded-lg text-sm font-medium bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors"
-                >
-                  Qayta aniqlash
-                </button>
-              </div>
-            </div>
-          )}
-
-          {hospitalSetupStep === "saving" && (
-            <div className="flex items-center justify-center gap-2 py-2 text-amber-300 text-sm">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Saqlanmoqda...
-            </div>
-          )}
-        </div>
-      )}
-
-      {isLoading ? (
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-4 animate-pulse h-32" />
-      ) : data ? (
-        <TodayCard record={data} />
-      ) : (
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-4 text-center text-sm text-[var(--text-muted)]">
-          <Clock className="w-8 h-8 mx-auto mb-2 opacity-40" />
-          Bugun hali davomat belgilanmagan
-        </div>
-      )}
-
-      {isComplete && (
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 flex items-center gap-3">
-          <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
-          <p className="text-sm text-emerald-400 font-medium">
-            Bugungi davomat to&apos;liq belgilandi!
-          </p>
-        </div>
-      )}
-
-      {mutation.isSuccess && (
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 flex items-center gap-3">
-          <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
-          <p className="text-sm text-emerald-400 font-medium">
-            {mutation.data?.action === "CHECK_IN" ? "Check-in muvaffaqiyatli!" : "Check-out muvaffaqiyatli!"}
-          </p>
-        </div>
-      )}
-
-      {mutation.isError && (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 flex items-start gap-3">
-          <XCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-red-400">
-            {(mutation.error as any)?.response?.data?.message
-              ?? "Xatolik yuz berdi. Qayta urinib ko'ring."}
-          </p>
-        </div>
-      )}
-
-      {!isComplete && (
-        <>
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-indigo-400" />
-                <span className="text-sm font-medium text-[var(--text-primary)]">Hozirgi ish joyi</span>
-              </div>
-              {gps.coords ? (
-                <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full font-medium">
-                  Aniqlandi ✓
-                </span>
-              ) : (
-                <span className="text-[10px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full font-medium">
-                  Majburiy
-                </span>
-              )}
-            </div>
-
-            {gps.coords ? (
-              <div className="space-y-1.5">
-                <div className="text-xs text-[var(--text-muted)] space-y-1">
-                  <p>Kenglik: <span className="text-[var(--text-primary)]">{gps.coords.lat.toFixed(6)}</span></p>
-                  <p>Uzunlik: <span className="text-[var(--text-primary)]">{gps.coords.lng.toFixed(6)}</span></p>
-                  <p>Aniqlik: <span className="text-[var(--text-primary)]">±{Math.round(gps.coords.accuracy)}m</span></p>
-                </div>
-              </div>
-            ) : (
-              <p className="text-xs text-[var(--text-muted)]">
-                Ish joyingizning manzilini aniqlash uchun quyidagi tugmani bosing
-              </p>
-            )}
-
-            {gps.error && (
-              <p className="text-xs text-red-400 flex items-start gap-1.5">
-                <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-                {gps.error}
-              </p>
-            )}
-
-            <button
-              onClick={gps.locate}
-              disabled={gps.loading}
-              className={cn(
-                "w-full py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors",
-                gps.coords
-                  ? "bg-slate-700 hover:bg-slate-600 text-slate-300"
-                  : "bg-indigo-600 hover:bg-indigo-700 text-white",
-              )}
-            >
-              {gps.loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4" />}
-              {gps.loading ? "Aniqlanmoqda..." : gps.coords ? "Qayta aniqlash" : "Manzilni aniqlash"}
-            </button>
-          </div>
-
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Camera className="w-4 h-4 text-indigo-400" />
-                <span className="text-sm font-medium text-[var(--text-primary)]">Selfie</span>
-              </div>
-              {cam.capturedFile ? (
-                <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full font-medium">
-                  Olindi ✓
-                </span>
-              ) : (
-                <span className="text-[10px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full font-medium">
-                  Majburiy
-                </span>
-              )}
-            </div>
-
-            {cam.error && (
-              <p className="text-xs text-red-400 flex items-start gap-1.5">
-                <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-                {cam.error}
-              </p>
-            )}
-
-            <div className={cn("space-y-2", !cam.active && "hidden")}>
-              <div className="relative rounded-xl overflow-hidden bg-black aspect-square">
-                <video
-                  ref={cam.videoRef}
-                  className="w-full h-full object-cover"
-                  autoPlay
-                  playsInline
-                  muted
-                />
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="w-44 h-52 rounded-full border-2 border-white/60 border-dashed" />
-                </div>
-              </div>
-              <canvas ref={cam.canvasRef} className="hidden" />
-              <div className="flex gap-2">
-                <button
-                  onClick={cam.capture}
-                  className="flex-1 py-2.5 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center gap-2 transition-colors"
+                  onClick={cam.startCamera}
+                  className="w-full py-3 rounded-2xl text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center gap-2 transition-colors shadow-lg shadow-indigo-600/25"
                 >
                   <Camera className="w-4 h-4" />
-                  Suratga olish
+                  Kamerani ochish
                 </button>
-                <button
-                  onClick={cam.stopCamera}
-                  className="px-4 py-2.5 rounded-lg text-sm font-medium bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors"
-                >
-                  Bekor
-                </button>
-              </div>
+              )}
             </div>
 
-            {cam.preview && !cam.active && (
-              <div className="space-y-2">
-                <img
-                  src={cam.preview}
-                  alt="selfie preview"
-                  className="w-32 h-32 rounded-full object-cover mx-auto ring-2 ring-indigo-500/40"
-                />
-                <button
-                  onClick={cam.reset}
-                  className="w-full py-2 rounded-lg text-sm font-medium bg-slate-700 hover:bg-slate-600 text-slate-300 flex items-center justify-center gap-2 transition-colors"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                  Qayta olish
-                </button>
+            {showEarlyWarning && (
+              <div className="rounded-3xl border border-orange-500/40 bg-orange-500/10 p-5 space-y-3 shadow-xl">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-bold text-orange-300">Ish vaqti hali tugamadi</p>
+                    <p className="text-xs text-orange-400/80 mt-1 font-medium">
+                      Ish tugash vaqti: <span className="font-bold text-orange-300">{expectedCheckOut?.format("HH:mm")}</span>
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => mutation.mutate()}
+                    disabled={mutation.isPending}
+                    className="flex-1 py-3 rounded-2xl text-sm font-bold bg-orange-600 hover:bg-orange-700 text-white flex items-center justify-center gap-2 transition-colors shadow-lg shadow-orange-600/25"
+                  >
+                    {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogOut className="w-4 h-4" />}
+                    Baribir chiqish
+                  </button>
+                  <button
+                    onClick={() => setShowEarlyWarning(false)}
+                    className="flex-1 py-3 rounded-2xl text-sm font-bold bg-[var(--bg-main)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] transition-colors border border-[var(--border)]"
+                  >
+                    Bekor qilish
+                  </button>
+                </div>
               </div>
             )}
 
-            {!cam.preview && !cam.active && (
+            {!showEarlyWarning && (
               <button
-                onClick={cam.startCamera}
-                className="w-full py-2 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center gap-2 transition-colors"
+                onClick={handleSubmit}
+                disabled={!canSubmit}
+                className={cn(
+                  "w-full py-4 rounded-3xl text-base font-black flex items-center justify-center gap-2.5 transition-all shadow-xl",
+                  canSubmit
+                    ? `${actionColor} text-white`
+                    : "bg-[var(--bg-card)] text-[var(--text-muted)] cursor-not-allowed border border-[var(--border)] opacity-60",
+                )}
               >
-                <Camera className="w-4 h-4" />
-                Kamerani ochish
+                {mutation.isPending ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <ActionIcon className="w-5 h-5" />
+                )}
+                {mutation.isPending ? "Yuborilmoqda..." : actionLabel}
               </button>
             )}
-          </div>
 
-          {showEarlyWarning && (
-            <div className="rounded-xl border border-orange-500/40 bg-orange-500/10 p-4 space-y-3">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" />
+            {isCheckedIn && !isCheckedOut && !canCheckOut && (
+              <div className="flex items-center gap-3 px-5 py-4 rounded-3xl bg-amber-500/10 border border-amber-500/25 shadow-xl">
+                <span className="text-xl">⏳</span>
                 <div>
-                  <p className="text-sm font-semibold text-orange-300">Ish vaqti hali tugamadi</p>
-                  <p className="text-xs text-orange-400/80 mt-1">
-                    Ish tugash vaqti: <span className="font-bold text-orange-300">{expectedCheckOut?.format("HH:mm")}</span>
+                  <p className="text-xs font-bold text-amber-300">Check-out hali erta</p>
+                  <p className="text-xs text-amber-400/85 font-medium">
+                    {checkOutWaitMin} daqiqadan so&apos;ng check-out qilish mumkin (minimum 2 soat)
                   </p>
                 </div>
               </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => mutation.mutate()}
-                  disabled={mutation.isPending}
-                  className="flex-1 py-2.5 rounded-lg text-sm font-medium bg-orange-600 hover:bg-orange-700 text-white flex items-center justify-center gap-2 transition-colors"
-                >
-                  {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogOut className="w-4 h-4" />}
-                  Baribir chiqish
-                </button>
-                <button
-                  onClick={() => setShowEarlyWarning(false)}
-                  className="flex-1 py-2.5 rounded-lg text-sm font-medium bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors"
-                >
-                  Bekor qilish
-                </button>
-              </div>
-            </div>
-          )}
+            )}
 
-          {!showEarlyWarning && (
-            <button
-              onClick={handleSubmit}
-              disabled={!canSubmit}
-              className={cn(
-                "w-full py-3.5 rounded-xl text-base font-semibold flex items-center justify-center gap-2.5 transition-all",
-                canSubmit
-                  ? `${actionColor} text-white shadow-lg`
-                  : "bg-slate-700/50 text-slate-500 cursor-not-allowed",
-              )}
-            >
-              {mutation.isPending ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <ActionIcon className="w-5 h-5" />
-              )}
-              {mutation.isPending ? "Yuborilmoqda..." : actionLabel}
-            </button>
-          )}
-
-          {isCheckedIn && !isCheckedOut && !canCheckOut && (
-            <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25">
-              <span className="text-lg">⏳</span>
-              <div>
-                <p className="text-xs font-medium text-amber-300">Check-out hali erta</p>
-                <p className="text-xs text-amber-400/80">
-                  {checkOutWaitMin} daqiqadan so&apos;ng check-out qilish mumkin (minimum 2 soat)
-                </p>
-              </div>
-            </div>
-          )}
-
-          {missingMsg && !mutation.isPending && !showEarlyWarning && canCheckOut && (
-            <p className="text-center text-xs text-[var(--text-muted)]">
-              ⬆ {missingMsg}
-            </p>
-          )}
-        </>
-      )}
+            {missingMsg && !mutation.isPending && !showEarlyWarning && canCheckOut && (
+              <p className="text-center text-xs text-[var(--text-muted)] font-bold">
+                ⬆ {missingMsg}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
