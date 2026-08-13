@@ -436,7 +436,7 @@ export default function AttendancePage() {
                     {/* Shift — NO_SCHEDULE da CalendarOff icon */}
                     <td className="px-4 py-3 whitespace-nowrap">
                       {isNoSchedule ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] text-slate-400 dark:text-slate-500">
+                        <span className="inline-flex items-center gap-1 text-[10px] text-slate-400 dark:text-slate-400">
                           <CalendarOff className="w-3 h-3" /> Grafik yo'q
                         </span>
                       ) : hasSchedule ? (
@@ -488,10 +488,6 @@ export default function AttendancePage() {
                       <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded border inline-block", st.badgeCls)}>
                         {st.label}
                       </span>
-                      {/* Note (dam olish kuni yoki grafik yo'q) */}
-                      {r.note && (
-                        <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">{r.note}</p>
-                      )}
                     </td>
 
                     {/* Late */}
