@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import Link from "next/link";
@@ -39,7 +40,7 @@ const mainNavItems: NavItem[] = [
   { href: "/dashboard/schedules",         label: "Grafik",             icon: CalendarDays,   exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/attendance",        label: "Davomat",            icon: ClipboardList,  exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/leaves",            label: "Ta'til so'rovlari",  icon: Palmtree,       exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
-  { href: "/dashboard/cameras",           label: "Kameralar",          icon: Video,          exact: false, roles: ["MINISTRY"] },
+  { href: "/dashboard/cameras", label: "Kameralar", icon: Video, exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "MINISTRY"] },
   { href: "/dashboard/payroll",           label: "Maosh",              icon: DollarSign,     exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/analytics",         label: "Chuqur tahlil",      icon: BarChart2,      exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/reports",           label: "Hisobotlar",         icon: FileBarChart2,  exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
