@@ -255,19 +255,18 @@ export const payrollApi = {
     api.get("/payroll/my/payslip", { params, responseType: "blob" }),
 };
 
-// lib/api.ts ga qo'shing
 export const hikvisionApi = {
   // Terminal CRUD
   getTerminals: (hospitalId: string) =>
     api.get(`/hikvision/terminals?hospitalId=${hospitalId}`),
-  addTerminal: (data: { hospitalId: string; name: string; devIndex: string }) =>
+  addTerminal: (data: { hospitalId: string; name: string; devIndex: string; password?: string }) =>
     api.post(`/hikvision/terminals`, data),
   deleteTerminal: (id: string) =>
     api.delete(`/hikvision/terminals/${id}`),
   toggleTerminal: (id: string, isActive: boolean) =>
     api.patch(`/hikvision/terminals/${id}`, { isActive }),
   getTerminalsWithStatus: (hospitalId: string) =>
-  api.get(`/hikvision/terminals?hospitalId=${hospitalId}`),
+    api.get(`/hikvision/terminals?hospitalId=${hospitalId}`),
   
   // Sync
   syncHospital: (hospitalId: string) =>

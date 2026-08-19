@@ -242,7 +242,6 @@ function DirectorModal({ open, onClose, hospitalId, hospitalName, director }: {
   );
 }
 
-// ── Terminal Modal ─────────────────────────────
 function TerminalModal({ open, onClose, hospital }: {
   open: boolean; onClose: () => void; hospital: any;
 }) {
@@ -250,6 +249,7 @@ function TerminalModal({ open, onClose, hospital }: {
   const [addMode, setAddMode] = useState(false);
   const [name, setName] = useState("");
   const [devIndex, setDevIndex] = useState("");
+  const [password, setPassword] = useState(""); // <-- Parol uchun state
   const [syncing, setSyncing] = useState(false);
 
   const { data: terminals = [], isLoading } = useQuery({
@@ -258,24 +258,25 @@ function TerminalModal({ open, onClose, hospital }: {
       const data = r.data;
       if (Array.isArray(data)) return data;
       if (Array.isArray(data?.data)) return data.data;
-        return [];
-  }),
+      return [];
+    }),
     enabled: open && !!hospital?.id,
   });
 
   const addMut = useMutation({
-   mutationFn: () => {
-    console.log('name:', name, 'devIndex:', devIndex, 'hospitalId:', hospital.id);
-    return hikvisionApi.addTerminal({
-      hospitalId: hospital.id,
-      name,
-      devIndex: devIndex.trim(),
-    });
-  },
+    mutationFn: () => {
+      console.log('name:', name, 'devIndex:', devIndex, 'password:', password, 'hospitalId:', hospital.id);
+      return hikvisionApi.addTerminal({
+        hospitalId: hospital.id,
+        name,
+        devIndex: devIndex.trim(),
+        password: password.trim() || undefined, // Agar bo'sh bo'lsa yubormaymiz
+      });
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["terminals", hospital.id] });
       toast.success("Terminal qo'shildi");
-      setName(""); setDevIndex(""); setAddMode(false);
+      setName(""); setDevIndex(""); setPassword(""); setAddMode(false);
     },
     onError: (e: any) => toast.error(e?.response?.data?.message || "Xatolik"),
   });
@@ -304,12 +305,14 @@ function TerminalModal({ open, onClose, hospital }: {
     }
   };
 
-  if (!open) return null;
+if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative card w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)] sticky top-0 bg-[var(--bg-card)] z-10">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative card w-full sm:max-w-lg rounded-2xl max-h-[85vh] flex flex-col overflow-hidden z-10 shadow-2xl">
+        
+        {/* Header (Yuqori qism - o'zgarmaydi) */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
           <div>
             <h2 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
               <Cpu className="w-4 h-4 text-indigo-400" /> Terminallar
@@ -330,7 +333,8 @@ function TerminalModal({ open, onClose, hospital }: {
           </div>
         </div>
 
-        <div className="p-5 space-y-4">
+        {/* Scroll bo'ladigan asosiy tana qismi */}
+        <div className="p-5 space-y-4 overflow-y-auto flex-1">
           {isLoading ? (
             <div className="space-y-2">
               {[1, 2].map(i => <div key={i} className="h-14 rounded-xl bg-[var(--bg-hover)] animate-pulse" />)}
@@ -381,11 +385,18 @@ function TerminalModal({ open, onClose, hospital }: {
                 className="input-field font-mono text-sm"
                 placeholder="devIndex (Gateway UUID)"
               />
+              <input
+                type="password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                className="input-field text-sm"
+                placeholder="Terminal paroli (ixtiyoriy)"
+              />
               <p className="text-xs text-[var(--text-muted)]">
                 devIndex — Gateway Web UI → Device Management da ko&apos;rinadi
               </p>
-              <div className="flex gap-2">
-                <button onClick={() => setAddMode(false)} className="btn-secondary flex-1">Bekor</button>
+              <div className="flex gap-2 pt-1">
+                <button onClick={() => { setAddMode(false); setPassword(""); }} className="btn-secondary flex-1">Bekor</button>
                 <button
                   onClick={() => addMut.mutate()}
                   disabled={!name || !devIndex || addMut.isPending}
