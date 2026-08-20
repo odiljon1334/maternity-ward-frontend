@@ -81,12 +81,14 @@ export default function AttendancePage() {
     queryFn:  () => attendanceApi.daily({ date, departmentId: deptFilter || undefined, targetHospitalId }),
     staleTime: 60_000,
     refetchInterval: 60_000,
+    placeholderData: (prev) => prev,
   });
 
   const { data: departments = [] } = useQuery({
     queryKey: ["departments", targetHospitalId],
     queryFn:  () => departmentsApi.list(params),
     staleTime: 10 * 60_000,
+    placeholderData: (prev: any) => prev,
   });
 
   // ── Handlers ──────────────────────────────────────────────────────────────────
@@ -287,70 +289,71 @@ export default function AttendancePage() {
           )}
         </div>
 
-        {/* Secondary Filters */}
-        <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-200 dark:border-slate-800/60 text-xs">
+       {/* Secondary Filters */}
+<div className="flex flex-col gap-2 pt-2 border-t border-slate-200 dark:border-slate-800/60 text-xs">
+  
+  {/* Status + Shift — bir qatorda scroll */}
+  <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1">
+    {/* Status Filter */}
+    <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-lg border border-slate-200 dark:border-slate-800 flex-shrink-0">
+      <span className="text-slate-400 px-1 flex items-center gap-1 whitespace-nowrap">
+        <Filter className="w-3 h-3" /> Holat:
+      </span>
+      {(["ALL", "PRESENT", "ABSENT", "LATE", "EARLY_LEAVE", "NO_SCHEDULE"] as StatusFilter[]).map(st => (
+        <button
+          key={st}
+          onClick={() => setStatusFilter(st)}
+          className={cn(
+            "px-2.5 py-1 rounded font-medium transition whitespace-nowrap",
+            statusFilter === st
+              ? "bg-indigo-600 text-white shadow-sm"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800"
+          )}
+        >
+          {st === "ALL" ? "Barchasi" : st === "PRESENT" ? "Keldi" : st === "ABSENT" ? "Kelmadi" : st === "LATE" ? "Kechikdi" : st === "EARLY_LEAVE" ? "Erta ketdi" : "Grafik yo'q"}
+        </button>
+      ))}
+    </div>
 
-          {/* Status Filter — Mobil uchun moslashtirilgan */}
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-lg border border-slate-200 dark:border-slate-800 overflow-x-auto max-w-full scrollbar-none">
-            <span className="text-slate-400 px-2 flex items-center gap-1 whitespace-nowrap">
-              <Filter className="w-3 h-3" /> Holat:
-            </span>
-            {(["ALL", "PRESENT", "ABSENT"] as StatusFilter[]).map(st => (
-              <button
-                key={st}
-                onClick={() => setStatusFilter(st)}
-                className={cn(
-                  "px-2.5 py-1 rounded font-medium transition whitespace-nowrap",
-                statusFilter === st
-                  ? "bg-indigo-600 text-white shadow-sm"
-                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800"
-                )}
-              >
-                {st === "ALL" ? "Barchasi" : st === "PRESENT" ? "Keldi" : "Kelmadi"}
-              </button>
-            ))}
-          </div>
+    {/* Shift Filter */}
+    <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-lg border border-slate-200 dark:border-slate-800 flex-shrink-0">
+      {(["ALL", "DAY", "NIGHT"] as ShiftFilter[]).map(sf => (
+        <button
+          key={sf}
+          onClick={() => setShiftFilter(sf)}
+          className={cn(
+            "px-2.5 py-1 rounded flex items-center gap-1 transition whitespace-nowrap",
+            shiftFilter === sf
+              ? sf === "DAY"
+                ? "bg-sky-500/20 text-sky-700 dark:text-sky-300 border border-sky-500/30"
+                : sf === "NIGHT"
+                  ? "bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/30"
+                  : "bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-white"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+          )}
+        >
+          {sf === "DAY" && <Sun className="w-3 h-3 text-sky-500" />}
+          {sf === "NIGHT" && <Moon className="w-3 h-3 text-purple-500" />}
+          {sf === "ALL" ? "Barcha smenalar" : sf === "DAY" ? "Kunduzgi" : "Kechki"}
+        </button>
+      ))}
+    </div>
+  </div>
 
-          {/* Shift Filter */}
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-lg border border-slate-200 dark:border-slate-800">
-            {(["ALL", "DAY", "NIGHT"] as ShiftFilter[]).map(sf => (
-              <button
-                key={sf}
-                onClick={() => setShiftFilter(sf)}
-                className={cn(
-                  "px-2.5 py-1 rounded flex items-center gap-1 transition",
-                  shiftFilter === sf
-                    ? sf === "DAY"
-                      ? "bg-sky-500/20 text-sky-700 dark:text-sky-300 border border-sky-500/30"
-                      : sf === "NIGHT"
-                        ? "bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/30"
-                        : "bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-white"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
-                )}
-              >
-                {sf === "DAY"   && <Sun  className="w-3 h-3 text-sky-500" />}
-                {sf === "NIGHT" && <Moon className="w-3 h-3 text-purple-500" />}
-                {sf === "ALL" ? "Barcha smenalar" : sf === "DAY" ? "Kunduzgi" : "Kechki"}
-              </button>
-            ))}
-          </div>
-
-          {/* Department Filter */}
-          <div className="ml-auto w-full sm:w-48">
-            <select
-              value={deptFilter}
-              onChange={e => setDeptFilter(e.target.value)}
-              className="w-full bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-300 text-xs rounded-lg px-2.5 py-1.5 outline-none focus:border-indigo-500 transition"
-            >
-              <option value="">Barcha bo&apos;limlar</option>
-              {departments.map((d: any) => (
-                <option key={d.id} value={d.id} className="bg-white dark:bg-slate-900">
-                  {d.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
+  {/* Department Filter — full width */}
+  <select
+    value={deptFilter}
+    onChange={e => setDeptFilter(e.target.value)}
+    className="w-full bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-300 text-xs rounded-lg px-2.5 py-1.5 outline-none focus:border-indigo-500 transition"
+  >
+    <option value="">Barcha bo&apos;limlar</option>
+    {departments.map((d: any) => (
+      <option key={d.id} value={d.id} className="bg-white dark:bg-slate-900">
+        {d.name}
+      </option>
+    ))}
+  </select>
+</div>
       </div>
 
       {/* Main Table */}
