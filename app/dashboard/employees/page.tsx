@@ -1,3 +1,5 @@
+/* eslint-disable @next/next/no-img-element */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 import { useState, useEffect, useRef, useCallback, memo, useMemo, useTransition } from "react";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -309,7 +311,7 @@ function EmployeeModal({
                           onClick={() => setBioEmpId(r.id)} 
                           className="w-full mt-2 text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-bold py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 transition-colors flex items-center justify-center gap-1"
                         >
-                          Batafsil bio ko'rish <ChevronRight className="w-3.5 h-3.5" />
+                          Batafsil bio ko&apos;rish <ChevronRight className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     );
@@ -338,7 +340,7 @@ function EmployeeModal({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider mb-1.5">Tug'ilgan sana</label>
+              <label className="block text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider mb-1.5">Tug&apos;ilgan sana</label>
               <input
                 {...register("birthDate")}
                 type="date"
@@ -358,7 +360,7 @@ function EmployeeModal({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider mb-1.5">Bo'lim *</label>
+              <label className="block text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider mb-1.5">Bo&apos;lim *</label>
               <select {...register("departmentId", { required: "Bo'lim tanlash shart" })} className="input-field w-full font-medium">
                 <option value="">Tanlang</option>
                 {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -523,7 +525,7 @@ function FireModal({
               <UserX className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="font-bold text-[var(--text-primary)] text-base">Ishdan bo'shatish</h2>
+              <h2 className="font-bold text-[var(--text-primary)] text-base">Ishdan bo&apos;shatish</h2>
               <p className="text-xs text-[var(--text-muted)] font-medium">{employee.fullName}</p>
             </div>
           </div>
@@ -586,7 +588,7 @@ function FireModal({
 
           <div>
             <label className="block text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider mb-1.5">
-              Qo'shimcha izoh <span className="normal-case opacity-60 font-normal">(ixtiyoriy)</span>
+              Qo&apos;shimcha izoh <span className="normal-case opacity-60 font-normal">(ixtiyoriy)</span>
             </label>
             <textarea
               value={note}
@@ -600,7 +602,7 @@ function FireModal({
           <div className="flex items-start gap-2.5 p-3 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-800 dark:text-orange-300 font-medium">
             <AlertTriangle className="w-4 h-4 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
             <p className="text-xs leading-relaxed">
-              Xodim ishdan bo'shatilgach arxivga o'tkaziladi. 
+              Xodim ishdan bo&apos;shatilgach arxivga o&apos;tkaziladi. 
               Barcha tarixi (davomat, maosh) saqlanadi.
             </p>
           </div>
@@ -691,7 +693,7 @@ const EmpRow = memo(function EmpRow({
                   className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 whitespace-nowrap cursor-help"
                 >
                   <Palmtree className="w-3 h-3" />
-                  {LEAVE_LABELS[onLeave.type]?.emoji} Ta'tilda
+                  {LEAVE_LABELS[onLeave.type]?.emoji} Ta&apos;tilda
                 </span>
               )}
             </div>
@@ -707,7 +709,7 @@ const EmpRow = memo(function EmpRow({
       {emp.firedAt || emp.status === 'FIRED'
         ? <span className="inline-flex items-center text-xs font-bold px-2.5 py-1 rounded-full bg-red-500/15 border border-red-500/30 text-red-700 dark:text-red-400">Ketgan</span>
         : emp.status === 'ON_LEAVE'
-        ? <span className="inline-flex items-center text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400">Ta'tilda</span>
+        ? <span className="inline-flex items-center text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400">Ta&apos;tilda</span>
         : <span className="inline-flex items-center text-xs font-bold px-2.5 py-1 rounded-full bg-green-500/15 border border-green-500/30 text-green-700 dark:text-green-400">Faol</span>
       }
       </td>
@@ -722,7 +724,7 @@ const EmpRow = memo(function EmpRow({
               onClick={() => onFire(emp)}
               className="px-2.5 py-1 rounded-lg text-xs font-bold text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300 hover:bg-orange-500/10 transition-colors"
               title="Ishdan bo'shatish">
-              Bo'shatish
+              Bo&apos;shatish
             </button>
           )}
           <button
@@ -1093,7 +1095,7 @@ export default function EmployeesPage() {
               onChange={(e) => setDeptFilter(e.target.value)}
               className="input-field text-sm sm:w-48 font-medium"
             >
-              <option value="">Barcha bo'limlar</option>
+              <option value="">Barcha bo&apos;limlar</option>
               {(departments as any[]).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
 
@@ -1104,7 +1106,7 @@ export default function EmployeesPage() {
             >
               <option value="">Barcha holat</option>
               <option value="ACTIVE">✅ Faol</option>
-              <option value="ON_LEAVE">🏖 Ta'tilda</option>
+              <option value="ON_LEAVE">🏖 Ta&apos;tilda</option>
               <option value="FIRED">❌ Ketgan</option>
             </select>
           </div>
@@ -1262,7 +1264,7 @@ export default function EmployeesPage() {
                         className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
                       >
                         <Palmtree className="w-2.5 h-2.5" />
-                        {LEAVE_LABELS[onLeaveMap.get(emp.id)?.type]?.emoji} Ta'tilda
+                        {LEAVE_LABELS[onLeaveMap.get(emp.id)?.type]?.emoji} Ta&apos;tilda
                       </span>
                     )}
                   </div>
@@ -1272,7 +1274,7 @@ export default function EmployeesPage() {
                 {emp.firedAt || emp.status === 'FIRED'
                   ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500/15 text-red-700 dark:text-red-400 border border-red-500/30 flex-shrink-0">Ketgan</span>
                   : emp.status === 'ON_LEAVE'
-                  ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 flex-shrink-0">Ta'tilda</span>
+                  ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 flex-shrink-0">Ta&apos;tilda</span>
                   : <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-500/15 text-green-700 dark:text-green-400 border border-green-500/30 flex-shrink-0">Faol</span>
                 }
               </div>
@@ -1292,7 +1294,7 @@ export default function EmployeesPage() {
                       onClick={() => { setFireEmp(emp); setFireModalOpen(true); }}
                       className="text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300 px-2 py-1 rounded text-xs font-bold"
                     >
-                      Bo'shatish
+                      Bo&apos;shatish
                     </button>
                   )}
                   <button
@@ -1389,7 +1391,7 @@ export default function EmployeesPage() {
 
           {employees.length > 0 && (
             <div className="px-5 py-3 border-t border-[var(--border)] bg-[var(--bg-card)]/50 text-xs font-bold text-[var(--text-muted)]">
-              {employees.length} / {total} ta ko'rsatilmoqda
+              {employees.length} / {total} ta ko&apos;rsatilmoqda
             </div>
           )}
         </div>
@@ -1416,14 +1418,14 @@ export default function EmployeesPage() {
         <div className="fixed bottom-6 inset-x-4 z-50 max-w-xl mx-auto animate-in slide-in-from-bottom-5 duration-200">
           {showBulkDept && (
             <div className="mb-2 bg-[var(--bg-card)] rounded-2xl border border-[var(--border)] p-3.5 shadow-2xl space-y-2">
-              <p className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">O'tkaziladigan bo'limni tanlang</p>
+              <p className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">O&apos;tkaziladigan bo&apos;limni tanlang</p>
               <div className="flex gap-2">
                 <select
                   className="input-field flex-1 text-sm font-medium"
                   value={bulkDeptId}
                   onChange={(e) => setBulkDeptId(e.target.value)}
                 >
-                  <option value="">Bo'lim tanlang</option>
+                  <option value="">Bo&apos;lim tanlang</option>
                   {(departments as any[]).map((d: any) => (
                     <option key={d.id} value={d.id}>{d.name}</option>
                   ))}
@@ -1448,7 +1450,7 @@ export default function EmployeesPage() {
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-bold transition-colors"
               >
                 <Building2 className="w-4 h-4" />
-                <span>Bo'lim</span>
+                <span>Bo&apos;lim</span>
               </button>
               <button
                 onClick={() => {
@@ -1459,7 +1461,7 @@ export default function EmployeesPage() {
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/80 hover:bg-red-500 text-white text-xs font-bold transition-colors"
               >
                 <Trash2 className="w-4 h-4" />
-                {bulkDeleteMutation.isPending ? "..." : <span>O'chirish</span>}
+                {bulkDeleteMutation.isPending ? "..." : <span>O&apos;chirish</span>}
               </button>
               <button
                 onClick={() => { setSelectedIds([]); setShowBulkDept(false); }}

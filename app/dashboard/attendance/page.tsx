@@ -1,3 +1,5 @@
+/* eslint-disable @next/next/no-img-element */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useMemo } from "react";
@@ -217,7 +219,7 @@ export default function AttendancePage() {
 
       {/* Davomat ko'rsatkichi — alohida full-width card */}
       <div className="bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 p-3.5 rounded-xl shadow-sm flex items-center gap-4">
-        <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">Davomat ko'rsatkichi</span>
+        <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">Davomat ko&apos;rsatkichi</span>
         <div className="flex-1 bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
           <div
             className="bg-indigo-600 dark:bg-indigo-500 h-full rounded-full transition-all duration-500"
@@ -288,23 +290,23 @@ export default function AttendancePage() {
         {/* Secondary Filters */}
         <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-slate-200 dark:border-slate-800/60 text-xs">
 
-          {/* Status Filter — NO_SCHEDULE ham qo'shildi */}
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-lg border border-slate-200 dark:border-slate-800">
-            <span className="text-slate-400 px-2 flex items-center gap-1">
+          {/* Status Filter — Mobil uchun moslashtirilgan */}
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-lg border border-slate-200 dark:border-slate-800 overflow-x-auto max-w-full scrollbar-none">
+            <span className="text-slate-400 px-2 flex items-center gap-1 whitespace-nowrap">
               <Filter className="w-3 h-3" /> Holat:
             </span>
-            {(["ALL", "PRESENT", "LATE", "ABSENT", "EARLY_LEAVE", "NO_SCHEDULE"] as StatusFilter[]).map(st => (
+            {(["ALL", "PRESENT", "ABSENT"] as StatusFilter[]).map(st => (
               <button
                 key={st}
                 onClick={() => setStatusFilter(st)}
                 className={cn(
-                  "px-2.5 py-1 rounded font-medium transition",
-                  statusFilter === st
-                    ? "bg-indigo-600 text-white shadow-sm"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800"
+                  "px-2.5 py-1 rounded font-medium transition whitespace-nowrap",
+                statusFilter === st
+                  ? "bg-indigo-600 text-white shadow-sm"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800"
                 )}
               >
-                {st === "ALL" ? "Barchasi" : STATUS_CONFIG[st]?.label || st}
+                {st === "ALL" ? "Barchasi" : st === "PRESENT" ? "Keldi" : "Kelmadi"}
               </button>
             ))}
           </div>
@@ -340,7 +342,7 @@ export default function AttendancePage() {
               onChange={e => setDeptFilter(e.target.value)}
               className="w-full bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-300 text-xs rounded-lg px-2.5 py-1.5 outline-none focus:border-indigo-500 transition"
             >
-              <option value="">Barcha bo'limlar</option>
+              <option value="">Barcha bo&apos;limlar</option>
               {departments.map((d: any) => (
                 <option key={d.id} value={d.id} className="bg-white dark:bg-slate-900">
                   {d.name}
@@ -358,7 +360,7 @@ export default function AttendancePage() {
             <thead className="sticky top-0 bg-slate-100/95 dark:bg-slate-950/95 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase font-semibold tracking-wider z-20">
               <tr>
                 <th className="px-4 py-3">Xodim</th>
-                <th className="px-4 py-3">Bo'lim / Lavozim</th>
+                <th className="px-4 py-3">Bo&apos;lim / Lavozim</th>
                 <th className="px-4 py-3">Smena</th>
                 <th className="px-4 py-3">Kelish</th>
                 <th className="px-4 py-3">Ketish</th>
@@ -437,7 +439,7 @@ export default function AttendancePage() {
                     <td className="px-4 py-3 whitespace-nowrap">
                       {isNoSchedule ? (
                         <span className="inline-flex items-center gap-1 text-[10px] text-slate-400 dark:text-slate-400">
-                          <CalendarOff className="w-3 h-3" /> Grafik yo'q
+                          <CalendarOff className="w-3 h-3" /> Grafik yo&apos;q
                         </span>
                       ) : hasSchedule ? (
                         <span className={cn(
@@ -515,7 +517,7 @@ export default function AttendancePage() {
               {!isLoading && filteredRecords.length === 0 && (
                 <tr>
                   <td colSpan={9} className="px-4 py-12 text-center text-slate-400 dark:text-slate-500">
-                    Kiritilgan filtrlar bo'yicha hech qanday ma'lumot topilmadi.
+                    Kiritilgan filtrlar bo&apos;yicha hech qanday ma&apos;lumot topilmadi.
                   </td>
                 </tr>
               )}
@@ -525,7 +527,7 @@ export default function AttendancePage() {
 
         {/* Footer */}
         <div className="px-4 py-2.5 bg-slate-50 dark:bg-slate-950/80 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500">
-          <span>Ko'rsatilmoqda: {filteredRecords.length} / {records.length} xodim</span>
+          <span>Ko&apos;rsatilmoqda: {filteredRecords.length} / {records.length} xodim</span>
           <span>Avtomatik yangilanish: Har 1 daqiqada</span>
         </div>
       </div>
