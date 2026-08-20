@@ -386,12 +386,12 @@ if (!open) return null;
                 placeholder="devIndex (Gateway UUID)"
               />
               <input
-                type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                className="input-field text-sm"
+                className="input-field"
                 placeholder="Terminal paroli (ixtiyoriy)"
-              />
+                type="password"
+                />
               <p className="text-xs text-[var(--text-muted)]">
                 devIndex — Gateway Web UI → Device Management da ko&apos;rinadi
               </p>
