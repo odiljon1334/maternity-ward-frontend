@@ -12,6 +12,7 @@ services:
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://YOUR_SERVER_IP:5001/api/v1}
         BACKEND_ORIGIN: ${BACKEND_ORIGIN:-http://YOUR_SERVER_IP:5001}
+        NEXT_PUBLIC_MAPBOX_TOKEN: ${NEXT_PUBLIC_MAPBOX_TOKEN}
     container_name: maternity_frontend
     restart: always
     ports:
