@@ -9,7 +9,8 @@ import {
   Activity, ChevronLeft, ChevronRight, Building2, Bell,
   CreditCard, UserPlus, Shield, Send, Eye, X, Video, 
   ScanFace, UserCircle, Palmtree, BarChart2, Wallet, Bot, Archive,
-  Sparkles
+  Sparkles,
+  MapPin
 } from "lucide-react";
 import { cn, getInitials, getAvatarColor } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth";
@@ -36,9 +37,16 @@ const mainNavItems: NavItem[] = [
   { href: "/dashboard/profile",           label: "Profilim",           icon: UserCircle,     exact: false, roles: ["EMPLOYEE"] },
   { href: "/dashboard",                   label: "Dashboard",          icon: LayoutDashboard, exact: true, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/employees",         label: "Xodimlar",           icon: Users,          exact: true,  roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
-  { href: "/dashboard/employees/archive", label: "Xodimlar arxivi",    icon: Archive,        exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/schedules",         label: "Grafik",             icon: CalendarDays,   exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/attendance",        label: "Davomat",            icon: ClipboardList,  exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
+  { href: "/dashboard/employees/archive", label: "Xodimlar arxivi",    icon: Archive,        exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
+  { 
+  href: "/dashboard/live-map", 
+  label: "Live Xarita", 
+  icon: MapPin, 
+  exact: false, 
+  roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] 
+},
   { href: "/dashboard/leaves",            label: "Ta'til so'rovlari",  icon: Palmtree,       exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/cameras", label: "Kameralar", icon: Video, exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "MINISTRY"] },
   { href: "/dashboard/payroll",           label: "Maosh",              icon: DollarSign,     exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },

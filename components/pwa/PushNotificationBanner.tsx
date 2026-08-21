@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 import { useState, useEffect } from "react";
 import { usePushNotification } from "@/hooks/usePushNotification";
@@ -10,7 +11,7 @@ export function PushNotificationBanner() {
   const { supported, permission, subscribed, loading, subscribe, unsubscribe } =
     usePushNotification();
 
-  const [dismissed, setDismissed] = useState(true); // default true until hydrated
+  const [dismissed, setDismissed] = useState(true);
   const [mounted, setMounted]     = useState(false);
 
   useEffect(() => {
@@ -21,8 +22,8 @@ export function PushNotificationBanner() {
   // Agar ko'rsatish shart bo'lmasa — render qilmaymiz
   if (!mounted) return null;
   if (!supported) return null;
-  if (subscribed) return null;          // already subscribed
-  if (permission === ("denied" as string)) return null; // user blocked — don't nag
+  if (subscribed) return null;
+  if (permission === ("denied" as string)) return null;
   if (dismissed) return null;
 
   const handleEnable = async () => {
@@ -40,50 +41,67 @@ export function PushNotificationBanner() {
   };
 
   return (
-    <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-sm">
-      <div className="bg-[#1e2638] border border-indigo-500/30 rounded-2xl shadow-2xl p-4 flex items-start gap-3 animate-slide-up">
-        {/* Icon */}
-        <div className="p-2 bg-indigo-600/20 rounded-xl flex-shrink-0">
-          <Bell className="w-5 h-5 text-indigo-400" />
-        </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 backdrop-blur-md p-5 animate-fade-in">
+      <div className="relative w-full max-w-sm animate-ios-sheet">
+        {/* Glow */}
+        <div className="absolute inset-0 rounded-[30px] bg-indigo-500/20 blur-2xl" />
 
-        {/* Text */}
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-white">
-            Push xabarnomalar
-          </p>
-          <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">
-            Ta'til tasdiqlanganda, maosh hisoblanganda — darhol xabar oling
-          </p>
+        {/* Card */}
+        <div className="relative overflow-hidden rounded-[30px] border border-white/15 bg-white/10 backdrop-blur-2xl shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
+          {/* Gradient top */}
+          <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-indigo-500/20 to-transparent" />
 
-          <div className="flex gap-2 mt-3">
-            <button
-              onClick={handleEnable}
-              disabled={loading}
-              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-lg transition-colors"
-            >
-              {loading
-                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                : <Bell className="w-3.5 h-3.5" />}
-              {loading ? "Yuklanmoqda..." : "Yoqish"}
-            </button>
-            <button
-              onClick={handleDismiss}
-              className="py-1.5 px-3 bg-[var(--bg-hover)] hover:bg-[var(--border)] text-gray-400 text-xs rounded-lg transition-colors"
-            >
-              Keyin
-            </button>
+          {/* Close */}
+          <button
+            onClick={handleDismiss}
+            className="absolute top-4 right-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-gray-300 transition hover:bg-white/20 hover:text-white"
+          >
+            <X className="h-4 w-4" />
+          </button>
+
+          <div className="relative p-7 text-center">
+            {/* Icon */}
+            <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/40">
+              <Bell className="h-10 w-10 text-white" />
+            </div>
+
+            {/* Title */}
+            <h2 className="text-xl font-semibold tracking-tight text-white">
+              Push xabarnomalar
+            </h2>
+
+            {/* Description */}
+            <p className="mt-3 text-sm leading-6 text-gray-300">
+              Ta&apos;til tasdiqlanganda, maosh hisoblanganda va muhim
+              yangilanishlarda darhol xabar oling.
+            </p>
+
+            {/* Buttons */}
+            <div className="mt-8 space-y-3">
+              <button
+                onClick={handleEnable}
+                disabled={loading}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white py-3 text-sm font-semibold text-gray-900 transition active:scale-[0.98] hover:bg-gray-100"
+              >
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Bell className="h-4 w-4" />
+                )}
+                {loading ? "Yuklanmoqda..." : "Bildirishnomalarni yoqish"}
+              </button>
+
+              <button
+                onClick={handleDismiss}
+                className="w-full rounded-2xl border border-white/10 bg-white/5 py-3 text-sm font-medium text-gray-300 transition hover:bg-white/10"
+              >
+                Keyinroq
+              </button>
+            </div>
           </div>
         </div>
-
-        {/* Close */}
-        <button
-          onClick={handleDismiss}
-          className="p-1 hover:bg-[var(--bg-hover)] rounded-lg text-gray-500 hover:text-gray-300 transition-colors flex-shrink-0"
-        >
-          <X className="w-4 h-4" />
-        </button>
       </div>
     </div>
+    
   );
 }

@@ -24,4 +24,5 @@ export default withPWA({
   fallbacks: {
     document: "/offline",
   },
+  customWorkerDir: "worker",
 })(nextConfig);

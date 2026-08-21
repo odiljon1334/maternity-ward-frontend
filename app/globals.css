@@ -247,3 +247,37 @@ html.dark ::-webkit-scrollbar-thumb:hover {
 .animate-slide-up {
   animation: slide-up 0.3s ease forwards;
 }
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes iosSheet {
+  0% {
+    opacity: 0;
+    transform: translateY(70px) scale(0.96);
+  }
+
+  55% {
+    opacity: 1;
+    transform: translateY(-8px) scale(1.01);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn .22s ease-out forwards;
+}
+
+.animate-ios-sheet {
+  animation: iosSheet .55s cubic-bezier(.22,1,.36,1) forwards;
+}

@@ -2,7 +2,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { api } from "@/lib/api";
 
-// localStorage key
 const SUBSCRIBED_KEY = "push_subscribed";
 
 function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
@@ -21,7 +20,7 @@ export type PushPermission = NotificationPermission;
 export function usePushNotification() {
   const [permission, setPermission] = useState<PushPermission>("default");
   const [subscribed, setSubscribed] = useState(false);
-  const [loading, setLoading]     = useState(false);
+  const [loading, setLoading] = useState(false);
   const [supported, setSupported] = useState(false);
 
   useEffect(() => {
@@ -39,20 +38,38 @@ export function usePushNotification() {
     return res.data.data?.publicKey ?? res.data?.publicKey ?? "";
   }, []);
 
+  const getSwRegistration = useCallback(async (): Promise<ServiceWorkerRegistration> => {
+  // Production da next-pwa sw.js ishlatadi, development da sw-push.js
+  const swFile = process.env.NODE_ENV === 'production' ? '/sw.js' : '/sw-push.js';
+  const reg = await navigator.serviceWorker.register(swFile, { scope: '/' });
+  
+  if (reg.installing || reg.waiting) {
+    await new Promise<void>((resolve) => {
+      const sw = reg.installing ?? reg.waiting!;
+      sw.addEventListener('statechange', function handler() {
+        if (sw.state === 'activated') {
+          sw.removeEventListener('statechange', handler);
+          resolve();
+        }
+      });
+      setTimeout(resolve, 3000);
+    });
+  }
+  
+  return reg;
+}, []);
+
   const subscribe = useCallback(async () => {
-    if (!supported || loading) return;
+    if (!supported || loading) return false;
     setLoading(true);
     try {
-      // 1. Service worker registration
-      const reg = await navigator.serviceWorker.ready;
-
-      // 2. Ruxsat so'rash
+      // 1. Ruxsat so'rash
       const perm = await Notification.requestPermission();
       setPermission(perm as PushPermission);
-      if (perm !== "granted") {
-        setLoading(false);
-        return false;
-      }
+      if (perm !== "granted") return false;
+
+      // 2. SW registration
+      const reg = await getSwRegistration();
 
       // 3. VAPID public key
       const vapidKey = await getVapidKey();
@@ -67,12 +84,13 @@ export function usePushNotification() {
       // 5. Backendga yuborish
       const subJson = pushSub.toJSON();
       await api.post("/push/subscribe", {
-        endpoint:  subJson.endpoint,
-        keys:      subJson.keys,
+        endpoint: subJson.endpoint,
+        keys: subJson.keys,
         userAgent: navigator.userAgent,
       });
 
       localStorage.setItem(SUBSCRIBED_KEY, "true");
+      localStorage.setItem("sw_version", "v2");
       setSubscribed(true);
       return true;
     } catch (err) {
@@ -81,17 +99,20 @@ export function usePushNotification() {
     } finally {
       setLoading(false);
     }
-  }, [supported, loading, getVapidKey]);
+  }, [supported, loading, getVapidKey, getSwRegistration]);
 
   const unsubscribe = useCallback(async () => {
     if (!supported || loading) return;
     setLoading(true);
     try {
-      const reg = await navigator.serviceWorker.ready;
-      const pushSub = await reg.pushManager.getSubscription();
-      if (pushSub) {
-        await api.delete("/push/unsubscribe", { data: { endpoint: pushSub.endpoint } }).catch(() => null);
-        await pushSub.unsubscribe();
+      const regs = await navigator.serviceWorker.getRegistrations();
+      const pushReg = regs.find(r => r.active?.scriptURL.includes('sw-push.js'));
+      if (pushReg) {
+        const pushSub = await pushReg.pushManager.getSubscription();
+        if (pushSub) {
+          await api.delete("/push/unsubscribe", { data: { endpoint: pushSub.endpoint } }).catch(() => null);
+          await pushSub.unsubscribe();
+        }
       }
       localStorage.removeItem(SUBSCRIBED_KEY);
       setSubscribed(false);
@@ -101,21 +122,6 @@ export function usePushNotification() {
       setLoading(false);
     }
   }, [supported, loading]);
-
-  // Auto-resubscribe if subscription changed (service worker message)
-  useEffect(() => {
-    if (!supported) return;
-    const handler = async (e: MessageEvent) => {
-      if (e.data?.type === "PUSH_SUBSCRIPTION_CHANGED") {
-        const sub = e.data.subscription;
-        if (sub?.endpoint) {
-          await api.post("/push/subscribe", { endpoint: sub.endpoint, keys: sub.keys, userAgent: navigator.userAgent }).catch(() => null);
-        }
-      }
-    };
-    navigator.serviceWorker.addEventListener("message", handler);
-    return () => navigator.serviceWorker.removeEventListener("message", handler);
-  }, [supported]);
 
   return { supported, permission, subscribed, loading, subscribe, unsubscribe };
 }
