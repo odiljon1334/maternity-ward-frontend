@@ -24,6 +24,7 @@ export interface EmployeeMarker {
   latitude: number;
   longitude: number;
   accuracy: number;
+  distance: number | null;
   speed: number | null;
   battery: number | null;
   timestamp: string;
@@ -207,7 +208,7 @@ useEffect(() => {
                     )}
                     <span className={`text-[10px] flex items-center gap-0.5 ${selectedUser?.userId === emp.userId ? "text-indigo-200" : "text-[var(--text-muted)]"}`}>
                       <Navigation className="w-3 h-3" />
-                      {emp.accuracy}m
+                      {emp.distance !== null && emp.distance !== undefined ? `${emp.distance}m` : `~${Math.round(emp.accuracy)}m`}
                     </span>
                   </div>
                 </div>
@@ -264,7 +265,11 @@ useEffect(() => {
     <div className="grid grid-cols-2 gap-2 mb-3">
       <div className="bg-white/5 rounded-xl p-3 text-center">
         <Navigation className="w-4 h-4 text-green-400 mx-auto mb-1" />
-        <p className="text-sm font-black text-white">{selectedUser.accuracy}m</p>
+        <p className="text-sm font-black text-white">
+          {selectedUser.distance !== null && selectedUser.distance !== undefined
+            ? `${selectedUser.distance}m`
+            : `~${Math.round(selectedUser.accuracy)}m`}
+        </p>
         <p className="text-[10px] text-white/40 font-bold">Masofa</p>
       </div>
       <div className="bg-white/5 rounded-xl p-3 text-center">
