@@ -33,7 +33,8 @@ export interface EmployeeMarker {
 }
 
 export default function LiveMapPage() {
-  const { user, token } = useAuthStore();
+  const { user, token, selectedHospital } = useAuthStore();
+  const selectedHospitalId = selectedHospital?.id ?? null;
   const [markers, setMarkers] = useState<Map<string, EmployeeMarker>>(new Map());
   const [connected, setConnected] = useState(false);
   const [selectedUser, setSelectedUser] = useState<EmployeeMarker | null>(null);
@@ -57,20 +58,15 @@ export default function LiveMapPage() {
   socketRef.current = socket;
 
   socket.on("connect", () => {
-    console.log("🟢 Socket connected:", socket.id);
-
+    if (process.env.NODE_ENV === "development") {
+      console.log("🟢 Socket connected:", socket.id);
+    }
     setConnected(true);
-
     socket.emit("join:admin", { token });
   });
 
   socket.on("connect_error", (error) => {
     console.error("🔴 Socket connection error:", error.message);
-    setConnected(false);
-  });
-
-  socket.on("disconnect", (reason) => {
-    console.log("🟡 Socket disconnected:", reason);
     setConnected(false);
   });
 
@@ -83,33 +79,69 @@ export default function LiveMapPage() {
   });
 
   return () => {
-    console.log("🔌 Closing socket");
     socket.disconnect();
   };
 }, [token]);
 
-  // Initial load — REST API dan
-  useEffect(() => {
-    if (!token) return;
+useEffect(() => {
+  if (!token) return;
 
-    const hospitalParam =
-      user?.role === "SUPER_ADMIN" || user?.role === "MINISTRY" || user?.role === "ASSISTANT_ADMIN"
-        ? `?hospitalId=${user?.hospitalId ?? ""}`
-        : "";
+  // SUPER_ADMIN / MINISTRY / ASSISTANT_ADMIN
+  // tanlangan hospital bo'yicha ishlaydi
+  const isGlobalRole =
+    user?.role === "SUPER_ADMIN" ||
+    user?.role === "MINISTRY" ||
+    user?.role === "ASSISTANT_ADMIN";
 
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/location/live${hospitalParam}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => r.json())
-      .then((res) => {
-        if (res.data && Array.isArray(res.data)) {
-          const map = new Map<string, EmployeeMarker>();
-          res.data.forEach((e: EmployeeMarker) => map.set(e.userId, e));
-          setMarkers(map);
-        }
-      })
-      .catch(console.error);
-  }, [token]);
+  const hospitalId = isGlobalRole
+    ? selectedHospitalId
+    : user?.hospitalId;
+
+  if (!hospitalId) {
+    return;
+  }
+
+  const loadLocations = async () => {
+    try {
+      const url =
+        `${process.env.NEXT_PUBLIC_API_URL}/location/live` +
+        `?hospitalId=${hospitalId}`;
+      const r = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const res = await r.json();
+      if (!Array.isArray(res.data)) {
+        return;
+      }
+
+      // REST'dan kelgan ma'lumotni markerlarga yozamiz
+      setMarkers((prev) => {
+        const next = new Map(prev);
+
+        res.data.forEach((employee: EmployeeMarker) => {
+          next.set(employee.userId, employee);
+        });
+
+        return next;
+      });
+    } catch (error) {
+      console.error("❌ REST locations error:", error);
+    }
+  };
+
+  // Birinchi marta darhol
+  loadLocations();
+
+  // Keyin har 5 sekund
+  const interval = setInterval(loadLocations, 5000);
+
+  return () => {
+    clearInterval(interval);
+  };
+}, [token, user, selectedHospitalId]);
 
   const markerList = Array.from(markers.values());
 

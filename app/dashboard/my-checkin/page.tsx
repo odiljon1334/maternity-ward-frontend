@@ -1,7 +1,11 @@
+/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable @next/next/no-img-element */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useRef, useState, useCallback, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { locationApi } from "@/lib/api";
 import {
   Camera, MapPin, CheckCircle2, XCircle, Loader2,
   RefreshCw, AlertTriangle, Clock, LogIn, LogOut, Building2, Sparkles, User,
@@ -131,6 +135,59 @@ function useGPS() {
   return { coords, loading, error, locate };
 }
 
+// ─── Live location tracking ───────────────────────────────────────────────────
+function useLiveTracking(isCheckedIn: boolean, isCheckedOut: boolean) {
+ const sendLocation = useCallback(async () => {
+  if (process.env.NODE_ENV === "development") {
+    console.log('📍 sendLocation called', { isCheckedIn, isCheckedOut });
+  }
+  if (!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      try {
+        if (process.env.NODE_ENV === "development") {
+          console.log('📍 GPS olindi, location yuborilmoqda...');
+        }
+        let battery: number | undefined;
+        if ('getBattery' in navigator) {
+          const bat = await (navigator as any).getBattery();
+          battery = Math.round(bat.level * 100);
+        }
+        const result = await locationApi.sendLive({
+          latitude:  pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          accuracy:  pos.coords.accuracy,
+          battery,
+        });
+        if (process.env.NODE_ENV === "development") {
+          console.log('✅ location yuborildi:', result);    
+        }
+      } catch (e) {
+        if (process.env.NODE_ENV === "development") {
+          console.log('❌ location yuborishda xato:', e);
+        }
+      }
+    },
+    (err) => {
+      console.error('❌ GPS xato:', err);
+    },
+    { enableHighAccuracy: true, timeout: 10_000, maximumAge: 0 },
+  );
+}, [isCheckedIn, isCheckedOut]);
+
+  useEffect(() => {
+    if (!isCheckedIn || isCheckedOut) return;
+
+    // Darhol bir marta yuborish
+    sendLocation();
+
+    // Har 3 daqiqada yuborish
+    const interval = setInterval(sendLocation, 3 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [isCheckedIn, isCheckedOut, sendLocation]);
+}
+
 // ─── Today status card (Profil sahifasidagi kabi gradientli va bezakli card) ────
 function TodayCard({ record }: { record: any }) {
   const status = STATUS_MAP[record.status] ?? { label: record.status, cls: "bg-slate-500/20 text-slate-400 border-slate-500/30" };
@@ -204,20 +261,22 @@ export default function MyCheckinPage() {
   const qc   = useQueryClient();
   const cam  = useCameraCapture();
   const gps  = useGPS();
-  const { user, updateHospitalGps } = useAuthStore();
+  const { user } = useAuthStore();
 
   const empName = user?.employee?.fullName ?? user?.username ?? "Xodim";
 
   const [showEarlyWarning, setShowEarlyWarning] = useState(false);
 
-  const hospitalGpsReady = !!(user?.hospital?.gpsLat && user?.hospital?.gpsLng);
-  const [hospitalSetupDone, setHospitalSetupDone] = useState(hospitalGpsReady);
-  const [hospitalSetupStep, setHospitalSetupStep] = useState<"idle" | "confirming" | "saving">("idle");
-  const [hospitalSaveError, setHospitalSaveError] = useState<string | null>(null);
+  const positionGpsReady = !!(user?.employee?.position?.gpsLat && user?.employee?.position?.gpsLng);
+  const [positionSetupDone, setPositionSetupDone] = useState(
+    positionGpsReady || localStorage.getItem('position_gps_set') === 'true'
+  );
+  const [positionSetupStep, setPositionSetupStep] = useState<"idle" | "confirming" | "saving">("idle");
+  const [positionSaveError, setPositionSaveError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (hospitalGpsReady) setHospitalSetupDone(true);
-  }, [hospitalGpsReady]);
+    if (positionGpsReady) setPositionSetupDone(true);
+  }, [positionGpsReady]);
 
   const today = dayjs();
   const { data, isLoading } = useQuery({
@@ -248,24 +307,25 @@ export default function MyCheckinPage() {
     },
   });
 
-  const saveHospitalGps = useCallback(async () => {
-    if (!gps.coords) return;
-    setHospitalSetupStep("saving");
-    setHospitalSaveError(null);
-    try {
-      await attendanceApi.setHospitalGps(gps.coords.lat, gps.coords.lng);
-      updateHospitalGps(gps.coords.lat, gps.coords.lng);
-      setHospitalSetupDone(true);
-      setHospitalSetupStep("idle");
-    } catch (e: any) {
-      setHospitalSaveError(e?.response?.data?.message ?? "Saqlashda xatolik");
-      setHospitalSetupStep("confirming");
-    }
-  }, [gps.coords, updateHospitalGps]);
+ const savePositionGps = useCallback(async () => {
+  if (!gps.coords) return;
+  setPositionSetupStep("saving");
+  setPositionSaveError(null);
+  try {
+    await attendanceApi.setPositionGps(gps.coords.lat, gps.coords.lng);
+    localStorage.setItem('position_gps_set', 'true');
+    setPositionSetupDone(true);
+    setPositionSetupStep("idle");
+  } catch (e: any) {
+    setPositionSaveError(e?.response?.data?.message ?? "Saqlashda xatolik");
+    setPositionSetupStep("confirming");
+  }
+}, [gps.coords]);
 
   const isCheckedIn  = !!data?.checkIn;
   const isCheckedOut = !!data?.checkOut;
   const isComplete   = isCheckedIn && isCheckedOut;
+  useLiveTracking(isCheckedIn, isCheckedOut);
   const actionLabel  = isCheckedIn ? "Check-out" : "Check-in";
   const ActionIcon   = isCheckedIn ? LogOut : LogIn;
   const actionColor  = isCheckedIn ? "bg-red-600 hover:bg-red-700 shadow-red-600/25" : "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/25";
@@ -317,7 +377,7 @@ export default function MyCheckinPage() {
           </p>
         </div>
 
-        {!hospitalSetupDone && (
+        {!positionSetupDone && (
           <div className="rounded-3xl border border-amber-500/40 bg-amber-500/10 p-6 space-y-4 shadow-xl">
             <div className="flex items-start gap-3">
               <Building2 className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
@@ -329,7 +389,7 @@ export default function MyCheckinPage() {
               </div>
             </div>
 
-            {hospitalSetupStep === "idle" && (
+            {positionSetupStep === "idle" && (
               <div className="space-y-3">
                 {!gps.coords ? (
                   <button
@@ -349,7 +409,7 @@ export default function MyCheckinPage() {
                     </div>
 
                     <div className="w-full h-48 rounded-2xl overflow-hidden border border-amber-500/30">
-                      <YMaps query={{ apikey: "SIZNING_YANDEX_MAP_KEYINGIZ" }}>
+                      <YMaps query={{ apikey: process.env.NEXT_PUBLIC_YANDEX_MAPS_KEY }}>
                         <Map
                           state={{ center: [gps.coords.lat, gps.coords.lng], zoom: 16 }}
                           style={{ width: "100%", height: "100%" }}
@@ -360,7 +420,7 @@ export default function MyCheckinPage() {
                     </div>
 
                     <button
-                      onClick={() => setHospitalSetupStep("confirming")}
+                      onClick={() => setPositionSetupStep("confirming")}
                       className="w-full py-3 rounded-2xl text-sm font-bold bg-amber-600 hover:bg-amber-700 text-white flex items-center justify-center gap-2 transition-colors shadow-lg shadow-amber-600/25"
                     >
                       <Building2 className="w-4 h-4" />
@@ -376,23 +436,23 @@ export default function MyCheckinPage() {
               </div>
             )}
 
-            {hospitalSetupStep === "confirming" && (
+            {positionSetupStep === "confirming" && (
               <div className="space-y-3">
                 <p className="text-xs text-amber-300 font-semibold">
                   ⚠️ Tasdiqlash: Hozirgi joylashuvingiz ish joyi sifatida saqlansinmi?
                 </p>
-                {hospitalSaveError && (
-                  <p className="text-xs text-red-400 font-medium">❌ {hospitalSaveError}</p>
+                {positionSaveError && (
+                  <p className="text-xs text-red-400 font-medium">❌ {positionSaveError}</p>
                 )}
                 <div className="flex gap-3">
                   <button
-                    onClick={saveHospitalGps}
+                    onClick={savePositionGps}
                     className="flex-1 py-2.5 rounded-2xl text-sm font-bold bg-amber-600 hover:bg-amber-700 text-white transition-colors"
                   >
                     Ha, saqlash
                   </button>
                   <button
-                    onClick={() => { setHospitalSetupStep("idle"); gps.locate(); }}
+                    onClick={() => { setPositionSetupStep("idle"); gps.locate(); }}
                     className="flex-1 py-2.5 rounded-2xl text-sm font-bold bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors"
                   >
                     Qayta aniqlash
@@ -401,7 +461,7 @@ export default function MyCheckinPage() {
               </div>
             )}
 
-            {hospitalSetupStep === "saving" && (
+            {positionSetupStep === "saving" && (
               <div className="flex items-center justify-center gap-2 py-2 text-amber-300 text-sm font-semibold">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 Saqlanmoqda...

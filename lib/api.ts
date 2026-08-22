@@ -229,6 +229,17 @@ export const attendanceApi = {
   setHospitalGps: (lat: number, lng: number) =>
     api.post("/attendance/set-hospital-gps", { lat: String(lat), lng: String(lng) })
       .then((r) => r.data.data ?? r.data),
+
+      /** Birinchi marta ish joyi GPS ni position uchun o'rnatish */
+  setPositionGps: (lat: number, lng: number) =>
+    api.post("/attendance/set-position-gps", { lat: String(lat), lng: String(lng) })
+      .then((r) => r.data.data ?? r.data),
+};
+
+// ─── Location ─────────────────────────────────
+export const locationApi = {
+  sendLive: (opts: { latitude: number; longitude: number; accuracy: number; battery?: number }) =>
+    api.post("/location/live", opts).then((r) => r.data),
 };
 
 // ─── Payroll ────────────────────────────────────

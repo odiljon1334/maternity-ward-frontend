@@ -1,3 +1,5 @@
+/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -587,7 +589,7 @@ function SelectedDayCard({
       {/* Dam olish */}
       {isWeekend && (
         <p className="px-4 pb-4 text-xs text-white/70">
-          Bugun dam olish kuni. Vaqtingizni maroqli o'tkazing!
+          Bugun dam olish kuni. Vaqtingizni maroqli o&apos;tkazing!
         </p>
       )}
     </div>
