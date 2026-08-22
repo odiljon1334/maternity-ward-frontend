@@ -27,13 +27,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Quyidagilardan tashqari barcha yo'llar uchun ishga tushadi:
-     * - _next/static  (statik fayllar)
-     * - _next/image   (rasm optimallashtirish)
-     * - favicon.ico
-     * - /api          (Next.js API yo'llari, agar mavjud bo'lsa)
-     */
-    "/((?!_next/static|_next/image|favicon.ico|api).*)",
+    "/((?!api|_next|favicon.ico|manifest.json|sw.js|workbox-.*|icons|uploads).*)",
   ],
 };
