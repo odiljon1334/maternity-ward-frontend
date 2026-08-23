@@ -1,8 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   CalendarDays, CheckCircle2, XCircle,
   X, Loader2, AlertTriangle, RotateCcw, ArrowLeft, FileText
@@ -88,7 +89,7 @@ function ReviewModal({
               </p>
             </div>
           </div>
-          
+
           <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200 dark:border-white/10 text-xs">
             <div className="bg-white dark:bg-[#131929] p-2.5 rounded-xl border border-slate-200 dark:border-white/10">
               <span className="text-slate-500 dark:text-slate-400 block text-[10px]">Ta&apos;til turi</span>
@@ -161,16 +162,34 @@ function LeaveRow({
   leave,
   onReview,
   onRevoke,
+  highlighted,
 }: {
   leave:    any;
   onReview: (leave: any) => void;
   onRevoke: (id: string) => void;
+  highlighted?: boolean;
 }) {
   const st = STATUS_CONFIG[leave.status] ?? STATUS_CONFIG.PENDING;
   const tp = LEAVE_TYPES[leave.type]     ?? { label: leave.type, emoji: "📋" };
+  const ref = useRef<HTMLTableRowElement>(null);
+  const [showHighlight, setShowHighlight] = useState(!!highlighted);
+
+  useEffect(() => {
+    if (!highlighted || !ref.current) return;
+    ref.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    setShowHighlight(true);
+    const t = setTimeout(() => setShowHighlight(false), 3000);
+    return () => clearTimeout(t);
+  }, [highlighted]);
 
   return (
-    <tr className="hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors border-b border-slate-200 dark:border-white/10">
+    <tr
+      ref={ref}
+      className={cn(
+        "hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors duration-500 border-b border-slate-200 dark:border-white/10",
+        showHighlight && "bg-indigo-50 dark:bg-indigo-500/10 border-l-4 border-l-indigo-500"
+      )}
+    >
       <td className="px-6 py-4 w-[25%]">
         <p className="text-sm font-semibold text-slate-900 dark:text-white">{leave.employee?.fullName}</p>
         <p className="text-xs text-slate-500 dark:text-slate-400">{leave.employee?.department?.name || "Bo'lim yo'q"}</p>
@@ -217,16 +236,34 @@ function LeaveCard({
   leave,
   onReview,
   onRevoke,
+  highlighted,
 }: {
   leave:    any;
   onReview: (leave: any) => void;
   onRevoke: (id: string) => void;
+  highlighted?: boolean;
 }) {
   const st = STATUS_CONFIG[leave.status] ?? STATUS_CONFIG.PENDING;
   const tp = LEAVE_TYPES[leave.type]     ?? { label: leave.type, emoji: "📋" };
+  const ref = useRef<HTMLDivElement>(null);
+  const [showHighlight, setShowHighlight] = useState(!!highlighted);
+
+  useEffect(() => {
+    if (!highlighted || !ref.current) return;
+    ref.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    setShowHighlight(true);
+    const t = setTimeout(() => setShowHighlight(false), 3000);
+    return () => clearTimeout(t);
+  }, [highlighted]);
 
   return (
-    <div className="bg-white dark:bg-[#131929] border border-slate-200 dark:border-white/10 p-4 rounded-2xl space-y-3.5 shadow-lg">
+    <div
+      ref={ref}
+      className={cn(
+        "bg-white dark:bg-[#131929] border border-slate-200 dark:border-white/10 p-4 rounded-2xl space-y-3.5 shadow-lg transition-all duration-500",
+        showHighlight && "ring-2 ring-indigo-500 border-indigo-500/50"
+      )}
+    >
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-sm font-semibold text-slate-900 dark:text-white">
@@ -292,6 +329,8 @@ function LeaveCard({
 
 export default function LeavesPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const highlightId = searchParams.get("highlight");
   const { user, selectedHospital } = useAuthStore();
   const qc = useQueryClient();
   const targetHospitalId = isSuperLike(user?.role) ? selectedHospital?.id : undefined;
@@ -335,7 +374,7 @@ export default function LeavesPage() {
       {/* Top Header Section */}
       <div className="sticky top-0 z-20 bg-white/90 dark:bg-[#0f1422]/90 backdrop-blur-md border-b border-slate-200 dark:border-white/10 px-6 py-3.5 flex items-center justify-between shadow-xs">
         <div className="flex items-center gap-3">
-          <button 
+          <button
             onClick={() => router.back()}
             className="p-2 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
             title="Orqaga qaytish"
@@ -416,6 +455,7 @@ export default function LeavesPage() {
                   leave={leave}
                   onReview={setReviewLeave}
                   onRevoke={(id) => revokeMutation.mutate(id)}
+                  highlighted={leave.id === highlightId}
                 />
               ))}
             </div>
@@ -440,6 +480,7 @@ export default function LeavesPage() {
                         leave={leave}
                         onReview={setReviewLeave}
                         onRevoke={(id) => revokeMutation.mutate(id)}
+                        highlighted={leave.id === highlightId}
                       />
                     ))}
                   </tbody>

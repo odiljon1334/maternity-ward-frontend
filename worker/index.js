@@ -24,7 +24,16 @@ self.addEventListener('push', function(event) {
   };
 
   event.waitUntil(
-    self.registration.showNotification(payload.title || 'Xabarnoma', options)
+    Promise.all([
+      self.registration.showNotification(payload.title || 'Xabarnoma', options),
+      clients
+        .matchAll({ type: 'window', includeUncontrolled: true })
+        .then(function (clientList) {
+          clientList.forEach(function (client) {
+            client.postMessage({ type: 'PUSH_RECEIVED', payload: payload });
+          });
+        }),
+    ])
   );
 });
 

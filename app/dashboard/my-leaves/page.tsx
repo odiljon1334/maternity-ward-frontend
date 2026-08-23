@@ -1,11 +1,14 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "next/navigation";
 import {
   Plus, CalendarDays, Clock, CheckCircle2, XCircle,
-  AlertTriangle, Loader2, ChevronDown, X, Sparkles, Umbrella,
-  Calendar as CalendarIcon
+  Loader2, ChevronDown, X, Sparkles, Umbrella,
+  Calendar as CalendarIcon,
 } from "lucide-react";
 import { leaveApi } from "@/lib/api";
 import { Topbar } from "@/components/layout/Topbar";
@@ -90,7 +93,7 @@ function NewLeaveForm({ onClose }: { onClose: () => void }) {
             <span className="text-[10px] font-extrabold text-indigo-400 uppercase tracking-widest">
               ARIZA TOPSHIRISH
             </span>
-            <h2 className="text-lg font-black text-white tracking-tight">Yangi ta'til so'rovi</h2>
+            <h2 className="text-lg font-black text-white tracking-tight">Yangi ta&apos;til so&apos;rovi</h2>
           </div>
           <button
             onClick={onClose}
@@ -103,7 +106,7 @@ function NewLeaveForm({ onClose }: { onClose: () => void }) {
         <div className="space-y-3.5 py-4">
           {/* Ta'til turi (Custom dropdown) */}
           <div className="space-y-1.5 relative">
-            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Ta'til turi</label>
+            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Ta&apos;til turi</label>
             <button
               type="button"
               onClick={() => setIsOpenSelect(!isOpenSelect)}
@@ -220,7 +223,7 @@ function NewLeaveForm({ onClose }: { onClose: () => void }) {
             {mutation.isPending ? (
               <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Yuborilmoqda...</>
             ) : (
-              <><Sparkles className="w-3.5 h-3.5 text-indigo-300" /> So'rov yuborish</>
+              <><Sparkles className="w-3.5 h-3.5 text-indigo-300" /> So&apos;rov yuborish</>
             )}
           </button>
         </div>
@@ -231,13 +234,39 @@ function NewLeaveForm({ onClose }: { onClose: () => void }) {
 
 // ─── So'rov kartochkasi ────────────────────────────────────────────────────────
 
-function LeaveCard({ leave, onCancel }: { leave: any; onCancel: (id: string) => void }) {
+function LeaveCard({
+  leave,
+  onCancel,
+  highlighted,
+}: {
+  leave: any;
+  onCancel: (id: string) => void;
+  highlighted?: boolean;
+}) {
   const st = STATUS_CONFIG[leave.status] ?? STATUS_CONFIG.PENDING;
   const StIcon = st.icon;
   const tp = leaveTypeConfig(leave.type);
+  const ref = useRef<HTMLDivElement>(null);
+  // Ring bir necha soniyadan keyin o'chib ketishi uchun — animate-pulse-once
+  // kabi maxsus Tailwind klassiga tayanmaymiz, chunki loyihada e'lon qilinmagan
+  const [showRing, setShowRing] = useState(!!highlighted);
+
+  useEffect(() => {
+    if (!highlighted || !ref.current) return;
+    ref.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    setShowRing(true);
+    const t = setTimeout(() => setShowRing(false), 3000);
+    return () => clearTimeout(t);
+  }, [highlighted]);
 
   return (
-    <div className="rounded-3xl bg-[var(--bg-card)] border border-[var(--border)] p-5 space-y-4 shadow-xl hover:border-indigo-500/30 transition-all">
+    <div
+      ref={ref}
+      className={cn(
+        "rounded-3xl bg-[var(--bg-card)] border border-[var(--border)] p-5 space-y-4 shadow-xl hover:border-indigo-500/30 transition-all duration-500",
+        showRing && "ring-2 ring-indigo-500 border-indigo-500/50"
+      )}
+    >
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
@@ -303,6 +332,10 @@ export default function MyLeavesPage() {
   const { user } = useAuthStore();
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
+  const searchParams = useSearchParams();
+  const highlightId = searchParams.get("highlight");
+  // Default filter "ALL" bo'lgani uchun bildirishnomadan kelgan so'rov
+  // qaysi statusda bo'lishidan qat'i nazar ro'yxatda topiladi
   const [filter, setFilter] = useState("ALL");
 
   const empName = user?.employee?.fullName ?? user?.username ?? "Xodim";
@@ -346,10 +379,10 @@ export default function MyLeavesPage() {
                 <Sparkles className="w-3.5 h-3.5" /> Xodim imkoniyatlari
               </div>
               <h1 className="text-2xl font-black text-[var(--text-primary)] tracking-tight">
-                Ta'til so'rovlari
+                Ta&apos;til so&apos;rovlari
               </h1>
               <p className="text-xs font-medium text-[var(--text-muted)] mt-0.5">
-                Yillik va boshqa turdagi ta'tillar uchun so'rovlar yuboring va ularning holatini kuzatib boring.
+                Yillik va boshqa turdagi ta&apos;tillar uchun so&apos;rovlar yuboring va ularning holatini kuzatib boring.
               </p>
             </div>
 
@@ -358,7 +391,7 @@ export default function MyLeavesPage() {
               className="flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-all shadow-lg shadow-indigo-500/25 flex-shrink-0"
             >
               <Plus className="w-4 h-4" />
-              <span>Yangi so'rov</span>
+              <span>Yangi so&apos;rov</span>
             </button>
           </div>
         </div>
@@ -369,7 +402,7 @@ export default function MyLeavesPage() {
           <div className="relative overflow-hidden rounded-3xl bg-[var(--bg-card)] border border-[var(--border)] p-5 shadow-sm">
             <div className="absolute inset-0 bg-gradient-to-b from-indigo-500/20 to-indigo-500/0 opacity-50 pointer-events-none" />
             <div className="relative z-10 flex items-center justify-between mb-3">
-              <span className="text-xs font-semibold text-[var(--text-muted)]">Jami so'rovlar</span>
+              <span className="text-xs font-semibold text-[var(--text-muted)]">Jami so&apos;rovlar</span>
               <div className="p-2.5 rounded-2xl bg-[var(--bg-hover)] border border-[var(--border)] text-indigo-400">
                 <CalendarDays className="w-4 h-4" />
               </div>
@@ -427,15 +460,15 @@ export default function MyLeavesPage() {
             <div className="w-16 h-16 rounded-3xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mx-auto border border-indigo-500/20">
               <Umbrella className="w-8 h-8" />
             </div>
-            <h3 className="font-extrabold text-base text-[var(--text-primary)]">So'rovlar topilmadi</h3>
+            <h3 className="font-extrabold text-base text-[var(--text-primary)]">So&apos;rovlar topilmadi</h3>
             <p className="text-xs text-[var(--text-muted)] max-w-sm mx-auto">
-              Sizda hali bu filtr bo'yicha ta'til so'rovlari mavjud emas. Yangi ariza yuborish uchun tugmani bosing.
+              Sizda hali bu filtr bo&apos;yicha ta&apos;til so&apos;rovlari mavjud emas. Yangi ariza yuborish uchun tugmani bosing.
             </p>
             <button
               onClick={() => setShowForm(true)}
               className="mt-2 inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold bg-indigo-600/10 text-indigo-400 hover:bg-indigo-600/20 border border-indigo-500/20 transition-all"
             >
-              <Plus className="w-4 h-4" /> Birinchi so'rovni yaratish
+              <Plus className="w-4 h-4" /> Birinchi so&apos;rovni yaratish
             </button>
           </div>
         ) : (
@@ -445,6 +478,7 @@ export default function MyLeavesPage() {
                 key={leave.id}
                 leave={leave}
                 onCancel={(id) => cancelMutation.mutate(id)}
+                highlighted={leave.id === highlightId}
               />
             ))}
           </div>

@@ -8,6 +8,7 @@ import { getAvatarColor, getInitials, isSuperLike, cn } from "@/lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { telegramApi, notificationsApi, authApi, photoUrl } from "@/lib/api";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import { useMobileMenu } from "@/contexts/mobile-menu";
 
@@ -22,8 +23,28 @@ const TYPE_ICONS: Record<string, string> = {
   ALERT: "⚠️",
 };
 
+/** Notification metadata.kind asosida qaysi sahifaga o'tish kerakligini aniqlaydi */
+function resolveNotificationUrl(n: any): string | null {
+  const kind = n?.metadata?.kind;
+  const leaveId = n?.metadata?.leaveId;
+  switch (kind) {
+    case "leave-new":
+      return leaveId ? `/dashboard/leaves?highlight=${leaveId}` : "/dashboard/leaves";
+    case "leave-reviewed":
+      return leaveId ? `/dashboard/my-leaves?highlight=${leaveId}` : "/dashboard/my-leaves";
+    case "payroll":
+      return "/dashboard/my-payroll";
+    case "checkin-reminder":
+    case "checkout-reminder":
+      return "/dashboard/my-checkin";
+    default:
+      return null;
+  }
+}
+
 function NotificationDropdown({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient();
+  const router = useRouter();
   const ref = useRef<HTMLDivElement>(null);
 
   const { data: notifications = [] } = useQuery({
@@ -48,6 +69,15 @@ function NotificationDropdown({ onClose }: { onClose: () => void }) {
     },
   });
 
+  const handleItemClick = (n: any) => {
+    if (!n.isRead) markReadMut.mutate(n.id);
+    const url = resolveNotificationUrl(n);
+    if (url) {
+      onClose();
+      router.push(url);
+    }
+  };
+
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) onClose();
@@ -62,7 +92,7 @@ function NotificationDropdown({ onClose }: { onClose: () => void }) {
   return (
     <div
       ref={ref}
-      className="absolute right-0 top-full mt-3 w-[calc(100vw-2rem)] max-w-sm sm:w-96 rounded-3xl bg-[var(--bg-card)] border border-[var(--border)] z-50 shadow-2xl overflow-hidden backdrop-blur-2xl"
+      className="absolute right-0 top-full mt-3 w-[calc(100vw-2rem)] max-w-sm sm:w-96 rounded-3xl bg-white dark:bg-zinc-900 border border-[var(--border)] z-50 shadow-2xl overflow-hidden"
     >
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)] bg-[var(--bg-main)]/50">
@@ -104,7 +134,7 @@ function NotificationDropdown({ onClose }: { onClose: () => void }) {
           list.map((n) => (
             <div
               key={n.id}
-              onClick={() => !n.isRead && markReadMut.mutate(n.id)}
+              onClick={() => handleItemClick(n)}
               className={cn(
                 "p-4 cursor-pointer hover:bg-[var(--bg-hover)] transition-colors relative",
                 !n.isRead && "bg-indigo-500/5 border-l-4 border-l-indigo-500"
@@ -141,9 +171,24 @@ export function Topbar({ title, subtitle }: TopbarProps) {
   const { user, selectedHospital, setSelectedHospital } = useAuthStore();
   const { toggle: toggleMenu } = useMobileMenu();
   const [notifOpen, setNotifOpen] = useState(false);
+  const qc = useQueryClient();
 
   const isSuperAdmin = isSuperLike(user?.role);
   const isDirector = user?.role === "DIRECTOR";
+
+  // Service Worker push kelganda (PUSH_RECEIVED) badge/ro'yxatni darhol yangilash —
+  // 30 soniyalik pollingni kutmasdan
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+    const handler = (event: MessageEvent) => {
+      if (event.data?.type === "PUSH_RECEIVED") {
+        qc.invalidateQueries({ queryKey: ["notif-count"] });
+        qc.invalidateQueries({ queryKey: ["notifications"] });
+      }
+    };
+    navigator.serviceWorker.addEventListener("message", handler);
+    return () => navigator.serviceWorker.removeEventListener("message", handler);
+  }, [qc]);
 
   // Xodim profil ma'lumotlarini olish (rasm chiqishi uchun)
   const { data: profile } = useQuery({

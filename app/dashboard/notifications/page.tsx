@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { notificationsApi, hospitalsApi } from "@/lib/api";
@@ -11,9 +11,31 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth";
+import { useRouter } from "next/navigation";
 
 const TYPE_ICONS: Record<string, string> = { PAYMENT: "💰", SYSTEM: "📢", ALERT: "⚠️" };
 const TYPE_LABELS: Record<string, string> = { PAYMENT: "To'lov", SYSTEM: "Tizim", ALERT: "Ogohlantirish" };
+
+/** Notification metadata.kind asosida qaysi sahifaga o'tish kerakligini aniqlaydi
+ *  (Topbar.tsx dagi bir xil nomli funksiya bilan mos — ikkalasida ham saqlanadi,
+ *  chunki umumiy lib fayli berilmagan) */
+function resolveNotificationUrl(n: any): string | null {
+  const kind = n?.metadata?.kind;
+  const leaveId = n?.metadata?.leaveId;
+  switch (kind) {
+    case "leave-new":
+      return leaveId ? `/dashboard/leaves?highlight=${leaveId}` : "/dashboard/leaves";
+    case "leave-reviewed":
+      return leaveId ? `/dashboard/my-leaves?highlight=${leaveId}` : "/dashboard/my-leaves";
+    case "payroll":
+      return "/dashboard/my-payroll";
+    case "checkin-reminder":
+    case "checkout-reminder":
+      return "/dashboard/my-checkin";
+    default:
+      return null;
+  }
+}
 
 // ─── Telegram Send Modal ─────────────────────────
 type TgForm = { message: string };
@@ -148,12 +170,26 @@ function TelegramSendModal({ open, onClose }: { open: boolean; onClose: () => vo
 // ─── Main Page ───────────────────────────────────
 export default function NotificationsPage() {
   const qc = useQueryClient();
+  const router = useRouter();
   const [tgModal, setTgModal] = useState(false);
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const { user } = useAuthStore();
   // Backend /notifications/send-telegram faqat shu rollarga ochiq —
   // frontendda ham shunga mos ravishda tugmani yashiramiz
   const canBroadcast = user?.role === "SUPER_ADMIN" || user?.role === "ASSISTANT_ADMIN";
+
+  // Push kelganda (Service Worker orqali) ro'yxatni darhol yangilash
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+    const handler = (event: MessageEvent) => {
+      if (event.data?.type === "PUSH_RECEIVED") {
+        qc.invalidateQueries({ queryKey: ["notifications"] });
+        qc.invalidateQueries({ queryKey: ["notif-count"] });
+      }
+    };
+    navigator.serviceWorker.addEventListener("message", handler);
+    return () => navigator.serviceWorker.removeEventListener("message", handler);
+  }, [qc]);
 
   const { data: notifications = [], isLoading } = useQuery({
     queryKey: ["notifications", filter],
@@ -165,6 +201,12 @@ export default function NotificationsPage() {
     mutationFn: (id: string) => notificationsApi.markRead(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }),
   });
+
+  const handleRowClick = (n: any) => {
+    if (!n.isRead) markReadMut.mutate(n.id);
+    const url = resolveNotificationUrl(n);
+    if (url) router.push(url);
+  };
 
   const markAllMut = useMutation({
     mutationFn: () => notificationsApi.markAllRead(),
@@ -246,9 +288,11 @@ export default function NotificationsPage() {
               {notifList.map((n) => (
                 <div
                   key={n.id}
+                  onClick={() => handleRowClick(n)}
                   className={cn(
                     "flex items-start gap-3 px-5 py-4 border-b border-[var(--border)] hover:bg-[var(--bg-hover)] transition-colors group",
-                    !n.isRead && "bg-indigo-500/5 border-l-2 border-l-indigo-500"
+                    !n.isRead && "bg-indigo-500/5 border-l-2 border-l-indigo-500",
+                    resolveNotificationUrl(n) && "cursor-pointer"
                   )}
                 >
                   <span className="text-xl flex-shrink-0 mt-0.5">{TYPE_ICONS[n.type] || "🔔"}</span>
@@ -284,7 +328,7 @@ export default function NotificationsPage() {
                       <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                         {!n.isRead && (
                           <button
-                            onClick={() => markReadMut.mutate(n.id)}
+                            onClick={(e) => { e.stopPropagation(); markReadMut.mutate(n.id); }}
                             className="p-1.5 rounded text-[var(--text-muted)] hover:text-indigo-400 hover:bg-indigo-500/10 transition-colors"
                             title="O'qildi"
                           >
@@ -293,7 +337,7 @@ export default function NotificationsPage() {
                         )}
                         {canBroadcast && (
                           <button
-                            onClick={() => deleteNotifMut.mutate(n.id)}
+                            onClick={(e) => { e.stopPropagation(); deleteNotifMut.mutate(n.id); }}
                             className="p-1.5 rounded text-[var(--text-muted)] hover:text-red-400 hover:bg-red-500/10 transition-colors"
                             title="O'chirish"
                           >
