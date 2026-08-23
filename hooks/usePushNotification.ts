@@ -38,26 +38,49 @@ export function usePushNotification() {
     return res.data.data?.publicKey ?? res.data?.publicKey ?? "";
   }, []);
 
-  const getSwRegistration = useCallback(async (): Promise<ServiceWorkerRegistration> => {
-  // Production da next-pwa sw.js ishlatadi, development da sw-push.js
-  const swFile = process.env.NODE_ENV === 'production' ? '/sw.js' : '/sw-push.js';
-  const reg = await navigator.serviceWorker.register(swFile, { scope: '/' });
-  
-  if (reg.installing || reg.waiting) {
-    await new Promise<void>((resolve) => {
-      const sw = reg.installing ?? reg.waiting!;
-      sw.addEventListener('statechange', function handler() {
-        if (sw.state === 'activated') {
-          sw.removeEventListener('statechange', handler);
-          resolve();
-        }
-      });
-      setTimeout(resolve, 3000);
+const getSwRegistration = useCallback(
+  async (): Promise<ServiceWorkerRegistration> => {
+    const swFile =
+      process.env.NODE_ENV === "production"
+        ? "/sw.js"
+        : "/sw-push.js";
+
+    // Avval mavjud registrationni tekshiramiz
+    const existing = await navigator.serviceWorker.getRegistration("/");
+
+    if (existing?.active) {
+      console.log(
+        "✅ Active Service Worker mavjud:",
+        existing.active.scriptURL
+      );
+
+      return existing;
+    }
+
+    console.log("🔄 Service Worker register qilinmoqda:", swFile);
+
+    await navigator.serviceWorker.register(swFile, {
+      scope: "/",
     });
-  }
-  
-  return reg;
-}, []);
+
+    // Eng muhim qism:
+    // Service Worker active bo'lguncha kutamiz
+    const activeReg = await navigator.serviceWorker.ready;
+
+    console.log(
+      "✅ Service Worker READY:",
+      activeReg.active?.scriptURL,
+      activeReg.active?.state
+    );
+
+    if (!activeReg.active) {
+      throw new Error("Service Worker active bo'lmadi");
+    }
+
+    return activeReg;
+  },
+  []
+);
 
   const subscribe = useCallback(async () => {
     if (!supported || loading) return false;
@@ -70,6 +93,9 @@ export function usePushNotification() {
 
       // 2. SW registration
       const reg = await getSwRegistration();
+
+      console.log("🔔 Using SW:", reg.active?.scriptURL);
+      console.log("🔔 SW state:", reg.active?.state);
 
       // 3. VAPID public key
       const vapidKey = await getVapidKey();
@@ -106,7 +132,11 @@ export function usePushNotification() {
     setLoading(true);
     try {
       const regs = await navigator.serviceWorker.getRegistrations();
-      const pushReg = regs.find(r => r.active?.scriptURL.includes('sw-push.js'));
+      const pushReg = regs.find(
+        r =>
+          r.active?.scriptURL.includes("sw.js") ||
+          r.active?.scriptURL.includes("sw-push.js")
+      );
       if (pushReg) {
         const pushSub = await pushReg.pushManager.getSubscription();
         if (pushSub) {

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -9,6 +10,7 @@ import {
   Bell, Send, Trash2, CheckCheck, X, Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/stores/auth";
 
 const TYPE_ICONS: Record<string, string> = { PAYMENT: "💰", SYSTEM: "📢", ALERT: "⚠️" };
 const TYPE_LABELS: Record<string, string> = { PAYMENT: "To'lov", SYSTEM: "Tizim", ALERT: "Ogohlantirish" };
@@ -148,6 +150,10 @@ export default function NotificationsPage() {
   const qc = useQueryClient();
   const [tgModal, setTgModal] = useState(false);
   const [filter, setFilter] = useState<"all" | "unread">("all");
+  const { user } = useAuthStore();
+  // Backend /notifications/send-telegram faqat shu rollarga ochiq —
+  // frontendda ham shunga mos ravishda tugmani yashiramiz
+  const canBroadcast = user?.role === "SUPER_ADMIN" || user?.role === "ASSISTANT_ADMIN";
 
   const { data: notifications = [], isLoading } = useQuery({
     queryKey: ["notifications", filter],
@@ -216,9 +222,11 @@ export default function NotificationsPage() {
                 <CheckCheck className="w-3.5 h-3.5" /> Hammasini o&apos;qi
               </button>
             )}
-            <button onClick={() => setTgModal(true)} className="btn-primary text-xs gap-1.5">
-              <Send className="w-3.5 h-3.5" /> Telegram yuborish
-            </button>
+            {canBroadcast && (
+              <button onClick={() => setTgModal(true)} className="btn-primary text-xs gap-1.5">
+                <Send className="w-3.5 h-3.5" /> Telegram yuborish
+              </button>
+            )}
           </div>
         </div>
 
@@ -283,13 +291,15 @@ export default function NotificationsPage() {
                             <CheckCheck className="w-3.5 h-3.5" />
                           </button>
                         )}
-                        <button
-                          onClick={() => deleteNotifMut.mutate(n.id)}
-                          className="p-1.5 rounded text-[var(--text-muted)] hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                          title="O'chirish"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {canBroadcast && (
+                          <button
+                            onClick={() => deleteNotifMut.mutate(n.id)}
+                            className="p-1.5 rounded text-[var(--text-muted)] hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                            title="O'chirish"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

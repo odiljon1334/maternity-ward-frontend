@@ -136,56 +136,53 @@ function useGPS() {
 }
 
 // ─── Live location tracking ───────────────────────────────────────────────────
-function useLiveTracking(isCheckedIn: boolean, isCheckedOut: boolean) {
+function useLiveTracking(
+  isCheckedIn: boolean, 
+  isCheckedOut: boolean,
+  expectedCheckOut: string | null | undefined,
+) {
  const sendLocation = useCallback(async () => {
   if (process.env.NODE_ENV === "development") {
     console.log('📍 sendLocation called', { isCheckedIn, isCheckedOut });
   }
-  if (!navigator.geolocation) return;
-  navigator.geolocation.getCurrentPosition(
-    async (pos) => {
-      try {
-        if (process.env.NODE_ENV === "development") {
-          console.log('📍 GPS olindi, location yuborilmoqda...');
+ navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          let battery: number | undefined;
+          if ('getBattery' in navigator) {
+            const bat = await (navigator as any).getBattery();
+            battery = Math.round(bat.level * 100);
+          }
+          await locationApi.sendLive({
+            latitude:  pos.coords.latitude,
+            longitude: pos.coords.longitude,
+            accuracy:  pos.coords.accuracy,
+            battery,
+          });
+        } catch {
+          // Silent fail
         }
-        let battery: number | undefined;
-        if ('getBattery' in navigator) {
-          const bat = await (navigator as any).getBattery();
-          battery = Math.round(bat.level * 100);
-        }
-        const result = await locationApi.sendLive({
-          latitude:  pos.coords.latitude,
-          longitude: pos.coords.longitude,
-          accuracy:  pos.coords.accuracy,
-          battery,
-        });
-        if (process.env.NODE_ENV === "development") {
-          console.log('✅ location yuborildi:', result);    
-        }
-      } catch (e) {
-        if (process.env.NODE_ENV === "development") {
-          console.log('❌ location yuborishda xato:', e);
-        }
-      }
-    },
-    (err) => {
-      console.error('❌ GPS xato:', err);
-    },
-    { enableHighAccuracy: true, timeout: 10_000, maximumAge: 0 },
-  );
-}, [isCheckedIn, isCheckedOut]);
+      },
+      () => {},
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 0 },
+    );
+  }, [expectedCheckOut]);
 
   useEffect(() => {
+    // Check-out bo'lgan yoki check-in yo'q bo'lsa — tracking yo'q
     if (!isCheckedIn || isCheckedOut) return;
 
-    // Darhol bir marta yuborish
+    // Ish soati tugaganmi tekshirish
+    if (expectedCheckOut) {
+      const now = new Date();
+      const endTime = new Date(expectedCheckOut);
+      if (now > endTime) return;
+    }
+
     sendLocation();
-
-    // Har 3 daqiqada yuborish
     const interval = setInterval(sendLocation, 3 * 60 * 1000);
-
     return () => clearInterval(interval);
-  }, [isCheckedIn, isCheckedOut, sendLocation]);
+  }, [isCheckedIn, isCheckedOut, expectedCheckOut, sendLocation]);
 }
 
 // ─── Today status card (Profil sahifasidagi kabi gradientli va bezakli card) ────
@@ -325,7 +322,7 @@ export default function MyCheckinPage() {
   const isCheckedIn  = !!data?.checkIn;
   const isCheckedOut = !!data?.checkOut;
   const isComplete   = isCheckedIn && isCheckedOut;
-  useLiveTracking(isCheckedIn, isCheckedOut);
+  useLiveTracking(isCheckedIn, isCheckedOut, data?.expectedCheckOut);
   const actionLabel  = isCheckedIn ? "Check-out" : "Check-in";
   const ActionIcon   = isCheckedIn ? LogOut : LogIn;
   const actionColor  = isCheckedIn ? "bg-red-600 hover:bg-red-700 shadow-red-600/25" : "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/25";

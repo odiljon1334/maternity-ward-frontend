@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @next/next/no-img-element */
 "use client";
 import { useTheme } from "next-themes";
 import { Sun, Moon, Bell, Building2, X, CheckCheck, Menu } from "lucide-react";
@@ -166,7 +168,7 @@ export function Topbar({ title, subtitle }: TopbarProps) {
   const { data: unreadCount = 0 } = useQuery({
     queryKey: ["notif-count"],
     queryFn: () => notificationsApi.unreadCount(),
-    enabled: isSuperAdmin,
+    enabled: !!user,
     refetchInterval: 30_000,
     staleTime: 15_000,
   });
@@ -239,8 +241,8 @@ export function Topbar({ title, subtitle }: TopbarProps) {
             {theme === "dark" ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-400" />}
           </button>
 
-          {/* Notification Bell — SUPER_ADMIN only */}
-          {isSuperAdmin && (
+          {/* Notification Bell — barcha rollar uchun */}
+          {user && (
             <div className="relative">
               <button
                 onClick={() => setNotifOpen((v) => !v)}
