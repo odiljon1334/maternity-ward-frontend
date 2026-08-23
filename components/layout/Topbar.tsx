@@ -92,7 +92,7 @@ function NotificationDropdown({ onClose }: { onClose: () => void }) {
   return (
     <div
       ref={ref}
-      className="absolute right-0 top-full mt-3 w-[calc(100vw-2rem)] max-w-sm sm:w-96 rounded-3xl bg-white dark:bg-zinc-900 border border-[var(--border)] z-50 shadow-2xl overflow-hidden"
+      className="fixed sm:absolute left-4 right-4 sm:left-auto sm:right-0 top-[4.5rem] sm:top-full sm:mt-3 w-auto sm:w-96 rounded-3xl bg-white dark:bg-zinc-900 border border-[var(--border)] z-50 shadow-2xl overflow-hidden"
     >
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)] bg-[var(--bg-main)]/50">
