@@ -79,6 +79,18 @@ export default function LiveMapPage() {
     });
   });
 
+  // Xodim check-out qilganda backend shu eventni yuboradi —
+  // markerni xaritadan darhol olib tashlaymiz (sahifa yangilanishini kutmasdan)
+  socket.on("location:remove", ({ userId }: { userId: string }) => {
+    setMarkers((prev) => {
+      if (!prev.has(userId)) return prev;
+      const next = new Map(prev);
+      next.delete(userId);
+      return next;
+    });
+    setSelectedUser((prev) => (prev?.userId === userId ? null : prev));
+  });
+
   return () => {
     socket.disconnect();
   };
@@ -118,16 +130,17 @@ useEffect(() => {
         return;
       }
 
-      // REST'dan kelgan ma'lumotni markerlarga yozamiz
-      setMarkers((prev) => {
-        const next = new Map(prev);
-
-        res.data.forEach((employee: EmployeeMarker) => {
-          next.set(employee.userId, employee);
-        });
-
-        return next;
+      // REST'dan kelgan ma'lumot — hozirgi haqiqiy holat. To'liq almashtiramiz
+      // (faqat merge qilmaymiz), aks holda backend endi qaytarmayotgan
+      // (masalan check-out qilgan) xodim markeri abadiy osilib qolaveradi.
+      const next = new Map<string, EmployeeMarker>();
+      res.data.forEach((employee: EmployeeMarker) => {
+        next.set(employee.userId, employee);
       });
+      setMarkers(next);
+      setSelectedUser((prev) =>
+        prev && !next.has(prev.userId) ? null : prev
+      );
     } catch (error) {
       console.error("❌ REST locations error:", error);
     }
