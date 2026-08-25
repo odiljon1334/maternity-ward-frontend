@@ -2,6 +2,7 @@
 import axios from "axios";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001/api/v1";
+export const API_ORIGIN = BASE_URL.replace(/\/api\/v1\/?$/, "");
 
 // Backend server URL (static files: photos)
 export const BACKEND_ORIGIN = BASE_URL.replace(/\/api\/v1\/?$/, "");
@@ -234,6 +235,10 @@ export const attendanceApi = {
   setPositionGps: (lat: number, lng: number) =>
     api.post("/attendance/set-position-gps", { lat: String(lat), lng: String(lng) })
       .then((r) => r.data.data ?? r.data),
+
+  setEmployeeGps: (lat: number, lng: number) =>
+    api.post("/attendance/set-employee-gps", { lat: String(lat), lng: String(lng) })
+      .then((r) => r.data.data ?? r.data),
 };
 
 // ─── Location ─────────────────────────────────
@@ -281,7 +286,7 @@ export const hikvisionApi = {
   
   // Sync
   syncHospital: (hospitalId: string) =>
-    api.post(`/hikvision/sync/${hospitalId}`),
+    api.post(`/hikvision/sync/${hospitalId}`).then((r) => r.data.data),
 };
 
 // ─── Reports ────────────────────────────────────
@@ -401,8 +406,8 @@ export const hikconnectApi = {
     api.get(`/hikconnect/cameras/${cameraId}/live`).then(
       (r) => r.data.data as { url: string; protocol: string; expireTime: number; source: string }
     ),
-  fetchFromHikConnect: (pageNo?: number, pageSize?: number) =>
-    api.get("/hikconnect/fetch-cameras", { params: { pageNo, pageSize } }).then((r) => r.data.data),
+  fetchFromHikConnect: (pageIndex?: number, pageSize?: number) =>
+    api.get("/hikconnect/fetch-cameras", { params: { pageIndex, pageSize } }).then((r) => r.data.data),
 };
 
 // ─── Ministry (MINISTRY + SUPER_ADMIN) ──────────

@@ -252,6 +252,13 @@ function TerminalModal({ open, onClose, hospital }: {
   const [devIndex, setDevIndex] = useState("");
   const [password, setPassword] = useState(""); // <-- Parol uchun state
   const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<{
+    total: number;
+    created: number;
+    skipped: number;
+    failed: number;
+    errors: { employeeNo: string; name: string; reason: string }[];
+  } | null>(null);
 
   const { data: terminals = [], isLoading } = useQuery({
     queryKey: ["terminals", hospital?.id],
@@ -294,11 +301,12 @@ function TerminalModal({ open, onClose, hospital }: {
   const handleSync = async () => {
     if (!confirm(`"${hospital?.name}" kasalxonasidagi barcha xodimlarni terminallarga yuklaysizmi?`)) return;
     setSyncing(true);
+    setSyncResult(null);
     try {
-      const res = await hikvisionApi.syncHospital(hospital.id);
-      const { total, success, failed } = res.data;
-      toast.success(`Sync tugadi: ${success}/${total} muvaffaqiyatli`);
-      if (failed > 0) toast.error(`${failed} ta xodim yuklanmadi`);
+      const result: any = await hikvisionApi.syncHospital(hospital.id);
+      const { total, created, skipped, failed, errors } = result;
+      setSyncResult({ total, created, skipped, failed, errors: errors ?? [] });
+      toast.success(`Sync tugadi: ${created} yaratildi, ${skipped} skip, ${failed} xato`);
     } catch (e: any) {
       toast.error(e?.response?.data?.message || "Sync xatolik");
     } finally {
@@ -368,6 +376,43 @@ if (!open) return null;
                   </button>
                 </div>
               ))}
+            </div>
+          )}
+
+          {syncResult && (
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-hover)] p-4 space-y-3">
+              <p className="text-xs font-semibold text-[var(--text-primary)]">
+                Oxirgi sync natijasi
+              </p>
+              <div className="grid grid-cols-4 gap-2 text-center">
+                <div className="rounded-lg bg-[var(--bg-card)] py-2">
+                  <p className="text-sm font-bold text-[var(--text-primary)]">{syncResult.total}</p>
+                  <p className="text-[10px] text-[var(--text-muted)]">Jami</p>
+                </div>
+                <div className="rounded-lg bg-emerald-500/10 py-2">
+                  <p className="text-sm font-bold text-emerald-400">{syncResult.created}</p>
+                  <p className="text-[10px] text-[var(--text-muted)]">Yangi</p>
+                </div>
+                <div className="rounded-lg bg-sky-500/10 py-2">
+                  <p className="text-sm font-bold text-sky-400">{syncResult.skipped}</p>
+                  <p className="text-[10px] text-[var(--text-muted)]">Skip</p>
+                </div>
+                <div className="rounded-lg bg-red-500/10 py-2">
+                  <p className="text-sm font-bold text-red-400">{syncResult.failed}</p>
+                  <p className="text-[10px] text-[var(--text-muted)]">Xato</p>
+                </div>
+              </div>
+
+              {syncResult.errors.length > 0 && (
+                <div className="space-y-1 max-h-40 overflow-y-auto pt-1 border-t border-[var(--border)]">
+                  {syncResult.errors.map((e, i) => (
+                    <div key={i} className="text-xs px-2 py-1.5 rounded-lg bg-red-500/5 border border-red-500/10">
+                      <span className="font-medium text-[var(--text-primary)]">{e.name || e.employeeNo}</span>
+                      <span className="text-[var(--text-muted)]"> — {e.reason}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
