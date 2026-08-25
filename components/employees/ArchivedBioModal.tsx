@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
@@ -70,7 +72,7 @@ export function ArchivedBioModal({ empId, onClose }: ArchivedBioModalProps) {
       <div className="absolute inset-0 bg-slate-900/40 dark:bg-slate-950/80 backdrop-blur-md animate-in fade-in" onClick={onClose} />
       <div className="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-10 flex flex-col items-center justify-center gap-3 shadow-2xl z-10">
         <div className="w-10 h-10 border-3 border-indigo-600 dark:border-indigo-500 border-t-transparent rounded-full animate-spin" />
-        <p className="text-xs font-medium text-slate-600 dark:text-slate-400">Arxiv ma'lumotlari yuklanmoqda...</p>
+        <p className="text-xs font-medium text-slate-600 dark:text-slate-400">Arxiv ma&apos;lumotlari yuklanmoqda...</p>
       </div>
     </div>
   );
@@ -217,7 +219,7 @@ export function ArchivedBioModal({ empId, onClose }: ArchivedBioModalProps) {
               {emp.fireNote ? (
                 <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed pt-0.5">{emp.fireNote}</p>
               ) : (
-                <p className="text-[11px] text-slate-400 dark:text-slate-500 italic">Qo'shimcha izoh kiritilmagan</p>
+                <p className="text-[11px] text-slate-400 dark:text-slate-500 italic">Qo&apos;shimcha izoh kiritilmagan</p>
               )}
             </div>
           </div>
@@ -274,7 +276,7 @@ export function ArchivedBioModal({ empId, onClose }: ArchivedBioModalProps) {
           {(payrollHistory as any[]).length > 0 && (
             <div className="space-y-3">
               <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                <DollarSign className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Maosh tarixi (so'nggi 6 oy)
+                <DollarSign className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Maosh tarixi (so&apos;nggi 6 oy)
               </p>
               
               <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 divide-y divide-slate-100 dark:divide-slate-800/80 overflow-hidden shadow-sm">
@@ -307,7 +309,7 @@ export function ArchivedBioModal({ empId, onClose }: ArchivedBioModalProps) {
           {(emp.leaveRequests ?? []).length > 0 && (
             <div className="space-y-3">
               <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" /> Ta'til va mehnat ta'tillari
+                <Calendar className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" /> Ta&apos;til va mehnat ta&apos;tillari
               </p>
               
               <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 divide-y divide-slate-100 dark:divide-slate-800/80 overflow-hidden shadow-sm">

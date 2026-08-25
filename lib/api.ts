@@ -231,14 +231,17 @@ export const attendanceApi = {
     api.post("/attendance/set-hospital-gps", { lat: String(lat), lng: String(lng) })
       .then((r) => r.data.data ?? r.data),
 
-      /** Birinchi marta ish joyi GPS ni position uchun o'rnatish */
+  /** Birinchi marta ish joyi GPS ni position uchun o'rnatish */
   setPositionGps: (lat: number, lng: number) =>
-    api.post("/attendance/set-position-gps", { lat: String(lat), lng: String(lng) })
-      .then((r) => r.data.data ?? r.data),
+  api.post("/attendance/set-employee-gps", { lat: String(lat), lng: String(lng) })
+    .then((r) => r.data.data ?? r.data),
 
   setEmployeeGps: (lat: number, lng: number) =>
     api.post("/attendance/set-employee-gps", { lat: String(lat), lng: String(lng) })
       .then((r) => r.data.data ?? r.data),
+
+  resetEmployeeGps: (employeeId: string) =>
+    api.post(`/attendance/reset-employee-gps/${employeeId}`).then((r) => r.data.data),
 };
 
 // ─── Location ─────────────────────────────────

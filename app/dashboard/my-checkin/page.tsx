@@ -264,16 +264,24 @@ export default function MyCheckinPage() {
 
   const [showEarlyWarning, setShowEarlyWarning] = useState(false);
 
-  const positionGpsReady = !!(user?.employee?.position?.gpsLat && user?.employee?.position?.gpsLng);
-  const [positionSetupDone, setPositionSetupDone] = useState(
-    positionGpsReady || localStorage.getItem('position_gps_set') === 'true'
-  );
+  // MUHIM: employee.gpsLat/gpsLng ni tekshiramiz (position emas!) — chunki
+  // savePositionGps() aslida backend'dagi POST /attendance/set-employee-gps
+  // orqali shu maydonga yozadi (nomlanishi "position" bo'lsa ham). Avval
+  // bu yerda position?.gpsLat tekshirilardi — u umuman yozilmagani uchun
+  // doim false qolardi, va localStorage'dagi UMUMIY (userga bog'liq bo'lmagan)
+  // 'position_gps_set' bayrog'iga tayanib qolinardi. Bitta qurilmada ikkinchi
+  // xodim akkountiga kirilganda o'sha bayroq ALLAQACHON 'true' bo'lib qolar
+  // edi (birinchi xodim saqlaganidan) — shu sabab ikkinchi xodim hech qachon
+  // o'z joylashuvini belgilash so'ralmasdi va kasalxonaning umumiy (boshqa
+  // filial) manziliga tushib qolardi. localStorage endi ishlatilmaydi.
+  const employeeGpsReady = !!(user?.employee?.gpsLat && user?.employee?.gpsLng);
+  const [positionSetupDone, setPositionSetupDone] = useState(employeeGpsReady);
   const [positionSetupStep, setPositionSetupStep] = useState<"idle" | "confirming" | "saving">("idle");
   const [positionSaveError, setPositionSaveError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (positionGpsReady) setPositionSetupDone(true);
-  }, [positionGpsReady]);
+    setPositionSetupDone(employeeGpsReady);
+  }, [employeeGpsReady]);
 
   const today = dayjs();
   const { data, isLoading } = useQuery({
@@ -310,14 +318,16 @@ export default function MyCheckinPage() {
   setPositionSaveError(null);
   try {
     await attendanceApi.setPositionGps(gps.coords.lat, gps.coords.lng);
-    localStorage.setItem('position_gps_set', 'true');
     setPositionSetupDone(true);
     setPositionSetupStep("idle");
+    // Auth profilini yangilaymiz — user.employee.gpsLat keyingi sahifa
+    // yuklanishlarida (masalan qayta login qilganda) to'g'ri kelsin
+    qc.invalidateQueries({ queryKey: ["auth-profile"] });
   } catch (e: any) {
     setPositionSaveError(e?.response?.data?.message ?? "Saqlashda xatolik");
     setPositionSetupStep("confirming");
   }
-}, [gps.coords]);
+}, [gps.coords, qc]);
 
   const isCheckedIn  = !!data?.checkIn;
   const isCheckedOut = !!data?.checkOut;

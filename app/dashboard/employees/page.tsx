@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @next/next/no-img-element */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
@@ -54,7 +55,7 @@ type EmpForm = {
 
 // ── Employee Form Modal ──────────────────────────
 function EmployeeModal({
-  open, onClose, employee, departments, positions, targetHospitalId, currentUserRole,
+  open, onClose, employee, departments, positions, targetHospitalId,
 }: {
   open: boolean;
   onClose: () => void;
@@ -630,19 +631,21 @@ function FireModal({
 
 // ── Memoized table row ────────────────────────────
 const EmpRow = memo(function EmpRow({
-  emp, lunchLate, onLeave, onEdit, onFire, onDelete, onPhoto, uploadingId, router, selected, onSelect,
+  emp, lunchLate, onLeave, onEdit, onFire, onDelete, onResetGps, onPhoto, uploadingId, router, selected, onSelect,
 }: {
   emp: any;
   lunchLate?: number;
   onLeave: any;
   onEdit: (emp: any) => void;
   onDelete: (id: string) => void;
+  onResetGps: (emp: any) => void;
   onFire: (emp: any) => void;
   onPhoto: (id: string) => void;
   uploadingId: string | null;
   router: any;
   selected: boolean;
   onSelect: (id: string, checked: boolean) => void;
+  // EmpRow ichida vaqtinchalik
 }) {
   return (
     <tr className={cn(
@@ -725,6 +728,14 @@ const EmpRow = memo(function EmpRow({
               className="px-2.5 py-1 rounded-lg text-xs font-bold text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300 hover:bg-orange-500/10 transition-colors"
               title="Ishdan bo'shatish">
               Bo&apos;shatish
+            </button>
+          )}
+          {(emp.gpsLat != null || emp.gpsLng != null) && (
+            <button
+              onClick={() => onResetGps(emp)}
+              className="px-2.5 py-1 rounded-lg text-xs font-bold text-sky-600 dark:text-sky-400 hover:text-sky-800 dark:hover:text-sky-300 hover:bg-sky-500/10 transition-colors"
+              title="Xodim GPS joylashuvini qayta belgilash">
+              📍 GPS
             </button>
           )}
           <button
@@ -942,6 +953,28 @@ export default function EmployeesPage() {
     onError: (e: any) => toast.error(e?.response?.data?.message || "O'chirishda xatolik"),
   });
 
+  // ── GPS reset mutation ──
+const resetGpsMutation = useMutation({
+  mutationFn: (empId: string) => attendanceApi.resetEmployeeGps(empId),
+  onSuccess: (_, empId) => {
+    // Cache'dagi xodimning gpsLat/gpsLng ni null ga tushuramiz
+    qc.setQueriesData({ queryKey: ["employees"] }, (old: any) => {
+      if (!old?.pages) return old;
+      return {
+        ...old,
+        pages: old.pages.map((page: any) => ({
+          ...page,
+          data: page.data.map((e: any) =>
+            e.id === empId ? { ...e, gpsLat: null, gpsLng: null } : e
+          ),
+        })),
+      };
+    });
+    toast.success("Xodim GPS joylashuvi tozalandi — xodim qaytadan belgilashi mumkin");
+  },
+  onError: (e: any) => toast.error(e?.response?.data?.message || "GPS reset xatoligi"),
+});
+
   const bulkDeleteMutation = useMutation({
     mutationFn: () => employeesApi.bulkDelete(selectedIds, params),
     onSuccess: () => {
@@ -963,6 +996,11 @@ export default function EmployeesPage() {
     },
     onError: (e: any) => toast.error(e?.response?.data?.message || "Xatolik"),
   });
+
+  const handleResetGps = (emp: any) => {
+  if (!confirm(`"${emp.fullName}" Xodimining GPS joylashuvini tozalaysizmi?\nXodim ilovaga kirganda qaytadan belgilashi kerak bo'ladi.`)) return;
+  resetGpsMutation.mutate(emp.id);
+};
 
   const toggleSelect = (id: string, checked: boolean) => {
     setSelectedIds(prev => checked ? [...prev, id] : prev.filter(x => x !== id));
@@ -1297,6 +1335,15 @@ export default function EmployeesPage() {
                       Bo&apos;shatish
                     </button>
                   )}
+                  {(emp.gpsLat != null || emp.gpsLng != null) && (
+                    <button
+                      onClick={() => handleResetGps(emp)}
+                      className="text-sky-600 dark:text-sky-400 hover:text-sky-800 dark:hover:text-sky-300 px-2 py-1 rounded text-xs font-bold"
+                      title="GPS joylashuvni qayta belgilash"
+                    >
+                      📍 GPS
+                    </button>
+                  )}
                   <button
                     onClick={() => confirm("O'chirishni tasdiqlaysizmi?") && deleteMutation.mutate(emp.id)}
                     className="p-1.5 rounded text-[var(--text-muted)] hover:text-red-600 dark:hover:text-red-400 hover:bg-red-500/10"
@@ -1357,6 +1404,7 @@ export default function EmployeesPage() {
                     onLeave={onLeaveMap.get(emp.id)}
                     onEdit={(e) => { setEditEmp(e); setModalOpen(true); }}
                     onDelete={(id) => deleteMutation.mutate(id)}
+                    onResetGps={handleResetGps} 
                     onFire={(e) => { setFireEmp(e); setFireModalOpen(true); }}
                     onPhoto={handlePhotoClick}
                     uploadingId={uploadingEmpId}

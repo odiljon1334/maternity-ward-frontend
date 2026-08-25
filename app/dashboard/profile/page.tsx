@@ -1,3 +1,5 @@
+/* eslint-disable @next/next/no-img-element */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useRef } from "react";
@@ -288,7 +290,7 @@ export default function ProfilePage() {
                 {theme === "dark" ? "Qorong'u mavzu" : "Yorug' mavzu"}
               </p>
               <p className="text-xs text-[var(--text-muted)] font-medium">
-                Ilova ko'rinishini o'zgartirish
+                Ilova ko&apos;rinishini o&apos;zgartirish
               </p>
             </div>
           </div>

@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useTransition, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { hospitalsApi, employeesApi, paymentsApi, downloadBlob, hikvisionApi } from "@/lib/api";
@@ -29,7 +29,7 @@ function HospitalModal({ open, onClose, hospital }: {
     } else {
       reset({ name: "", code: "", address: "", phone: "" });
     }
-  }, [hospital, open, reset]);
+  }, [hospital, open]);
 
   const mutation = useMutation({
     mutationFn: (data: HospForm) =>
@@ -109,7 +109,7 @@ function DirectorModal({ open, onClose, hospitalId, hospitalName, director }: {
         createForm.reset({ username: "", password: "", fullName: "", phone: "" });
       }
     }
-  }, [open, hasDirector, director]);
+  }, [open, hasDirector]);
 
   useEffect(() => {
     if (replaceMode) {
@@ -243,6 +243,7 @@ function DirectorModal({ open, onClose, hospitalId, hospitalName, director }: {
   );
 }
 
+// ── Terminal Modal ──────────────────────────────
 function TerminalModal({ open, onClose, hospital }: {
   open: boolean; onClose: () => void; hospital: any;
 }) {
@@ -250,13 +251,10 @@ function TerminalModal({ open, onClose, hospital }: {
   const [addMode, setAddMode] = useState(false);
   const [name, setName] = useState("");
   const [devIndex, setDevIndex] = useState("");
-  const [password, setPassword] = useState(""); // <-- Parol uchun state
+  const [password, setPassword] = useState("");
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<{
-    total: number;
-    created: number;
-    skipped: number;
-    failed: number;
+    total: number; created: number; skipped: number; failed: number;
     errors: { employeeNo: string; name: string; reason: string }[];
   } | null>(null);
 
@@ -269,20 +267,18 @@ function TerminalModal({ open, onClose, hospital }: {
       return [];
     }),
     enabled: open && !!hospital?.id,
+    staleTime: 30_000,
   });
 
   const addMut = useMutation({
-    mutationFn: () => {
-      console.log('name:', name, 'devIndex:', devIndex, 'password:', password, 'hospitalId:', hospital.id);
-      return hikvisionApi.addTerminal({
-        hospitalId: hospital.id,
-        name,
-        devIndex: devIndex.trim(),
-        password: password.trim() || undefined, // Agar bo'sh bo'lsa yubormaymiz
-      });
-    },
+    mutationFn: () => hikvisionApi.addTerminal({
+      hospitalId: hospital.id, name,
+      devIndex: devIndex.trim(),
+      password: password.trim() || undefined,
+    }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["terminals", hospital.id] });
+      qc.invalidateQueries({ queryKey: ["all-terminals"] });
       toast.success("Terminal qo'shildi");
       setName(""); setDevIndex(""); setPassword(""); setAddMode(false);
     },
@@ -293,6 +289,7 @@ function TerminalModal({ open, onClose, hospital }: {
     mutationFn: (id: string) => hikvisionApi.deleteTerminal(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["terminals", hospital?.id] });
+      qc.invalidateQueries({ queryKey: ["all-terminals"] });
       toast.success("Terminal o'chirildi");
     },
     onError: (e: any) => toast.error(e?.response?.data?.message || "Xatolik"),
@@ -314,13 +311,11 @@ function TerminalModal({ open, onClose, hospital }: {
     }
   };
 
-if (!open) return null;
+  if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div className="relative card w-full sm:max-w-lg rounded-2xl max-h-[85vh] flex flex-col overflow-hidden z-10 shadow-2xl">
-        
-        {/* Header (Yuqori qism - o'zgarmaydi) */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)] bg-[var(--bg-card)] shrink-0">
           <div>
             <h2 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
@@ -329,12 +324,7 @@ if (!open) return null;
             <p className="text-xs text-[var(--text-muted)] mt-0.5">{hospital?.name}</p>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={handleSync}
-              disabled={syncing || (terminals as any[]).length === 0}
-              className="btn-secondary text-xs gap-1.5"
-              title="Barcha xodimlarni terminallarga yuklash"
-            >
+            <button onClick={handleSync} disabled={syncing || (terminals as any[]).length === 0} className="btn-secondary text-xs gap-1.5">
               <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
               {syncing ? "Sync..." : "Sync"}
             </button>
@@ -342,7 +332,6 @@ if (!open) return null;
           </div>
         </div>
 
-        {/* Scroll bo'ladigan asosiy tana qismi */}
         <div className="p-5 space-y-4 overflow-y-auto flex-1">
           {isLoading ? (
             <div className="space-y-2">
@@ -360,18 +349,13 @@ if (!open) return null;
                   <div className={`p-1.5 rounded-lg ${t.isActive ? "bg-emerald-500/15" : "bg-[var(--bg-card)]"}`}>
                     {t.onlineStatus === 'online'
                       ? <Wifi className="w-4 h-4 text-emerald-400" />
-                      : <WifiOff className="w-4 h-4 text-[var(--text-muted)]" />
-                    }
+                      : <WifiOff className="w-4 h-4 text-[var(--text-muted)]" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-[var(--text-primary)]">{t.name}</p>
                     <p className="text-xs font-mono text-[var(--text-muted)] truncate">{t.devIndex}</p>
                   </div>
-                  <button
-                    onClick={() => deleteMut.mutate(t.id)}
-                    disabled={deleteMut.isPending}
-                    className="btn-ghost p-1.5 text-red-400 hover:bg-red-500/10"
-                  >
+                  <button onClick={() => deleteMut.mutate(t.id)} disabled={deleteMut.isPending} className="btn-ghost p-1.5 text-red-400 hover:bg-red-500/10">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -381,28 +365,20 @@ if (!open) return null;
 
           {syncResult && (
             <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-hover)] p-4 space-y-3">
-              <p className="text-xs font-semibold text-[var(--text-primary)]">
-                Oxirgi sync natijasi
-              </p>
+              <p className="text-xs font-semibold text-[var(--text-primary)]">Oxirgi sync natijasi</p>
               <div className="grid grid-cols-4 gap-2 text-center">
-                <div className="rounded-lg bg-[var(--bg-card)] py-2">
-                  <p className="text-sm font-bold text-[var(--text-primary)]">{syncResult.total}</p>
-                  <p className="text-[10px] text-[var(--text-muted)]">Jami</p>
-                </div>
-                <div className="rounded-lg bg-emerald-500/10 py-2">
-                  <p className="text-sm font-bold text-emerald-400">{syncResult.created}</p>
-                  <p className="text-[10px] text-[var(--text-muted)]">Yangi</p>
-                </div>
-                <div className="rounded-lg bg-sky-500/10 py-2">
-                  <p className="text-sm font-bold text-sky-400">{syncResult.skipped}</p>
-                  <p className="text-[10px] text-[var(--text-muted)]">Skip</p>
-                </div>
-                <div className="rounded-lg bg-red-500/10 py-2">
-                  <p className="text-sm font-bold text-red-400">{syncResult.failed}</p>
-                  <p className="text-[10px] text-[var(--text-muted)]">Xato</p>
-                </div>
+                {[
+                  { label: "Jami", val: syncResult.total, cls: "bg-[var(--bg-card)]", color: "text-[var(--text-primary)]" },
+                  { label: "Yangi", val: syncResult.created, cls: "bg-emerald-500/10", color: "text-emerald-400" },
+                  { label: "Skip", val: syncResult.skipped, cls: "bg-sky-500/10", color: "text-sky-400" },
+                  { label: "Xato", val: syncResult.failed, cls: "bg-red-500/10", color: "text-red-400" },
+                ].map(({ label, val, cls, color }) => (
+                  <div key={label} className={`rounded-lg ${cls} py-2`}>
+                    <p className={`text-sm font-bold ${color}`}>{val}</p>
+                    <p className="text-[10px] text-[var(--text-muted)]">{label}</p>
+                  </div>
+                ))}
               </div>
-
               {syncResult.errors.length > 0 && (
                 <div className="space-y-1 max-h-40 overflow-y-auto pt-1 border-t border-[var(--border)]">
                   {syncResult.errors.map((e, i) => (
@@ -419,35 +395,13 @@ if (!open) return null;
           {addMode ? (
             <div className="space-y-3 pt-2 border-t border-[var(--border)]">
               <p className="text-xs font-medium text-[var(--text-muted)]">Yangi terminal</p>
-              <input
-                value={name}
-                onChange={e => setName(e.target.value)}
-                className="input-field"
-                placeholder="Terminal nomi (masalan: Kirish terminali)"
-              />
-              <input
-                value={devIndex}
-                onChange={e => setDevIndex(e.target.value)}
-                className="input-field font-mono text-sm"
-                placeholder="devIndex (Gateway UUID)"
-              />
-              <input
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                className="input-field"
-                placeholder="Terminal paroli (ixtiyoriy)"
-                type="password"
-                />
-              <p className="text-xs text-[var(--text-muted)]">
-                devIndex — Gateway Web UI → Device Management da ko&apos;rinadi
-              </p>
+              <input value={name} onChange={e => setName(e.target.value)} className="input-field" placeholder="Terminal nomi" />
+              <input value={devIndex} onChange={e => setDevIndex(e.target.value)} className="input-field font-mono text-sm" placeholder="devIndex (Gateway UUID)" />
+              <input value={password} onChange={e => setPassword(e.target.value)} className="input-field" placeholder="Terminal paroli (ixtiyoriy)" type="password" />
+              <p className="text-xs text-[var(--text-muted)]">devIndex — Gateway Web UI → Device Management da ko&apos;rinadi</p>
               <div className="flex gap-2 pt-1">
                 <button onClick={() => { setAddMode(false); setPassword(""); }} className="btn-secondary flex-1">Bekor</button>
-                <button
-                  onClick={() => addMut.mutate()}
-                  disabled={!name || !devIndex || addMut.isPending}
-                  className="btn-primary flex-1"
-                >
+                <button onClick={() => addMut.mutate()} disabled={!name || !devIndex || addMut.isPending} className="btn-primary flex-1">
                   {addMut.isPending ? "Qo'shilmoqda..." : "Qo'shish"}
                 </button>
               </div>
@@ -467,6 +421,8 @@ if (!open) return null;
 export default function HospitalsPage() {
   const qc = useQueryClient();
   const { setSelectedHospital } = useAuthStore();
+  const [, startTransition] = useTransition();
+
   const [modalOpen, setModalOpen] = useState(false);
   const [editHosp, setEditHosp] = useState<any>(null);
   const [dirModal, setDirModal] = useState<{ open: boolean; hospital: any; director?: any }>({ open: false, hospital: null });
@@ -476,38 +432,45 @@ export default function HospitalsPage() {
   const { data: hospitals = [], isLoading } = useQuery({
     queryKey: ["hospitals"],
     queryFn: hospitalsApi.list,
+    staleTime: 60_000,
   });
 
   const { data: paymentOverview = [] } = useQuery({
     queryKey: ["payments-overview"],
     queryFn: () => paymentsApi.overview(),
+    staleTime: 60_000,
   });
 
-  // hospitals query dan keyin qo'shing
-const { data: allTerminals = [] } = useQuery({
-  queryKey: ["all-terminals"],
-  queryFn: async () => {
-    const res = await hikvisionApi.getTerminals("all");
-    const data = res.data;
-    if (Array.isArray(data)) return data;
-    if (Array.isArray(data?.data)) return data.data;
-    return [];
-  },
-  refetchInterval: 30_000, // 30 soniyada bir yangilanadi
-});
+  const { data: allTerminals = [] } = useQuery({
+    queryKey: ["all-terminals"],
+    queryFn: async () => {
+      const res = await hikvisionApi.getTerminals("all");
+      const data = res.data;
+      if (Array.isArray(data)) return data;
+      if (Array.isArray(data?.data)) return data.data;
+      return [];
+    },
+    staleTime: 60_000,          // ← 30s dan 60s ga
+    refetchInterval: 60_000,    // ← 30s dan 60s ga — asosiy tuzatish
+    refetchIntervalInBackground: false, // ← tab background da refetch yo'q
+  });
 
-// terminalStatusMap — hospitalId → {total, online}
-const terminalStatusMap = (allTerminals as any[]).reduce((acc: any, t: any) => {
-  if (!acc[t.hospitalId]) acc[t.hospitalId] = { total: 0, online: 0 };
-  acc[t.hospitalId].total++;
-  if (t.onlineStatus === 'online') acc[t.hospitalId].online++;
-  return acc;
-}, {});
+  // useMemo — har render da qayta hisoblashdan saqlanadi
+  const terminalStatusMap = useMemo(() =>
+    (allTerminals as any[]).reduce((acc: any, t: any) => {
+      if (!acc[t.hospitalId]) acc[t.hospitalId] = { total: 0, online: 0 };
+      acc[t.hospitalId].total++;
+      if (t.onlineStatus === 'online') acc[t.hospitalId].online++;
+      return acc;
+    }, {}),
+  [allTerminals]);
 
-  const paymentStatusMap = (paymentOverview as any[]).reduce((acc: any, p: any) => {
-    acc[p.hospitalId] = p.status;
-    return acc;
-  }, {});
+  const paymentStatusMap = useMemo(() =>
+    (paymentOverview as any[]).reduce((acc: any, p: any) => {
+      acc[p.hospitalId] = p.status;
+      return acc;
+    }, {}),
+  [paymentOverview]);
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => hospitalsApi.delete(id),
@@ -528,7 +491,17 @@ const terminalStatusMap = (allTerminals as any[]).reduce((acc: any, t: any) => {
     onError: (e: any) => toast.error(e?.response?.data?.message || "Xatolik"),
   });
 
-  const handleResetTelegram = async (h: any) => {
+  // useCallback — har render da yangi funksiya yaratishdan saqlanadi
+  const handleSelectHospital = useCallback((h: any) => {
+    // Toast darhol — UI javob beradi
+    toast.success(`${h.name} tanlandi`);
+    // Store update va navigation non-blocking
+    startTransition(() => {
+      setSelectedHospital(h);
+    });
+  }, [setSelectedHospital, startTransition]);
+
+  const handleResetTelegram = useCallback(async (h: any) => {
     if (!confirm(`"${h.name}" kasalxonasining Telegram obunalarini o'chirasizmi?`)) return;
     try {
       const res = await hospitalsApi.resetTelegramSubs(h.id);
@@ -537,9 +510,9 @@ const terminalStatusMap = (allTerminals as any[]).reduce((acc: any, t: any) => {
     } catch (e: any) {
       toast.error(e?.response?.data?.message || "Xatolik");
     }
-  };
+  }, [qc]);
 
-  const handleEnrollPic = async (h: any) => {
+  const handleEnrollPic = useCallback(async (h: any) => {
     setDownloading(h.id);
     try {
       const res = await employeesApi.exportEnrollPic({ targetHospitalId: h.id });
@@ -550,12 +523,12 @@ const terminalStatusMap = (allTerminals as any[]).reduce((acc: any, t: any) => {
     } finally {
       setDownloading(null);
     }
-  };
+  }, []);
 
-  const handleDelete = (h: any) => {
+  const handleDelete = useCallback((h: any) => {
     if (!confirm(`"${h.name}" ni o'chirishni tasdiqlaysizmi?\n\nDIQQAT: Barcha xodimlar, jadvallar va maosh ma'lumotlari ham o'chadi!`)) return;
     deleteMutation.mutate(h.id);
-  };
+  }, [deleteMutation]);
 
   return (
     <div>
@@ -579,190 +552,173 @@ const terminalStatusMap = (allTerminals as any[]).reduce((acc: any, t: any) => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {(hospitals as any[]).map((h) => (
-              <div key={h.id} className={`card p-5 flex flex-col gap-3 ${(h.isBlocked || paymentStatusMap[h.id] === 'OVERDUE') ? 'border border-red-500/40' : ''}`}>
+            {(hospitals as any[]).map((h) => {
+              const payStatus = paymentStatusMap[h.id];
+              const isOverdue = payStatus === 'OVERDUE';
+              const isBlocked = h.isBlocked || isOverdue;
+              const termStatus = terminalStatusMap[h.id];
 
-                {(h.isBlocked || paymentStatusMap[h.id] === 'OVERDUE') && (
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-medium">
-                    <span>🔴</span>
-                    <span>
-                      {h.isBlocked && paymentStatusMap[h.id] !== 'OVERDUE'
-                        ? "Admin tomonidan bloklangan"
-                        : "To'lov kechikkan — tizim bloklangan"}
-                    </span>
-                  </div>
-                )}
+              return (
+                <div key={h.id} className={`card p-5 flex flex-col gap-3 ${isBlocked ? 'border border-red-500/40' : ''}`}>
 
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2.5 rounded-xl flex-shrink-0 ${(h.isBlocked || paymentStatusMap[h.id] === 'OVERDUE') ? 'bg-red-600' : 'bg-indigo-600'}`}>
-                      <Building2 className="w-5 h-5 text-white" />
+                  {isBlocked && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-medium">
+                      <span>🔴</span>
+                      <span>{h.isBlocked && !isOverdue ? "Admin tomonidan bloklangan" : "To'lov kechikkan — tizim bloklangan"}</span>
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-[var(--text-primary)] text-sm leading-tight">{h.name}</h3>
-                      <span className="text-xs font-mono text-indigo-400">{h.code}</span>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                    {h.isActive ? <span className="badge-green">Aktiv</span> : <span className="badge-gray">Nofaol</span>}
-                    {paymentStatusMap[h.id] === 'PAID' && (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                        💳 To&apos;langan
-                      </span>
-                    )}
-                    {paymentStatusMap[h.id] === 'PENDING' && (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-amber-500/15 text-amber-400 border border-amber-500/30">
-                        ⏳ Kutilmoqda
-                      </span>
-                    )}
-                    {paymentStatusMap[h.id] === 'OVERDUE' && (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-red-500/15 text-red-400 border border-red-500/30">
-                        🔴 Qarzdor
-                      </span>
-                    )}
-                    {(h as any).telegramLinked ? (
-                      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium ${paymentStatusMap[h.id] === 'OVERDUE' ? 'bg-red-500/10 text-red-400/50 border border-red-500/20 line-through' : 'bg-sky-500/15 text-sky-400 border border-sky-500/30'}`}>
-                        <Send className="w-2.5 h-2.5" /> TG Aktiv
-                      </span>
-                    ) : (
-                      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium border ${(h as any).directorHasPhone ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' : 'bg-[var(--bg-hover)] text-[var(--text-muted)] border-[var(--border)]'}`}>
-                        <Send className="w-2.5 h-2.5" />
-                        {(h as any).directorHasPhone ? 'TG ulanmagan' : "Tel yo'q"}
-                      </span>
-                    )}
-                  </div>
-                </div>
+                  )}
 
-                {h._count && (
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { label: "Xodim", val: h._count.employees },
-                      { label: "Bo'lim", val: h._count.departments },
-                      { label: "Foydalanuvchi", val: h._count.users },
-                    ].map(({ label, val }) => (
-                      <div key={label} className="bg-[var(--bg-hover)] rounded-lg p-2 text-center">
-                        <p className="text-sm font-bold text-[var(--text-primary)]">{val}</p>
-                        <p className="text-xs text-[var(--text-muted)]">{label}</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2.5 rounded-xl flex-shrink-0 ${isBlocked ? 'bg-red-600' : 'bg-indigo-600'}`}>
+                        <Building2 className="w-5 h-5 text-white" />
                       </div>
-                    ))}
-                  </div>
-                )}
-
-                <div className="space-y-1">
-                  {(h as any).directorName ? (
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="text-[var(--text-muted)] flex-shrink-0">👤</span>
-                      <span className="text-[var(--text-primary)] font-medium truncate">{(h as any).directorName}</span>
-                      {(h as any).directorPhone && (
-                        <span className="text-[var(--text-muted)] ml-auto flex-shrink-0">{(h as any).directorPhone}</span>
+                      <div>
+                        <h3 className="font-semibold text-[var(--text-primary)] text-sm leading-tight">{h.name}</h3>
+                        <span className="text-xs font-mono text-indigo-400">{h.code}</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                      {h.isActive ? <span className="badge-green">Aktiv</span> : <span className="badge-gray">Nofaol</span>}
+                      {payStatus === 'PAID' && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">💳 To&apos;langan</span>
+                      )}
+                      {payStatus === 'PENDING' && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-amber-500/15 text-amber-400 border border-amber-500/30">⏳ Kutilmoqda</span>
+                      )}
+                      {payStatus === 'OVERDUE' && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-red-500/15 text-red-400 border border-red-500/30">🔴 Qarzdor</span>
+                      )}
+                      {h.telegramLinked ? (
+                        <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium ${isOverdue ? 'bg-red-500/10 text-red-400/50 border border-red-500/20 line-through' : 'bg-sky-500/15 text-sky-400 border border-sky-500/30'}`}>
+                          <Send className="w-2.5 h-2.5" /> TG Aktiv
+                        </span>
+                      ) : (
+                        <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium border ${h.directorHasPhone ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' : 'bg-[var(--bg-hover)] text-[var(--text-muted)] border-[var(--border)]'}`}>
+                          <Send className="w-2.5 h-2.5" />
+                          {h.directorHasPhone ? 'TG ulanmagan' : "Tel yo'q"}
+                        </span>
                       )}
                     </div>
-                  ) : (
-                    <div className="flex items-center gap-2 text-xs text-amber-400/70">
-                      <span>⚠️</span><span>Direktor biriktirilmagan</span>
-                    </div>
-                  )}
-                  {h.address && (
-                    <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
-                      <MapPin className="w-3 h-3 flex-shrink-0" /><span className="truncate">{h.address}</span>
-                    </div>
-                  )}
-                  {h.phone && (
-                    <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
-                      <Phone className="w-3 h-3 flex-shrink-0" /><span>{h.phone}</span>
-                    </div>
-                  )}
-                </div>
+                  </div>
 
-                {terminalStatusMap[h.id] && (
-                <div className="flex items-center gap-2">
-                  <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium border ${
-                    terminalStatusMap[h.id].online > 0
-                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                      : 'bg-red-500/10 text-red-400 border-red-500/20'
-                    }`}>
-                    {terminalStatusMap[h.id].online > 0
-                      ? <Wifi className="w-3 h-3" />
-                      : <WifiOff className="w-3 h-3" />
-                    }
-                    <span>
-                      {terminalStatusMap[h.id].online}/{terminalStatusMap[h.id].total} terminal
-                    </span>
+                  {h._count && (
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { label: "Xodim", val: h._count.employees },
+                        { label: "Bo'lim", val: h._count.departments },
+                        { label: "Foydalanuvchi", val: h._count.users },
+                      ].map(({ label, val }) => (
+                        <div key={label} className="bg-[var(--bg-hover)] rounded-lg p-2 text-center">
+                          <p className="text-sm font-bold text-[var(--text-primary)]">{val}</p>
+                          <p className="text-xs text-[var(--text-muted)]">{label}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="space-y-1">
+                    {h.directorName ? (
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-[var(--text-muted)] flex-shrink-0">👤</span>
+                        <span className="text-[var(--text-primary)] font-medium truncate">{h.directorName}</span>
+                        {h.directorPhone && <span className="text-[var(--text-muted)] ml-auto flex-shrink-0">{h.directorPhone}</span>}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 text-xs text-amber-400/70">
+                        <span>⚠️</span><span>Direktor biriktirilmagan</span>
+                      </div>
+                    )}
+                    {h.address && (
+                      <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
+                        <MapPin className="w-3 h-3 flex-shrink-0" /><span className="truncate">{h.address}</span>
+                      </div>
+                    )}
+                    {h.phone && (
+                      <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
+                        <Phone className="w-3 h-3 flex-shrink-0" /><span>{h.phone}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {termStatus && (
+                    <div className="flex items-center gap-2">
+                      <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium border ${termStatus.online > 0 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
+                        {termStatus.online > 0 ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+                        <span>{termStatus.online}/{termStatus.total} terminal</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Actions row 1 */}
+                  <div className="flex gap-2 pt-1 border-t border-[var(--border)]">
+                    <button
+                      onClick={() => handleSelectHospital(h)}
+                      className="btn-primary text-xs flex-1 justify-center gap-1.5"
+                    >
+                      Ko&apos;rish
+                    </button>
+                    <button onClick={() => { setEditHosp(h); setModalOpen(true); }} className="btn-ghost text-xs px-3 justify-center">
+                      <Edit2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setDirModal({
+                        open: true, hospital: h,
+                        director: h.directorId
+                          ? { id: h.directorId, username: h.directorUsername, name: h.directorName, phone: h.directorPhone }
+                          : undefined,
+                      })}
+                      className="btn-ghost text-xs px-3 justify-center"
+                      title={h.directorId ? "Direktori tahrirlash" : "Direktor yaratish"}
+                    >
+                      {h.directorId ? <Edit2 className="w-3.5 h-3.5 text-indigo-400" /> : <UserPlus className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+
+                  {/* Actions row 2 */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleEnrollPic(h)}
+                      disabled={downloading === h.id}
+                      className="btn-secondary text-xs flex-1 justify-center gap-1.5"
+                      title="Hikvision uchun rasmlarni zip yuklab olish"
+                    >
+                      <Archive className="w-3.5 h-3.5" />
+                      {downloading === h.id ? "Yuklanmoqda..." : "Enroll Pic"}
+                    </button>
+                    <button
+                      onClick={() => setTerminalModal({ open: true, hospital: h })}
+                      className="btn-ghost text-xs px-3 justify-center text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10"
+                      title="Terminallarni boshqarish"
+                    >
+                      <Cpu className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => blockMutation.mutate({ id: h.id, block: !h.isBlocked })}
+                      disabled={blockMutation.isPending}
+                      className={`btn-ghost text-xs px-3 justify-center ${h.isBlocked ? "text-emerald-400 hover:bg-emerald-500/10" : "text-amber-400 hover:bg-amber-500/10"}`}
+                      title={h.isBlocked ? "Blokni ochish" : "Kasalxonani bloklash"}
+                    >
+                      {h.isBlocked ? <ShieldCheck className="w-3.5 h-3.5" /> : <ShieldOff className="w-3.5 h-3.5" />}
+                    </button>
+                    <button
+                      onClick={() => handleResetTelegram(h)}
+                      className="btn-ghost text-xs px-3 text-sky-400 hover:bg-sky-500/10 justify-center"
+                      title="Telegram obunani reset qilish"
+                    >
+                      <span className="text-base leading-none">✈️</span>
+                    </button>
+                    <button
+                      onClick={() => handleDelete(h)}
+                      disabled={deleteMutation.isPending}
+                      className="btn-ghost text-xs px-3 text-red-400 hover:bg-red-500/10 justify-center"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
-                )}
-
-                {/* Actions row 1 */}
-                <div className="flex gap-2 pt-1 border-t border-[var(--border)]">
-                  <button
-                    onClick={() => { setSelectedHospital(h); toast.success(`${h.name} tanlandi`); }}
-                    className="btn-primary text-xs flex-1 justify-center gap-1.5"
-                  >
-                    Ko&apos;rish
-                  </button>
-                  <button onClick={() => { setEditHosp(h); setModalOpen(true); }} className="btn-ghost text-xs px-3 justify-center">
-                    <Edit2 className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => setDirModal({
-                      open: true, hospital: h,
-                      director: (h as any).directorId
-                        ? { id: (h as any).directorId, username: (h as any).directorUsername, name: (h as any).directorName, phone: (h as any).directorPhone }
-                        : undefined,
-                    })}
-                    className="btn-ghost text-xs px-3 justify-center"
-                    title={(h as any).directorId ? "Direktori tahrirlash" : "Direktor yaratish"}
-                  >
-                    {(h as any).directorId
-                      ? <Edit2 className="w-3.5 h-3.5 text-indigo-400" />
-                      : <UserPlus className="w-3.5 h-3.5" />
-                    }
-                  </button>
-                </div>
-
-                {/* Actions row 2 */}
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleEnrollPic(h)}
-                    disabled={downloading === h.id}
-                    className="btn-secondary text-xs flex-1 justify-center gap-1.5"
-                    title="Hikvision uchun rasmlarni zip yuklab olish"
-                  >
-                    <Archive className="w-3.5 h-3.5" />
-                    {downloading === h.id ? "Yuklanmoqda..." : "Enroll Pic"}
-                  </button>
-                  <button
-                    onClick={() => setTerminalModal({ open: true, hospital: h })}
-                    className="btn-ghost text-xs px-3 justify-center text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10"
-                    title="Terminallarni boshqarish"
-                  >
-                    <Cpu className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => blockMutation.mutate({ id: h.id, block: !h.isBlocked })}
-                    disabled={blockMutation.isPending}
-                    className={`btn-ghost text-xs px-3 justify-center ${h.isBlocked ? "text-emerald-400 hover:bg-emerald-500/10" : "text-amber-400 hover:bg-amber-500/10"}`}
-                    title={h.isBlocked ? "Blokni ochish" : "Kasalxonani bloklash"}
-                  >
-                    {h.isBlocked ? <ShieldCheck className="w-3.5 h-3.5" /> : <ShieldOff className="w-3.5 h-3.5" />}
-                  </button>
-                  <button
-                    onClick={() => handleResetTelegram(h)}
-                    className="btn-ghost text-xs px-3 text-sky-400 hover:bg-sky-500/10 justify-center"
-                    title="Telegram obunani reset qilish"
-                  >
-                    <span className="text-base leading-none">✈️</span>
-                  </button>
-                  <button
-                    onClick={() => handleDelete(h)}
-                    disabled={deleteMutation.isPending}
-                    className="btn-ghost text-xs px-3 text-red-400 hover:bg-red-500/10 justify-center"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 

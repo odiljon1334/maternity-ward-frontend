@@ -46,7 +46,7 @@ export interface EmployeeMarker {
 
   battery: number | null;
 
-  timestamp: string;
+  createdAt: string;
 
   checkIn: string | null;
   checkOut: string | null;
@@ -98,8 +98,17 @@ function getBatteryColor(battery: number | null) {
   };
 }
 
-function getRelativeTime(timestamp: string) {
-  const time = new Date(timestamp).getTime();
+function getRelativeTime(timestamp: string | number | null | undefined) {
+  if (timestamp === null || timestamp === undefined || timestamp === "") {
+    return "Vaqt noma'lum";
+  }
+
+  const time =
+    typeof timestamp === "number"
+      ? timestamp < 10_000_000_000
+        ? timestamp * 1000
+        : timestamp
+      : new Date(timestamp).getTime();
 
   if (!Number.isFinite(time)) {
     return "Vaqt noma'lum";
@@ -111,21 +120,10 @@ function getRelativeTime(timestamp: string) {
   const minutes = Math.floor(seconds / 60);
   const hours = Math.floor(minutes / 60);
 
-  if (seconds < 10) {
-    return "Hozirgina";
-  }
-
-  if (seconds < 60) {
-    return `${seconds} soniya oldin`;
-  }
-
-  if (minutes < 60) {
-    return `${minutes} daqiqa oldin`;
-  }
-
-  if (hours < 24) {
-    return `${hours} soat oldin`;
-  }
+  if (seconds < 10) return "Hozirgina";
+  if (seconds < 60) return `${seconds} soniya oldin`;
+  if (minutes < 60) return `${minutes} daqiqa oldin`;
+  if (hours < 24) return `${hours} soat oldin`;
 
   return `${Math.floor(hours / 24)} kun oldin`;
 }
@@ -918,7 +916,7 @@ export default function LiveMapPage() {
                     <span className="text-[9px] md:text-[10px] text-white/40 truncate">
                       {
                         getRelativeTime(
-                          selectedFromMarkers.timestamp
+                          selectedFromMarkers.createdAt
                         )
                       }
                     </span>
@@ -967,7 +965,7 @@ export default function LiveMapPage() {
 
                 <span className="text-[9px] md:text-[10px] font-bold text-white/75 truncate">
                   {getRelativeTime(
-                    selectedFromMarkers.timestamp
+                    selectedFromMarkers.createdAt
                   )}
                 </span>
 
