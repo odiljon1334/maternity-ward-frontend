@@ -1,1642 +1,732 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @next/next/no-img-element */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { io, Socket } from "socket.io-client";
-import { useAuthStore } from "@/stores/auth";
+import { useRef, useState, useCallback, useEffect } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { locationApi } from "@/lib/api";
 import {
-  MapPin,
-  Wifi,
-  WifiOff,
-  Battery,
-  Navigation,
-  X,
-  Clock3,
-  Signal,
-  Users,
+  Camera, MapPin, CheckCircle2, XCircle, Loader2,
+  RefreshCw, AlertTriangle, Clock, LogIn, LogOut, Building2, Sparkles, User,
 } from "lucide-react";
-import { API_ORIGIN } from "@/lib/api";
-import dynamic from "next/dynamic";
+import { cn } from "@/lib/utils";
+import { attendanceApi, photoUrl } from "@/lib/api";
+import { useAuthStore } from "@/stores/auth";
+import { Topbar } from "@/components/layout/Topbar";
+import { YMaps, Map, Placemark } from "@pbe/react-yandex-maps";
+import dayjs from "dayjs";
+import "dayjs/locale/uz";
+dayjs.locale("uz");
 
-const MapWithNoSSR = dynamic(
-  () => import("@/components/live-map/MapboxMap"),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex h-full items-center justify-center bg-[var(--bg-card)]">
-        <div className="text-sm text-[var(--text-muted)]">
-          Xarita yuklanmoqda...
-        </div>
-      </div>
-    ),
-  }
-);
+// ─── Status badge ─────────────────────────────────────────────────────────────
+const STATUS_MAP: Record<string, { label: string; cls: string }> = {
+  PRESENT:    { label: "Keldi",           cls: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" },
+  LATE:       { label: "Kech keldi",      cls: "bg-amber-500/20  text-amber-400 border-amber-500/30"   },
+  ABSENT:     { label: "Kelmadi",         cls: "bg-red-500/20    text-red-400 border-red-500/30"      },
+  EARLY_LEAVE:{ label: "Erta ketdi",      cls: "bg-orange-500/20 text-orange-400 border-orange-500/30"  },
+  LATE_EARLY: { label: "Kech+Erta",       cls: "bg-red-500/20    text-red-400 border-red-500/30"      },
+};
 
-export interface EmployeeMarker {
-  userId: string;
-  name: string;
-  photo: string | null;
-
-  latitude: number;
-  longitude: number;
-
-  accuracy: number;
-  distance: number | null;
-  speed: number | null;
-
-  battery: number | null;
-
-  timestamp: string;
-
-  checkIn: string | null;
-  checkOut: string | null;
-  attendanceStatus: string | null;
+function fmt(date?: string | Date | null) {
+  if (!date) return "—";
+  return dayjs(date).format("HH:mm");
 }
 
-// ─────────────────────────────────────────────
-// HELPERS
-// ─────────────────────────────────────────────
-
-function getPhotoUrl(photo: string | null) {
-  if (!photo) return null;
-
-  const apiBase =
-    process.env.NEXT_PUBLIC_API_URL?.replace("/api/v1", "");
-
-  if (!apiBase) return photo;
-
-  return `${apiBase}${photo}`;
-}
-
-function getBatteryStyle(battery: number | null) {
-  if (battery === null || battery === undefined) {
-    return {
-      text: "text-white/50",
-      bg: "bg-white/[0.04]",
-      icon: "text-white/50",
-    };
-  }
-
-  if (battery <= 20) {
-    return {
-      text: "text-red-400",
-      bg: "bg-red-500/10",
-      icon: "text-red-400",
-    };
-  }
-
-  if (battery <= 50) {
-    return {
-      text: "text-yellow-400",
-      bg: "bg-yellow-500/10",
-      icon: "text-yellow-400",
-    };
-  }
-
-  return {
-    text: "text-green-400",
-    bg: "bg-green-500/10",
-    icon: "text-green-400",
-  };
-}
-
-function getRelativeTime(timestamp: string) {
-  const time = new Date(timestamp).getTime();
-
-  if (!Number.isFinite(time)) {
-    return "Vaqt noma'lum";
-  }
-
-  const diff = Math.max(0, Date.now() - time);
-
-  const seconds = Math.floor(diff / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
-
-  if (seconds < 10) {
-    return "Hozirgina";
-  }
-
-  if (seconds < 60) {
-    return `${seconds} soniya oldin`;
-  }
-
-  if (minutes < 60) {
-    return `${minutes} daqiqa oldin`;
-  }
-
-  if (hours < 24) {
-    return `${hours} soat oldin`;
-  }
-
-  return `${days} kun oldin`;
-}
-
-function formatTime(value: string | null) {
-  if (!value) return "—";
-
-  const date = new Date(value);
-
-  if (!Number.isFinite(date.getTime())) {
-    return "—";
-  }
-
-  return date.toLocaleTimeString("uz-UZ", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function getDistanceText(employee: EmployeeMarker) {
-  if (
-    employee.distance !== null &&
-    employee.distance !== undefined
-  ) {
-    return `${employee.distance}m`;
-  }
-
-  return `~${Math.round(employee.accuracy)}m`;
-}
-
-// ─────────────────────────────────────────────
-// PAGE
-// ─────────────────────────────────────────────
-
-export default function LiveMapPage() {
-  const { user, token, selectedHospital } = useAuthStore();
-
-  const selectedHospitalId =
-    selectedHospital?.id ?? null;
-
-  const [markers, setMarkers] =
-    useState<Map<string, EmployeeMarker>>(
-      new Map()
-    );
-
-  const [connected, setConnected] =
-    useState(false);
-
-  const [selectedUser, setSelectedUser] =
-    useState<EmployeeMarker | null>(null);
-
-  const [now, setNow] =
-    useState(Date.now());
-
-  const socketRef =
-    useRef<Socket | null>(null);
-
-  // ─────────────────────────────────────────
-  // RELATIVE TIME REFRESH
-  // ─────────────────────────────────────────
+// ─── Camera capture hook ───────────────────────────────────────────────────────
+function useCameraCapture() {
+  const videoRef   = useRef<HTMLVideoElement>(null);
+  const canvasRef  = useRef<HTMLCanvasElement>(null);
+  const streamRef  = useRef<MediaStream | null>(null);
+  const [active,        setActive]        = useState(false);
+  const [preview,       setPreview]       = useState<string | null>(null);
+  const [capturedFile,  setCapturedFile]  = useState<File | null>(null);
+  const [error,         setError]         = useState<string | null>(null);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setNow(Date.now());
-    }, 10000);
+    if (!active || !streamRef.current) return;
+    const video = videoRef.current;
+    if (!video) return;
 
-    return () => {
-      clearInterval(timer);
-    };
+    if (video.srcObject !== streamRef.current) {
+      video.srcObject = streamRef.current;
+    }
+    video.play().catch(() => {});
+  }, [active]);
+
+  const startCamera = useCallback(async () => {
+    setError(null);
+    setPreview(null);
+    setCapturedFile(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 640 } },
+        audio: false,
+      });
+      streamRef.current = stream;
+      setActive(true);
+    } catch {
+      setError("Kamera ruxsati berilmadi. Brauzer sozlamalarida kamera ruxsatini bering.");
+    }
   }, []);
 
-  // ─────────────────────────────────────────
-  // SOCKET
-  // ─────────────────────────────────────────
+  const capture = useCallback(() => {
+    const video  = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
 
-  useEffect(() => {
-    if (!token) return;
+    canvas.width  = video.videoWidth  || 640;
+    canvas.height = video.videoHeight || 640;
+    canvas.getContext("2d")!.drawImage(video, 0, 0);
 
-    if (!API_ORIGIN) {
-      console.error(
-        "❌ API_ORIGIN is not defined"
-      );
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const file = new File([blob], `selfie-${Date.now()}.jpg`, { type: "image/jpeg" });
+      setCapturedFile(file);
+      setPreview(URL.createObjectURL(blob));
+      streamRef.current?.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+      setActive(false);
+    }, "image/jpeg", 0.85);
+  }, []);
+
+  const stopCamera = useCallback(() => {
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+    setActive(false);
+  }, []);
+
+  const reset = useCallback(() => {
+    stopCamera();
+    setPreview(null);
+    setCapturedFile(null);
+    setError(null);
+  }, [stopCamera]);
+
+  return { videoRef, canvasRef, active, preview, capturedFile, error, startCamera, capture, stopCamera, reset };
+}
+
+// ─── GPS hook ──────────────────────────────────────────────────────────────────
+function useGPS() {
+  const [coords,  setCoords]  = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState<string | null>(null);
+
+  const locate = useCallback(() => {
+    if (!navigator.geolocation) {
+      setError("Brauzeringiz GPS ni qo'llab-quvvatlamaydi");
       return;
     }
-
-    const socket = io(
-      `${API_ORIGIN}/live-location`,
-      {
-        transports: [
-          "polling",
-          "websocket",
-        ],
-      }
+    setLoading(true);
+    setError(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy });
+        setLoading(false);
+      },
+      () => {
+        setError("GPS joylashuvini aniqlab bo'lmadi. Ruxsat bering va qayta urinib ko'ring.");
+        setLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 0 },
     );
+  }, []);
 
-    socketRef.current = socket;
+  return { coords, loading, error, locate };
+}
 
-    socket.on("connect", () => {
-      if (
-        process.env.NODE_ENV ===
-        "development"
-      ) {
-        console.log(
-          "🟢 Socket connected:",
-          socket.id
-        );
-      }
-
-      setConnected(true);
-
-      socket.emit("join:admin", {
-        token,
-      });
-    });
-
-    socket.on("disconnect", () => {
-      setConnected(false);
-    });
-
-    socket.on(
-      "connect_error",
-      (error) => {
-        console.error(
-          "🔴 Socket connection error:",
-          error.message
-        );
-
-        setConnected(false);
-      }
-    );
-
-    socket.on(
-      "location:update",
-      (data: EmployeeMarker) => {
-        setMarkers((prev) => {
-          const next = new Map(prev);
-
-          next.set(
-            data.userId,
-            data
-          );
-
-          return next;
-        });
-
-        setSelectedUser((prev) => {
-          if (
-            !prev ||
-            prev.userId !== data.userId
-          ) {
-            return prev;
+// ─── Live location tracking ───────────────────────────────────────────────────
+function useLiveTracking(
+  isCheckedIn: boolean, 
+  isCheckedOut: boolean,
+  expectedCheckOut: string | null | undefined,
+) {
+ const sendLocation = useCallback(async () => {
+  if (process.env.NODE_ENV === "development") {
+    console.log('📍 sendLocation called', { isCheckedIn, isCheckedOut });
+  }
+ navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          let battery: number | undefined;
+          if ('getBattery' in navigator) {
+            const bat = await (navigator as any).getBattery();
+            battery = Math.round(bat.level * 100);
           }
-
-          return data;
-        });
-      }
-    );
-
-    socket.on(
-      "location:remove",
-      ({
-        userId,
-      }: {
-        userId: string;
-      }) => {
-        setMarkers((prev) => {
-          if (!prev.has(userId)) {
-            return prev;
-          }
-
-          const next = new Map(prev);
-
-          next.delete(userId);
-
-          return next;
-        });
-
-        setSelectedUser((prev) =>
-          prev?.userId === userId
-            ? null
-            : prev
-        );
-      }
-    );
-
-    return () => {
-      socket.disconnect();
-      socketRef.current = null;
-    };
-  }, [token]);
-
-  // ─────────────────────────────────────────
-  // REST INITIAL LOAD + FALLBACK
-  // ─────────────────────────────────────────
-
-  useEffect(() => {
-    if (!token) return;
-
-    const isGlobalRole =
-      user?.role === "SUPER_ADMIN" ||
-      user?.role === "MINISTRY" ||
-      user?.role === "ASSISTANT_ADMIN";
-
-    const hospitalId = isGlobalRole
-      ? selectedHospitalId
-      : user?.hospitalId;
-
-    if (!hospitalId) {
-      return;
-    }
-
-    let cancelled = false;
-
-    const loadLocations = async () => {
-      try {
-        const url =
-          `${process.env.NEXT_PUBLIC_API_URL}/location/live` +
-          `?hospitalId=${hospitalId}`;
-
-        const response =
-          await fetch(url, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+          await locationApi.sendLive({
+            latitude:  pos.coords.latitude,
+            longitude: pos.coords.longitude,
+            accuracy:  pos.coords.accuracy,
+            battery,
           });
-
-        if (!response.ok) {
-          throw new Error(
-            `HTTP ${response.status}`
-          );
+        } catch {
+          // Silent fail
         }
+      },
+      () => {},
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 0 },
+    );
+  }, [expectedCheckOut]);
 
-        const result =
-          await response.json();
+  useEffect(() => {
+    // Check-out bo'lgan yoki check-in yo'q bo'lsa — tracking yo'q
+    if (!isCheckedIn || isCheckedOut) return;
 
-        if (
-          !Array.isArray(result.data)
-        ) {
-          return;
-        }
+    // Ish soati tugaganmi tekshirish
+    if (expectedCheckOut) {
+      const now = new Date();
+      const endTime = new Date(expectedCheckOut);
+      if (now > endTime) return;
+    }
 
-        if (cancelled) return;
+    sendLocation();
+    const interval = setInterval(sendLocation, 3 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [isCheckedIn, isCheckedOut, expectedCheckOut, sendLocation]);
+}
 
-        const next =
-          new Map<
-            string,
-            EmployeeMarker
-          >();
-
-        result.data.forEach(
-          (
-            employee: EmployeeMarker
-          ) => {
-            next.set(
-              employee.userId,
-              employee
-            );
-          }
-        );
-
-        setMarkers(next);
-
-        setSelectedUser((prev) => {
-          if (
-            prev &&
-            !next.has(prev.userId)
-          ) {
-            return null;
-          }
-
-          if (!prev) {
-            return null;
-          }
-
-          return (
-            next.get(prev.userId) ??
-            prev
-          );
-        });
-      } catch (error) {
-        console.error(
-          "❌ REST locations error:",
-          error
-        );
-      }
-    };
-
-    loadLocations();
-
-    const interval =
-      setInterval(
-        loadLocations,
-        30000
-      );
-
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, [
-    token,
-    user,
-    selectedHospitalId,
-  ]);
-
-  // ─────────────────────────────────────────
-  // DATA
-  // ─────────────────────────────────────────
-
-  const markerList = useMemo(
-    () =>
-      Array.from(
-        markers.values()
-      ),
-    [markers]
-  );
-
-  const selectedFromMarkers =
-    selectedUser
-      ? markers.get(
-          selectedUser.userId
-        ) ?? selectedUser
-      : null;
-
-  /*
-   * `now` intentionally used here so the component
-   * re-renders every 10 seconds and relative time
-   * updates without receiving another location event.
-   */
-  void now;
-
-  // ─────────────────────────────────────────
-  // RENDER
-  // ─────────────────────────────────────────
-
+// ─── Today status card (Profil sahifasidagi kabi gradientli va bezakli card) ────
+function TodayCard({ record }: { record: any }) {
+  const status = STATUS_MAP[record.status] ?? { label: record.status, cls: "bg-slate-500/20 text-slate-400 border-slate-500/30" };
+  
   return (
-    <div
-      className="
-        relative
-        flex
-        h-[calc(100vh-2rem)]
-        min-h-0
-        gap-4
-        overflow-hidden
-        p-2
-        sm:p-3
-        lg:p-4
-      "
-    >
-      {/* ═══════════════════════════════════════
-          DESKTOP LEFT PANEL
-      ═══════════════════════════════════════ */}
+    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-950/60 via-[var(--bg-card)] to-purple-950/40 border border-[var(--border)] p-6 shadow-2xl space-y-5">
+      {/* Orqa fondagi nafis yulduzcha/bezak elementlari */}
+      <div className="absolute -right-6 -top-6 text-indigo-500/10 pointer-events-none">
+        <Sparkles className="w-36 h-36" />
+      </div>
 
-      <aside
-        className="
-          hidden
-          w-80
-          flex-shrink-0
-          flex-col
-          gap-3
-          lg:flex
-        "
-      >
-        {/* Header */}
-
-        <div
-          className="
-            flex
-            items-center
-            justify-between
-            rounded-2xl
-            border
-            border-[var(--border)]
-            bg-[var(--bg-card)]
-            px-4
-            py-3
-            shadow-sm
-          "
-        >
-          <div>
-            <h1
-              className="
-                text-sm
-                font-black
-                text-[var(--text-primary)]
-              "
-            >
-              Live Xarita
-            </h1>
-
-            <p
-              className="
-                mt-0.5
-                text-xs
-                text-[var(--text-muted)]
-              "
-            >
-              {markerList.length} ta xodim
-              online
-            </p>
-          </div>
-
-          <div
-            className={`
-              flex
-              items-center
-              gap-1.5
-              rounded-xl
-              px-2.5
-              py-1.5
-              text-xs
-              font-bold
-              ${
-                connected
-                  ? "bg-green-500/10 text-green-400"
-                  : "bg-red-500/10 text-red-400"
-              }
-            `}
-          >
-            {connected ? (
-              <Wifi className="h-3.5 w-3.5" />
-            ) : (
-              <WifiOff className="h-3.5 w-3.5" />
-            )}
-
-            {connected
-              ? "Ulangan"
-              : "Uzilgan"}
-          </div>
+      {/* Yuqori qism: Sarlavha va Status */}
+      <div className="flex items-center justify-between relative z-10">
+        <div className="flex items-center gap-2.5">
+          <div className="w-3 h-3 rounded-full bg-emerald-400 shadow-lg shadow-emerald-400/50 animate-pulse" />
+          <span className="text-sm font-extrabold text-[var(--text-primary)]">Bugungi holat</span>
         </div>
+        <span className={cn("text-xs font-bold px-3 py-1.5 rounded-xl border shadow-sm", status.cls)}>
+          {status.label}
+        </span>
+      </div>
 
-        {/* Employee list */}
-
-        <div
-          className="
-            min-h-0
-            flex-1
-            space-y-2
-            overflow-y-auto
-            pr-1
-          "
-        >
-          {markerList.length === 0 ? (
-            <div
-              className="
-                flex
-                h-40
-                flex-col
-                items-center
-                justify-center
-                text-[var(--text-muted)]
-              "
-            >
-              <MapPin
-                className="
-                  mb-2
-                  h-8
-                  w-8
-                  opacity-30
-                "
-              />
-
-              <p className="text-xs">
-                Hozir online xodim yo&apos;q
-              </p>
-            </div>
-          ) : (
-            markerList.map((emp) => {
-              const isSelected =
-                selectedUser?.userId ===
-                emp.userId;
-
-              const batteryStyle =
-                getBatteryStyle(
-                  emp.battery
-                );
-
-              return (
-                <button
-                  key={emp.userId}
-                  type="button"
-                  onClick={() =>
-                    setSelectedUser(
-                      emp
-                    )
-                  }
-                  className={`
-                    group
-                    relative
-                    flex
-                    w-full
-                    items-center
-                    gap-3
-                    rounded-2xl
-                    border
-                    px-3.5
-                    py-3
-                    text-left
-                    transition-all
-                    duration-300
-                    ${
-                      isSelected
-                        ? "border-indigo-400/30 bg-indigo-600 text-white shadow-lg shadow-indigo-500/20"
-                        : "border-[var(--border)] bg-[var(--bg-card)] hover:bg-[var(--bg-hover)]"
-                    }
-                  `}
-                >
-                  {/* Avatar */}
-
-                  <div className="relative flex-shrink-0">
-                    <div
-                      className={`
-                        absolute
-                        -inset-1
-                        rounded-xl
-                        transition-all
-                        ${
-                          isSelected
-                            ? "bg-white/20"
-                            : "bg-green-400/0 group-hover:bg-green-400/10"
-                        }
-                      `}
-                    />
-
-                    <div
-                      className="
-                        relative
-                        h-10
-                        w-10
-                        overflow-hidden
-                        rounded-xl
-                        bg-indigo-500/20
-                      "
-                    >
-                      {emp.photo ? (
-                        <img
-                          src={
-                            getPhotoUrl(
-                              emp.photo
-                            ) ?? ""
-                          }
-                          alt={
-                            emp.name
-                          }
-                          className="
-                            h-full
-                            w-full
-                            object-cover
-                          "
-                        />
-                      ) : (
-                        <div
-                          className="
-                            flex
-                            h-full
-                            w-full
-                            items-center
-                            justify-center
-                            text-xs
-                            font-black
-                            text-indigo-400
-                          "
-                        >
-                          {emp.name
-                            ?.charAt(
-                              0
-                            )
-                            .toUpperCase()}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Online */}
-
-                    <span
-                      className="
-                        absolute
-                        -bottom-1
-                        -right-1
-                        h-3
-                        w-3
-                        rounded-full
-                        border-2
-                        border-[var(--bg-card)]
-                        bg-green-400
-                      "
-                    >
-                      <span
-                        className="
-                          absolute
-                          inset-0
-                          rounded-full
-                          bg-green-400
-                          opacity-60
-                          animate-ping
-                        "
-                      />
-                    </span>
-                  </div>
-
-                  {/* Name + stats */}
-
-                  <div className="min-w-0 flex-1">
-                    <p
-                      className={`
-                        truncate
-                        text-xs
-                        font-bold
-                        ${
-                          isSelected
-                            ? "text-white"
-                            : "text-[var(--text-primary)]"
-                        }
-                      `}
-                    >
-                      {emp.name}
-                    </p>
-
-                    <div
-                      className="
-                        mt-1
-                        flex
-                        items-center
-                        gap-2
-                      "
-                    >
-                      {emp.battery !==
-                        null && (
-                        <span
-                          className={`
-                            flex
-                            items-center
-                            gap-0.5
-                            text-[10px]
-                            ${
-                              isSelected
-                                ? "text-indigo-100"
-                                : batteryStyle.text
-                            }
-                          `}
-                        >
-                          <Battery className="h-3 w-3" />
-
-                          {emp.battery}%
-                        </span>
-                      )}
-
-                      <span
-                        className={`
-                          flex
-                          items-center
-                          gap-0.5
-                          text-[10px]
-                          ${
-                            isSelected
-                              ? "text-indigo-200"
-                              : "text-[var(--text-muted)]"
-                          }
-                        `}
-                      >
-                        <Navigation className="h-3 w-3" />
-
-                        {getDistanceText(
-                          emp
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                </button>
-              );
-            })
+      {/* Markaziy qism: Vaqtlar va Selfie */}
+      <div className="grid grid-cols-3 items-center gap-2 bg-[var(--bg-main)]/80 backdrop-blur-md rounded-2xl p-4 border border-[var(--border)] relative z-10">
+        {/* Keldi vaqti */}
+        <div className="text-center border-r border-[var(--border)] pr-2">
+          <p className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] mb-1.5 flex items-center justify-center gap-1 font-bold">
+            <LogIn className="w-3 h-3 text-emerald-400" /> Keldi
+          </p>
+          <p className="text-xl font-black text-emerald-400 tracking-tight">{fmt(record.checkIn)}</p>
+          {record.lateMinutes > 0 && (
+            <span className="inline-block text-[9px] text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded mt-1 font-semibold border border-amber-500/20">
+              +{record.lateMinutes} min kech
+            </span>
           )}
         </div>
-      </aside>
 
-      {/* ═══════════════════════════════════════
-          MAP
-      ═══════════════════════════════════════ */}
-
-      <main
-        className="
-          relative
-          min-h-0
-          flex-1
-          overflow-hidden
-          rounded-2xl
-          border
-          border-[var(--border)]
-          shadow-sm
-        "
-      >
-        <MapWithNoSSR
-          markers={markerList}
-          selectedUser={
-            selectedFromMarkers
-          }
-          onMarkerClick={
-            setSelectedUser
-          }
-        />
-
-        {/* Mobile connection badge */}
-
-        <div
-          className="
-            absolute
-            left-3
-            top-3
-            z-40
-            flex
-            items-center
-            gap-2
-            rounded-full
-            border
-            border-white/10
-            bg-black/45
-            px-3
-            py-2
-            backdrop-blur-xl
-            lg:hidden
-          "
-        >
-          <span
-            className={`
-              h-2
-              w-2
-              rounded-full
-              ${
-                connected
-                  ? "bg-green-400 shadow-[0_0_10px_rgba(34,197,94,.8)]"
-                  : "bg-red-400"
-              }
-            `}
-          />
-
-          <span className="text-[10px] font-bold text-white/80">
-            {connected
-              ? "LIVE"
-              : "OFFLINE"}
-          </span>
-        </div>
-
-        {/* Mobile employee count */}
-
-        <div
-          className="
-            absolute
-            right-3
-            top-3
-            z-40
-            flex
-            items-center
-            gap-1.5
-            rounded-full
-            border
-            border-white/10
-            bg-black/45
-            px-3
-            py-2
-            backdrop-blur-xl
-            lg:hidden
-          "
-        >
-          <Users className="h-3.5 w-3.5 text-white/70" />
-
-          <span className="text-[10px] font-bold text-white/80">
-            {markerList.length}
-          </span>
-        </div>
-
-        {/* ═══════════════════════════════════
-            MOBILE EMPLOYEE STRIP
-        ═══════════════════════════════════ */}
-
-        <div
-          className="
-            absolute
-            inset-x-0
-            bottom-0
-            z-40
-            px-3
-            pb-3
-            lg:hidden
-          "
-        >
-          <div
-            className="
-              flex
-              gap-2
-              overflow-x-auto
-              pb-1
-              scrollbar-none
-            "
-          >
-            {markerList.map((emp) => {
-              const isSelected =
-                selectedUser?.userId ===
-                emp.userId;
-
-              return (
-                <button
-                  key={emp.userId}
-                  type="button"
-                  onClick={() =>
-                    setSelectedUser(
-                      emp
-                    )
-                  }
-                  className={`
-                    flex
-                    min-w-[150px]
-                    items-center
-                    gap-2.5
-                    rounded-2xl
-                    border
-                    px-2.5
-                    py-2
-                    text-left
-                    backdrop-blur-2xl
-                    transition-all
-                    ${
-                      isSelected
-                        ? "border-indigo-400/50 bg-indigo-600/90 shadow-lg shadow-indigo-500/30"
-                        : "border-white/10 bg-black/55"
-                    }
-                  `}
-                >
-                  <div className="relative flex-shrink-0">
-                    <div
-                      className="
-                        h-9
-                        w-9
-                        overflow-hidden
-                        rounded-full
-                        border
-                        border-white/20
-                        bg-indigo-500
-                      "
-                    >
-                      {emp.photo ? (
-                        <img
-                          src={
-                            getPhotoUrl(
-                              emp.photo
-                            ) ?? ""
-                          }
-                          alt={
-                            emp.name
-                          }
-                          className="
-                            h-full
-                            w-full
-                            object-cover
-                          "
-                        />
-                      ) : (
-                        <div
-                          className="
-                            flex
-                            h-full
-                            w-full
-                            items-center
-                            justify-center
-                            text-xs
-                            font-black
-                            text-white
-                          "
-                        >
-                          {emp.name
-                            ?.charAt(
-                              0
-                            )
-                            .toUpperCase()}
-                        </div>
-                      )}
-                    </div>
-
-                    <span
-                      className="
-                        absolute
-                        -bottom-0.5
-                        -right-0.5
-                        h-2.5
-                        w-2.5
-                        rounded-full
-                        border-2
-                        border-black/50
-                        bg-green-400
-                      "
-                    />
-                  </div>
-
-                  <div className="min-w-0">
-                    <p
-                      className="
-                        max-w-[100px]
-                        truncate
-                        text-[11px]
-                        font-black
-                        text-white
-                      "
-                    >
-                      {emp.name}
-                    </p>
-
-                    <p className="mt-0.5 text-[9px] text-white/50">
-                      {getDistanceText(
-                        emp
-                      )}
-                    </p>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </main>
-
-      {/* ═══════════════════════════════════════
-          APPLE FIND MY BOTTOM SHEET
-      ═══════════════════════════════════════ */}
-
-      {selectedFromMarkers && (
-        <div
-          key={
-            selectedFromMarkers.userId
-          }
-          className="
-            absolute
-            inset-x-0
-            bottom-0
-            z-50
-            flex
-            justify-center
-            px-2
-            pb-2
-            sm:px-4
-            sm:pb-4
-            lg:inset-x-auto
-            lg:left-1/2
-            lg:-translate-x-1/2
-            lg:bottom-6
-            lg:px-0
-            lg:pb-0
-          "
-        >
-          <div
-            className="
-              w-full
-              max-w-[520px]
-              animate-[sheetUp_.38s_cubic-bezier(.22,1,.36,1)]
-              lg:w-[520px]
-            "
-          >
-            <div
-              className="
-                relative
-                overflow-hidden
-                rounded-[28px]
-                border
-                border-white/15
-                bg-[#15151f]/90
-                shadow-[0_20px_80px_rgba(0,0,0,.5)]
-                backdrop-blur-2xl
-                sm:rounded-[30px]
-              "
-            >
-              {/* Glass highlight */}
-
-              <div
-                className="
-                  absolute
-                  inset-x-0
-                  top-0
-                  h-px
-                  bg-white/20
-                "
+        {/* Selfie */}
+        <div className="flex justify-center">
+          {record.selfieUrl ? (
+            <div className="relative">
+              <img
+                src={photoUrl(record.selfieUrl)}
+                alt="selfie"
+                className="w-14 h-14 rounded-2xl object-cover ring-2 ring-indigo-500/40 shadow-lg"
               />
+            </div>
+          ) : (
+            <div className="w-14 h-14 rounded-2xl bg-[var(--border)] flex items-center justify-center text-[var(--text-muted)]">
+              <User className="w-6 h-6" />
+            </div>
+          )}
+        </div>
 
-              {/* Mobile drag handle */}
+        {/* Ketdi vaqti */}
+        <div className="text-center pl-2">
+          <p className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] mb-1.5 flex items-center justify-center gap-1 font-bold">
+            <LogOut className="w-3 h-3 text-rose-400" /> Ketdi
+          </p>
+          <p className={cn("text-xl font-black tracking-tight", record.checkOut ? "text-rose-400" : "text-[var(--text-muted)] opacity-60")}>
+            {fmt(record.checkOut)}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-              <div
-                className="
-                  mx-auto
-                  mt-2
-                  h-1
-                  w-10
-                  rounded-full
-                  bg-white/20
-                  lg:hidden
-                "
-              />
+// ─── PAGE ──────────────────────────────────────────────────────────────────────
+export default function MyCheckinPage() {
+  const qc   = useQueryClient();
+  const cam  = useCameraCapture();
+  const gps  = useGPS();
+  const { user } = useAuthStore();
 
-              <div className="p-4 sm:p-5">
-                {/* ═══════════════════════════
-                    HEADER
-                ═══════════════════════════ */}
+  const empName = user?.employee?.fullName ?? user?.username ?? "Xodim";
 
-                <div className="flex items-center gap-3 sm:gap-4">
-                  {/* Avatar */}
+  const [showEarlyWarning, setShowEarlyWarning] = useState(false);
 
-                  <div className="relative flex-shrink-0">
-                    <div
-                      className="
-                        absolute
-                        -inset-2
-                        rounded-full
-                        bg-green-400/20
-                        animate-pulse
-                      "
-                    />
+  const positionGpsReady = !!(user?.employee?.position?.gpsLat && user?.employee?.position?.gpsLng);
+  const [positionSetupDone, setPositionSetupDone] = useState(
+    positionGpsReady || localStorage.getItem('position_gps_set') === 'true'
+  );
+  const [positionSetupStep, setPositionSetupStep] = useState<"idle" | "confirming" | "saving">("idle");
+  const [positionSaveError, setPositionSaveError] = useState<string | null>(null);
 
-                    <div
-                      className="
-                        absolute
-                        -inset-4
-                        rounded-full
-                        border
-                        border-green-400/10
-                        animate-[ping_2.5s_ease-out_infinite]
-                      "
-                    />
+  useEffect(() => {
+    if (positionGpsReady) setPositionSetupDone(true);
+  }, [positionGpsReady]);
 
-                    <div
-                      className="
-                        relative
-                        h-14
-                        w-14
-                        overflow-hidden
-                        rounded-full
-                        border-2
-                        border-green-400/70
-                        bg-indigo-600
-                        shadow-[0_0_25px_rgba(34,197,94,.25)]
-                        sm:h-16
-                        sm:w-16
-                      "
-                    >
-                      {selectedFromMarkers.photo ? (
-                        <img
-                          src={
-                            getPhotoUrl(
-                              selectedFromMarkers.photo
-                            ) ?? ""
-                          }
-                          alt={
-                            selectedFromMarkers.name
-                          }
-                          className="
-                            h-full
-                            w-full
-                            object-cover
-                          "
-                        />
-                      ) : (
-                        <div
-                          className="
-                            flex
-                            h-full
-                            w-full
-                            items-center
-                            justify-center
-                            text-xl
-                            font-black
-                            text-white
-                          "
-                        >
-                          {selectedFromMarkers.name
-                            ?.charAt(
-                              0
-                            )
-                            .toUpperCase()}
-                        </div>
-                      )}
-                    </div>
+  const today = dayjs();
+  const { data, isLoading } = useQuery({
+    queryKey: ["my-attendance-today", today.month() + 1, today.year()],
+    queryFn:  () => attendanceApi.my({ month: today.month() + 1, year: today.year() }),
+    select: (d) => {
+      const todayStr = today.format("YYYY-MM-DD");
+      return (d.records ?? []).find(
+        (r: any) => dayjs(r.workDate).format("YYYY-MM-DD") === todayStr,
+      ) ?? null;
+    },
+    staleTime: 30_000,
+  });
 
-                    {/* Online */}
+  const mutation = useMutation({
+    mutationFn: () =>
+      attendanceApi.selfCheckIn({
+        gpsLat:      gps.coords?.lat,
+        gpsLng:      gps.coords?.lng,
+        gpsAccuracy: gps.coords?.accuracy,
+        selfie:      cam.capturedFile,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["my-attendance-today"] });
+      qc.invalidateQueries({ queryKey: ["my-attendance"] });
+      cam.reset();
+      setShowEarlyWarning(false);
+    },
+  });
 
-                    <span
-                      className="
-                        absolute
-                        bottom-0
-                        right-0
-                        h-4
-                        w-4
-                        rounded-full
-                        border-[3px]
-                        border-[#15151f]
-                        bg-green-400
-                      "
-                    >
-                      <span
-                        className="
-                          absolute
-                          inset-0
-                          rounded-full
-                          bg-green-400
-                          opacity-60
-                          animate-ping
-                        "
-                      />
-                    </span>
-                  </div>
+ const savePositionGps = useCallback(async () => {
+  if (!gps.coords) return;
+  setPositionSetupStep("saving");
+  setPositionSaveError(null);
+  try {
+    await attendanceApi.setPositionGps(gps.coords.lat, gps.coords.lng);
+    localStorage.setItem('position_gps_set', 'true');
+    setPositionSetupDone(true);
+    setPositionSetupStep("idle");
+  } catch (e: any) {
+    setPositionSaveError(e?.response?.data?.message ?? "Saqlashda xatolik");
+    setPositionSetupStep("confirming");
+  }
+}, [gps.coords]);
 
-                  {/* Name */}
+  const isCheckedIn  = !!data?.checkIn;
+  const isCheckedOut = !!data?.checkOut;
+  const isComplete   = isCheckedIn && isCheckedOut;
+  useLiveTracking(isCheckedIn, isCheckedOut, data?.expectedCheckOut);
+  const actionLabel  = isCheckedIn ? "Check-out" : "Check-in";
+  const ActionIcon   = isCheckedIn ? LogOut : LogIn;
+  const actionColor  = isCheckedIn ? "bg-red-600 hover:bg-red-700 shadow-red-600/25" : "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/25";
 
-                  <div className="min-w-0 flex-1">
-                    <h2
-                      className="
-                        truncate
-                        text-sm
-                        font-black
-                        text-white
-                        sm:text-base
-                      "
-                    >
-                      {
-                        selectedFromMarkers.name
-                      }
-                    </h2>
+  const minutesSinceCheckIn = isCheckedIn && data?.checkIn
+    ? dayjs().diff(dayjs(data.checkIn), "minute")
+    : 999;
+  const minWorkMinutes = 120;
+  const canCheckOut = minutesSinceCheckIn >= minWorkMinutes;
+  const checkOutWaitMin = Math.max(0, minWorkMinutes - minutesSinceCheckIn);
 
-                    <div
-                      className="
-                        mt-1
-                        flex
-                        items-center
-                        gap-2
-                      "
-                    >
-                      <span
-                        className="
-                          inline-flex
-                          items-center
-                          gap-1
-                          text-[10px]
-                          font-bold
-                          text-green-400
-                          sm:text-[11px]
-                        "
-                      >
-                        <span
-                          className="
-                            h-1.5
-                            w-1.5
-                            rounded-full
-                            bg-green-400
-                            animate-pulse
-                          "
-                        />
+  const canSubmit = !mutation.isPending && !isComplete && gps.coords != null && cam.capturedFile != null
+    && (!isCheckedIn || canCheckOut);
 
-                        Online
-                      </span>
+  const expectedCheckOut = data?.expectedCheckOut ? dayjs(data.expectedCheckOut) : null;
+  const isEarlyLeave = isCheckedIn && !isCheckedOut && expectedCheckOut
+    ? dayjs().isBefore(expectedCheckOut)
+    : false;
 
-                      <span className="text-white/20">
-                        •
-                      </span>
+  const handleSubmit = () => {
+    if (isCheckedIn && isEarlyLeave && !showEarlyWarning) {
+      setShowEarlyWarning(true);
+      return;
+    }
+    mutation.mutate();
+  };
 
-                      <span className="truncate text-[9px] text-white/40 sm:text-[10px]">
-                        {getRelativeTime(
-                          selectedFromMarkers.timestamp
-                        )}
-                      </span>
-                    </div>
-                  </div>
+  const getMissingMsg = () => {
+    if (!gps.coords && !cam.capturedFile) return "GPS manzil va selfie kerak";
+    if (!gps.coords) return "GPS manzilni aniqlang";
+    if (!cam.capturedFile) return "Selfie oling";
+    return null;
+  };
+  const missingMsg = getMissingMsg();
 
-                  {/* Close */}
+  return (
+    <div className="min-h-screen bg-[var(--bg-main)] pb-16">
+      {/* Ta'til sahifasidagi kabi yagona Topbar */}
+      <Topbar
+        title="Bugungi holat"
+        subtitle={`${empName} · Shaxsiy vaqt nazorati`}
+      />
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setSelectedUser(
-                        null
-                      )
-                    }
-                    className="
-                      flex
-                      h-8
-                      w-8
-                      flex-shrink-0
-                      items-center
-                      justify-center
-                      rounded-full
-                      bg-white/5
-                      text-white/50
-                      transition-all
-                      hover:bg-white/10
-                      hover:text-white
-                    "
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
+      <div className="max-w-4xl mx-auto px-4 lg:px-6 pt-6 space-y-6">
+        <div className="px-1">
+          <h2 className="text-sm font-bold text-[var(--text-primary)]">Sana</h2>
+          <p className="text-xs font-medium text-[var(--text-muted)] capitalize mt-0.5">
+            {today.format("DD MMMM YYYY, dddd")}
+          </p>
+        </div>
 
-                {/* ═══════════════════════════
-                    LAST UPDATE
-                ═══════════════════════════ */}
-
-                <div
-                  className="
-                    mt-3
-                    flex
-                    items-center
-                    gap-2
-                    rounded-xl
-                    border
-                    border-white/[0.06]
-                    bg-white/[0.04]
-                    px-3
-                    py-2
-                  "
-                >
-                  <Clock3 className="h-3.5 w-3.5 flex-shrink-0 text-white/40" />
-
-                  <span className="text-[9px] font-medium text-white/40 sm:text-[10px]">
-                    Joylashuv:
-                  </span>
-
-                  <span className="text-[9px] font-bold text-white/75 sm:text-[10px]">
-                    {getRelativeTime(
-                      selectedFromMarkers.timestamp
-                    )}
-                  </span>
-
-                  <span
-                    className="
-                      ml-auto
-                      flex
-                      items-center
-                      gap-1
-                      text-[8px]
-                      font-bold
-                      text-green-400
-                      sm:text-[9px]
-                    "
-                  >
-                    <span
-                      className="
-                        h-1
-                        w-1
-                        rounded-full
-                        bg-green-400
-                        animate-pulse
-                      "
-                    />
-
-                    LIVE
-                  </span>
-                </div>
-
-                {/* ═══════════════════════════
-                    STATS
-                ═══════════════════════════ */}
-
-                <div className="mt-2 grid grid-cols-3 gap-2 sm:mt-3">
-                  {/* Distance */}
-
-                  <div
-                    className="
-                      rounded-2xl
-                      border
-                      border-white/[0.06]
-                      bg-white/[0.045]
-                      p-2.5
-                      sm:p-3
-                    "
-                  >
-                    <div className="flex items-center justify-between">
-                      <Navigation className="h-3.5 w-3.5 text-green-400 sm:h-4 sm:w-4" />
-
-                      <span className="text-[8px] text-white/30 sm:text-[9px]">
-                        GPS
-                      </span>
-                    </div>
-
-                    <p className="mt-1.5 text-xs font-black text-white sm:mt-2 sm:text-sm">
-                      {getDistanceText(
-                        selectedFromMarkers
-                      )}
-                    </p>
-
-                    <p className="text-[8px] font-bold text-white/35 sm:text-[9px]">
-                      Masofa
-                    </p>
-                  </div>
-
-                  {/* Battery */}
-
-                  {(() => {
-                    const batteryStyle =
-                      getBatteryStyle(
-                        selectedFromMarkers.battery
-                      );
-
-                    return (
-                      <div
-                        className={`
-                          rounded-2xl
-                          border
-                          border-white/[0.06]
-                          p-2.5
-                          sm:p-3
-                          ${batteryStyle.bg}
-                        `}
-                      >
-                        <div className="flex items-center justify-between">
-                          <Battery
-                            className={`
-                              h-3.5
-                              w-3.5
-                              sm:h-4
-                              sm:w-4
-                              ${batteryStyle.icon}
-                            `}
-                          />
-
-                          <span className="text-[8px] text-white/30 sm:text-[9px]">
-                            POWER
-                          </span>
-                        </div>
-
-                        <p
-                          className={`
-                            mt-1.5
-                            text-xs
-                            font-black
-                            sm:mt-2
-                            sm:text-sm
-                            ${batteryStyle.text}
-                          `}
-                        >
-                          {selectedFromMarkers.battery ??
-                            "—"}
-
-                          {selectedFromMarkers.battery !==
-                            null &&
-                          selectedFromMarkers.battery !==
-                            undefined
-                            ? "%"
-                            : ""}
-                        </p>
-
-                        <p className="text-[8px] font-bold text-white/35 sm:text-[9px]">
-                          Batareya
-                        </p>
-                      </div>
-                    );
-                  })()}
-
-                  {/* Accuracy */}
-
-                  <div
-                    className="
-                      rounded-2xl
-                      border
-                      border-white/[0.06]
-                      bg-white/[0.045]
-                      p-2.5
-                      sm:p-3
-                    "
-                  >
-                    <div className="flex items-center justify-between">
-                      <Signal className="h-3.5 w-3.5 text-cyan-400 sm:h-4 sm:w-4" />
-
-                      <span className="text-[8px] text-white/30 sm:text-[9px]">
-                        ACC
-                      </span>
-                    </div>
-
-                    <p className="mt-1.5 text-xs font-black text-white sm:mt-2 sm:text-sm">
-                      ~
-                      {Math.round(
-                        selectedFromMarkers.accuracy
-                      )}
-                      m
-                    </p>
-
-                    <p className="text-[8px] font-bold text-white/35 sm:text-[9px]">
-                      Aniqlik
-                    </p>
-                  </div>
-                </div>
-
-                {/* ═══════════════════════════
-                    ATTENDANCE
-                ═══════════════════════════ */}
-
-                <div className="mt-2 grid grid-cols-2 gap-2 sm:mt-3">
-                  <div
-                    className="
-                      rounded-2xl
-                      border
-                      border-green-500/10
-                      bg-green-500/[0.06]
-                      p-2.5
-                      sm:p-3
-                    "
-                  >
-                    <p className="text-[8px] font-bold text-white/35 sm:text-[9px]">
-                      Check-in
-                    </p>
-
-                    <p className="mt-1 text-xs font-black text-green-400 sm:text-sm">
-                      {formatTime(
-                        selectedFromMarkers.checkIn
-                      )}
-                    </p>
-                  </div>
-
-                  <div
-                    className="
-                      rounded-2xl
-                      border
-                      border-red-500/10
-                      bg-red-500/[0.04]
-                      p-2.5
-                      sm:p-3
-                    "
-                  >
-                    <p className="text-[8px] font-bold text-white/35 sm:text-[9px]">
-                      Check-out
-                    </p>
-
-                    <p className="mt-1 text-xs font-black text-red-400 sm:text-sm">
-                      {formatTime(
-                        selectedFromMarkers.checkOut
-                      )}
-                    </p>
-                  </div>
-                </div>
-
-                {/* ═══════════════════════════
-                    GPS
-                ═══════════════════════════ */}
-
-                <div
-                  className="
-                    mt-2
-                    flex
-                    items-center
-                    justify-between
-                    rounded-xl
-                    bg-black/10
-                    px-3
-                    py-2
-                    sm:mt-3
-                    sm:py-2.5
-                  "
-                >
-                  <span className="text-[8px] font-bold text-white/30 sm:text-[9px]">
-                    GPS LOCATION
-                  </span>
-
-                  <span className="text-[8px] font-mono text-white/60 sm:text-[10px]">
-                    {selectedFromMarkers.latitude.toFixed(
-                      5
-                    )}
-                    ,{" "}
-                    {selectedFromMarkers.longitude.toFixed(
-                      5
-                    )}
-                  </span>
-                </div>
+        {!positionSetupDone && (
+          <div className="rounded-3xl border border-amber-500/40 bg-amber-500/10 p-6 space-y-4 shadow-xl">
+            <div className="flex items-start gap-3">
+              <Building2 className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-bold text-amber-300">Ish joyi manzilini belgilang</p>
+                <p className="text-xs text-amber-400/80 mt-0.5">
+                  Bu bir martalik sozlama. Hozirgi joylashuvingiz ish joyi sifatida saqlanadi.
+                </p>
               </div>
             </div>
+
+            {positionSetupStep === "idle" && (
+              <div className="space-y-3">
+                {!gps.coords ? (
+                  <button
+                    onClick={gps.locate}
+                    disabled={gps.loading}
+                    className="w-full py-3 rounded-2xl text-sm font-bold bg-amber-600 hover:bg-amber-700 text-white flex items-center justify-center gap-2 transition-colors shadow-lg shadow-amber-600/25"
+                  >
+                    {gps.loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4" />}
+                    {gps.loading ? "Aniqlanmoqda..." : "Joylashuvni aniqlash"}
+                  </button>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="rounded-2xl bg-[var(--bg-main)] p-4 text-xs text-amber-200 space-y-1 border border-amber-500/20">
+                      <p>📍 Kenglik: <span className="font-mono">{gps.coords.lat.toFixed(6)}</span></p>
+                      <p>📍 Uzunlik: <span className="font-mono">{gps.coords.lng.toFixed(6)}</span></p>
+                      <p>🎯 Aniqlik: ±{Math.round(gps.coords.accuracy)}m</p>
+                    </div>
+
+                    <div className="w-full h-48 rounded-2xl overflow-hidden border border-amber-500/30">
+                      <YMaps query={{ apikey: process.env.NEXT_PUBLIC_YANDEX_MAPS_KEY }}>
+                        <Map
+                          state={{ center: [gps.coords.lat, gps.coords.lng], zoom: 16 }}
+                          style={{ width: "100%", height: "100%" }}
+                        >
+                          <Placemark geometry={[gps.coords.lat, gps.coords.lng]} />
+                        </Map>
+                      </YMaps>
+                    </div>
+
+                    <button
+                      onClick={() => setPositionSetupStep("confirming")}
+                      className="w-full py-3 rounded-2xl text-sm font-bold bg-amber-600 hover:bg-amber-700 text-white flex items-center justify-center gap-2 transition-colors shadow-lg shadow-amber-600/25"
+                    >
+                      <Building2 className="w-4 h-4" />
+                      Shu joylashuvni ish joyi sifatida saqlash
+                    </button>
+                  </div>
+                )}
+                {gps.error && (
+                  <p className="text-xs text-red-400 flex items-start gap-1.5 font-medium">
+                    <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" /> {gps.error}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {positionSetupStep === "confirming" && (
+              <div className="space-y-3">
+                <p className="text-xs text-amber-300 font-semibold">
+                  ⚠️ Tasdiqlash: Hozirgi joylashuvingiz ish joyi sifatida saqlansinmi?
+                </p>
+                {positionSaveError && (
+                  <p className="text-xs text-red-400 font-medium">❌ {positionSaveError}</p>
+                )}
+                <div className="flex gap-3">
+                  <button
+                    onClick={savePositionGps}
+                    className="flex-1 py-2.5 rounded-2xl text-sm font-bold bg-amber-600 hover:bg-amber-700 text-white transition-colors"
+                  >
+                    Ha, saqlash
+                  </button>
+                  <button
+                    onClick={() => { setPositionSetupStep("idle"); gps.locate(); }}
+                    className="flex-1 py-2.5 rounded-2xl text-sm font-bold bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors"
+                  >
+                    Qayta aniqlash
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {positionSetupStep === "saving" && (
+              <div className="flex items-center justify-center gap-2 py-2 text-amber-300 text-sm font-semibold">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Saqlanmoqda...
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        )}
 
-      {/* ═══════════════════════════════════════
-          GLOBAL ANIMATIONS
-      ═══════════════════════════════════════ */}
+        {isLoading ? (
+          <div className="rounded-3xl border border-[var(--border)] bg-[var(--bg-card)] p-6 animate-pulse h-36" />
+        ) : data ? (
+          <TodayCard record={data} />
+        ) : (
+          <div className="rounded-3xl border border-[var(--border)] bg-[var(--bg-card)] p-8 text-center text-sm text-[var(--text-muted)] space-y-3 shadow-xl">
+            <Clock className="w-8 h-8 mx-auto opacity-40 text-indigo-400" />
+            <p className="font-semibold">Bugun hali davomat belgilanmagan</p>
+          </div>
+        )}
 
-      <style jsx global>{`
-        @keyframes sheetUp {
-          from {
-            opacity: 0;
-            transform: translateY(45px) scale(0.97);
-          }
+        {isComplete && (
+          <div className="rounded-3xl border border-emerald-500/30 bg-emerald-500/10 p-5 flex items-center gap-3 shadow-lg">
+            <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+            <p className="text-sm text-emerald-400 font-bold">
+              Bugungi davomat to&apos;liq belgilandi!
+            </p>
+          </div>
+        )}
 
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
+        {mutation.isSuccess && (
+          <div className="rounded-3xl border border-emerald-500/30 bg-emerald-500/10 p-5 flex items-center gap-3 shadow-lg">
+            <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+            <p className="text-sm text-emerald-400 font-bold">
+              {mutation.data?.action === "CHECK_IN" ? "Check-in muvaffaqiyatli!" : "Check-out muvaffaqiyatli!"}
+            </p>
+          </div>
+        )}
 
-        .scrollbar-none {
-          scrollbar-width: none;
-          -ms-overflow-style: none;
-        }
+        {mutation.isError && (
+          <div className="rounded-3xl border border-red-500/30 bg-red-500/10 p-5 flex items-start gap-3 shadow-lg">
+            <XCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-red-400 font-medium">
+              {(mutation.error as any)?.response?.data?.message
+                ?? "Xatolik yuz berdi. Qayta urinib ko'ring."}
+            </p>
+          </div>
+        )}
 
-        .scrollbar-none::-webkit-scrollbar {
-          display: none;
-        }
+        {!isComplete && (
+          <div className="space-y-5">
+            {/* Ish joyi cardi */}
+            <div className="rounded-3xl border border-[var(--border)] bg-[var(--bg-card)] p-6 space-y-4 shadow-xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-indigo-400" />
+                  <span className="text-sm font-bold text-[var(--text-primary)]">Hozirgi ish joyi</span>
+                </div>
+                {gps.coords ? (
+                  <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full font-bold border border-emerald-500/20">
+                    Aniqlandi ✓
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full font-bold border border-amber-500/20">
+                    Majburiy
+                  </span>
+                )}
+              </div>
 
-        @media (max-width: 640px) {
-          @keyframes sheetUp {
-            from {
-              opacity: 0;
-              transform: translateY(100%);
-            }
+              {gps.coords ? (
+                <div className="space-y-3">
+                  <div className="text-xs text-[var(--text-muted)] space-y-1 bg-[var(--bg-main)] p-3.5 rounded-2xl border border-[var(--border)] font-medium">
+                    <p>Kenglik: <span className="text-[var(--text-primary)] font-mono">{gps.coords.lat.toFixed(6)}</span></p>
+                    <p>Uzunlik: <span className="text-[var(--text-primary)] font-mono">{gps.coords.lng.toFixed(6)}</span></p>
+                    <p>Aniqlik: <span className="text-[var(--text-primary)] font-mono">±{Math.round(gps.coords.accuracy)}m</span></p>
+                  </div>
 
-            to {
-              opacity: 1;
-              transform: translateY(0);
-            }
-          }
-        }
-      `}</style>
+                  <div className="w-full h-48 rounded-2xl overflow-hidden border border-[var(--border)] shadow-inner">
+                    <YMaps query={{ apikey: "SIZNING_YANDEX_MAP_KEYINGIZ" }}>
+                      <Map
+                        state={{ center: [gps.coords.lat, gps.coords.lng], zoom: 16 }}
+                        style={{ width: "100%", height: "100%" }}
+                      >
+                        <Placemark geometry={[gps.coords.lat, gps.coords.lng]} />
+                      </Map>
+                    </YMaps>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-[var(--text-muted)] font-medium">
+                  Ish joyingizning manzilini aniqlash uchun quyidagi tugmani bosing
+                </p>
+              )}
+
+              {gps.error && (
+                <p className="text-xs text-red-400 flex items-start gap-1.5 font-medium">
+                  <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                  {gps.error}
+                </p>
+              )}
+
+              <button
+                onClick={gps.locate}
+                disabled={gps.loading}
+                className={cn(
+                  "w-full py-3 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-sm",
+                  gps.coords
+                    ? "bg-[var(--bg-main)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] border border-[var(--border)]"
+                    : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-600/25",
+                )}
+              >
+                {gps.loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4" />}
+                {gps.loading ? "Aniqlanmoqda..." : gps.coords ? "Qayta aniqlash" : "Manzilni aniqlash"}
+              </button>
+            </div>
+
+            {/* Selfie cardi */}
+            <div className="rounded-3xl border border-[var(--border)] bg-[var(--bg-card)] p-6 space-y-4 shadow-xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Camera className="w-4 h-4 text-indigo-400" />
+                  <span className="text-sm font-bold text-[var(--text-primary)]">Selfie</span>
+                </div>
+                {cam.capturedFile ? (
+                  <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full font-bold border border-emerald-500/20">
+                    Olindi ✓
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full font-bold border border-amber-500/20">
+                    Majburiy
+                  </span>
+                )}
+              </div>
+
+              {cam.error && (
+                <p className="text-xs text-red-400 flex items-start gap-1.5 font-medium">
+                  <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                  {cam.error}
+                </p>
+              )}
+
+              <div className={cn("space-y-3", !cam.active && "hidden")}>
+                <div className="relative rounded-2xl overflow-hidden bg-black aspect-square shadow-inner">
+                  <video
+                    ref={cam.videoRef}
+                    className="w-full h-full object-cover"
+                    autoPlay
+                    playsInline
+                    muted
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="w-44 h-52 rounded-full border-2 border-white/60 border-dashed" />
+                  </div>
+                </div>
+                <canvas ref={cam.canvasRef} className="hidden" />
+                <div className="flex gap-3">
+                  <button
+                    onClick={cam.capture}
+                    className="flex-1 py-3 rounded-2xl text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center gap-2 transition-colors shadow-lg shadow-indigo-600/25"
+                  >
+                    <Camera className="w-4 h-4" />
+                    Suratga olish
+                  </button>
+                  <button
+                    onClick={cam.stopCamera}
+                    className="px-5 py-3 rounded-2xl text-sm font-bold bg-[var(--bg-main)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] transition-colors border border-[var(--border)]"
+                  >
+                    Bekor
+                  </button>
+                </div>
+              </div>
+
+              {cam.preview && !cam.active && (
+                <div className="space-y-3 text-center">
+                  <img
+                    src={cam.preview}
+                    alt="selfie preview"
+                    className="w-32 h-32 rounded-2xl object-cover mx-auto ring-4 ring-indigo-500/30 shadow-lg"
+                  />
+                  <button
+                    onClick={cam.reset}
+                    className="w-full py-3 rounded-2xl text-sm font-bold bg-[var(--bg-main)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] flex items-center justify-center gap-2 transition-colors border border-[var(--border)]"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Qayta olish
+                  </button>
+                </div>
+              )}
+
+              {!cam.preview && !cam.active && (
+                <button
+                  onClick={cam.startCamera}
+                  className="w-full py-3 rounded-2xl text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center gap-2 transition-colors shadow-lg shadow-indigo-600/25"
+                >
+                  <Camera className="w-4 h-4" />
+                  Kamerani ochish
+                </button>
+              )}
+            </div>
+
+            {showEarlyWarning && (
+              <div className="rounded-3xl border border-orange-500/40 bg-orange-500/10 p-5 space-y-3 shadow-xl">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-bold text-orange-300">Ish vaqti hali tugamadi</p>
+                    <p className="text-xs text-orange-400/80 mt-1 font-medium">
+                      Ish tugash vaqti: <span className="font-bold text-orange-300">{expectedCheckOut?.format("HH:mm")}</span>
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => mutation.mutate()}
+                    disabled={mutation.isPending}
+                    className="flex-1 py-3 rounded-2xl text-sm font-bold bg-orange-600 hover:bg-orange-700 text-white flex items-center justify-center gap-2 transition-colors shadow-lg shadow-orange-600/25"
+                  >
+                    {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogOut className="w-4 h-4" />}
+                    Baribir chiqish
+                  </button>
+                  <button
+                    onClick={() => setShowEarlyWarning(false)}
+                    className="flex-1 py-3 rounded-2xl text-sm font-bold bg-[var(--bg-main)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] transition-colors border border-[var(--border)]"
+                  >
+                    Bekor qilish
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {!showEarlyWarning && (
+              <button
+                onClick={handleSubmit}
+                disabled={!canSubmit}
+                className={cn(
+                  "w-full py-4 rounded-3xl text-base font-black flex items-center justify-center gap-2.5 transition-all shadow-xl",
+                  canSubmit
+                    ? `${actionColor} text-white`
+                    : "bg-[var(--bg-card)] text-[var(--text-muted)] cursor-not-allowed border border-[var(--border)] opacity-60",
+                )}
+              >
+                {mutation.isPending ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <ActionIcon className="w-5 h-5" />
+                )}
+                {mutation.isPending ? "Yuborilmoqda..." : actionLabel}
+              </button>
+            )}
+
+            {isCheckedIn && !isCheckedOut && !canCheckOut && (
+              <div className="flex items-center gap-3 px-5 py-4 rounded-3xl bg-amber-500/10 border border-amber-500/25 shadow-xl">
+                <span className="text-xl">⏳</span>
+                <div>
+                  <p className="text-xs font-bold text-amber-300">Check-out hali erta</p>
+                  <p className="text-xs text-amber-400/85 font-medium">
+                    {checkOutWaitMin} daqiqadan so&apos;ng check-out qilish mumkin (minimum 2 soat)
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {missingMsg && !mutation.isPending && !showEarlyWarning && canCheckOut && (
+              <p className="text-center text-xs text-[var(--text-muted)] font-bold">
+                ⬆ {missingMsg}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
