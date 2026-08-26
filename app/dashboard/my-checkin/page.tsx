@@ -137,15 +137,17 @@ function useGPS() {
 
 // ─── Live location tracking ───────────────────────────────────────────────────
 function useLiveTracking(
-  isCheckedIn: boolean, 
+  isCheckedIn: boolean,
   isCheckedOut: boolean,
   expectedCheckOut: string | null | undefined,
 ) {
- const sendLocation = useCallback(async () => {
-  if (process.env.NODE_ENV === "development") {
-    console.log('📍 sendLocation called', { isCheckedIn, isCheckedOut });
-  }
- navigator.geolocation.getCurrentPosition(
+  // sendLocation ref orqali — har safar yangi coords oladi
+  const sendLocationRef = useRef<() => Promise<void>>();
+
+  sendLocationRef.current = async () => {
+    if (!isCheckedIn || isCheckedOut) return;
+
+    navigator.geolocation.getCurrentPosition(
       async (pos) => {
         try {
           let battery: number | undefined;
@@ -164,25 +166,40 @@ function useLiveTracking(
         }
       },
       () => {},
-      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 0 },
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 30_000 },
     );
-  }, [expectedCheckOut]);
+  };
 
   useEffect(() => {
-    // Check-out bo'lgan yoki check-in yo'q bo'lsa — tracking yo'q
     if (!isCheckedIn || isCheckedOut) return;
 
-    // Ish soati tugaganmi tekshirish
     if (expectedCheckOut) {
       const now = new Date();
       const endTime = new Date(expectedCheckOut);
       if (now > endTime) return;
     }
 
-    sendLocation();
-    const interval = setInterval(sendLocation, 3 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [isCheckedIn, isCheckedOut, expectedCheckOut, sendLocation]);
+    // Darhol bir marta yuborish
+    sendLocationRef.current?.();
+
+    // Visibility change — sahifa ko'rinib qolganda darhol yuborish
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        sendLocationRef.current?.();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // 3 daqiqada bir marta
+    const interval = setInterval(() => {
+      sendLocationRef.current?.();
+    }, 3 * 60 * 1000);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isCheckedIn, isCheckedOut, expectedCheckOut]);
 }
 
 // ─── Today status card (Profil sahifasidagi kabi gradientli va bezakli card) ────
@@ -258,7 +275,7 @@ export default function MyCheckinPage() {
   const qc   = useQueryClient();
   const cam  = useCameraCapture();
   const gps  = useGPS();
-  const { user } = useAuthStore();
+  const { user, updateEmployeeGps } = useAuthStore();
 
   const empName = user?.employee?.fullName ?? user?.username ?? "Xodim";
 
@@ -312,22 +329,23 @@ export default function MyCheckinPage() {
     },
   });
 
- const savePositionGps = useCallback(async () => {
+const savePositionGps = useCallback(async () => {
   if (!gps.coords) return;
   setPositionSetupStep("saving");
   setPositionSaveError(null);
   try {
     await attendanceApi.setPositionGps(gps.coords.lat, gps.coords.lng);
+
+    // Store'ni darhol yangilash — sahifa refresh kutmasdan banner yo'qoladi
+    updateEmployeeGps(gps.coords.lat, gps.coords.lng);
+
     setPositionSetupDone(true);
     setPositionSetupStep("idle");
-    // Auth profilini yangilaymiz — user.employee.gpsLat keyingi sahifa
-    // yuklanishlarida (masalan qayta login qilganda) to'g'ri kelsin
-    qc.invalidateQueries({ queryKey: ["auth-profile"] });
   } catch (e: any) {
     setPositionSaveError(e?.response?.data?.message ?? "Saqlashda xatolik");
     setPositionSetupStep("confirming");
   }
-}, [gps.coords, qc]);
+}, [gps.coords, updateEmployeeGps]);
 
   const isCheckedIn  = !!data?.checkIn;
   const isCheckedOut = !!data?.checkOut;

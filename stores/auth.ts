@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
@@ -22,6 +23,7 @@ interface AuthStore {
   isAuthenticated: () => boolean;
   setSelectedHospital: (h: { id: string; name: string; code: string } | null) => void;
   updateHospitalGps: (lat: number, lng: number) => void;
+  updateEmployeeGps: (lat: number, lng: number) => void;
 }
 
 /** Next.js middleware uchun cookie saqlash yordamchisi */
@@ -51,7 +53,6 @@ export const useAuthStore = create<AuthStore>()(
         if (typeof window !== "undefined") {
           localStorage.removeItem("access_token");
           localStorage.removeItem("user");
-          // React Query cache ni tozalaymiz
           import('../providers').then(({ globalQueryClient }) => {
             globalQueryClient?.clear();
           });
@@ -60,7 +61,6 @@ export const useAuthStore = create<AuthStore>()(
       },
       isAuthenticated: () => !!get().token,
       setSelectedHospital: (h) => set({ selectedHospital: h }),
-      /** Hospital GPS o'rnatilgandan so'ng store ni yangilash */
       updateHospitalGps: (lat: number, lng: number) => {
         const user = get().user;
         if (!user) return;
@@ -71,16 +71,27 @@ export const useAuthStore = create<AuthStore>()(
           },
         });
       },
+      updateEmployeeGps: (lat: number, lng: number) => {
+        const user = get().user;
+        if (!user) return;
+        set({
+          user: {
+            ...user,
+            employee: user.employee
+              ? { ...user.employee, gpsLat: lat, gpsLng: lng }
+              : user.employee,
+          },
+        });
+      },
     }),
     {
       name: "auth-storage",
-      // Faqat data fieldlarni saqlash — funksiyalar saqlanmasin
-      partialize: (state) => ({
+      partialize: (state: AuthStore) => ({
         token: state.token,
         user: state.user,
         selectedHospital: state.selectedHospital,
       }),
-      onRehydrateStorage: () => (state) => {
+      onRehydrateStorage: () => (state: AuthStore | undefined) => {
         if (state?.token && typeof window !== "undefined") {
           localStorage.setItem("access_token", state.token);
           setAuthCookie(state.token);
@@ -89,3 +100,4 @@ export const useAuthStore = create<AuthStore>()(
     }
   )
 );
+
