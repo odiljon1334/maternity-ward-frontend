@@ -26,14 +26,19 @@ interface AttendanceEvent {
   status?: string;
 }
 
-/** "Hozirgina" / "5 daq oldin" ko'rinishi */
+/**
+ * "hozirgina" / "5 daq oldin" — soat yonida QO'SHIMCHA izoh sifatida.
+ *
+ * ⚠️ 1 soatdan oshganda bo'sh qaytaradi: aks holda soat ikki marta
+ * chiqib qolardi ("18:31 18:31").
+ */
 function relTime(iso?: string): string {
   if (!iso) return "";
   const diffSec = Math.max(0, dayjs().diff(dayjs(iso), "second"));
   if (diffSec < 45) return "hozirgina";
   const min = Math.round(diffSec / 60);
   if (min < 60) return `${min} daq oldin`;
-  return dayjs(iso).format("HH:mm");
+  return "";
 }
 
 /**
@@ -265,7 +270,9 @@ export default function RealtimeAttendanceFeed({
                 </span>
                 <span className="text-[10px] text-[var(--text-muted)] font-mono">
                   {ev.at ? dayjs(ev.at).format("HH:mm") : ""}
-                  <span className="ml-1 opacity-60">{relTime(ev.at)}</span>
+                  {relTime(ev.at) && (
+                    <span className="ml-1 opacity-60">{relTime(ev.at)}</span>
+                  )}
                 </span>
               </div>
             </div>
