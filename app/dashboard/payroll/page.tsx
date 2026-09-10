@@ -47,7 +47,7 @@ function PayrollPreviewModal({
   const monthLabel   = dayjs().month(month - 1).format("MMMM");
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center sheet-safe justify-center p-0 sm:p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div className="relative card w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl overflow-hidden">
         {/* Header */}

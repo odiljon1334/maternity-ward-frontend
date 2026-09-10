@@ -88,7 +88,7 @@ export function ArchivedBioModal({ empId, onClose }: ArchivedBioModalProps) {
     : 0;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 sm:py-6 font-sans">
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center sheet-safe justify-center p-0 sm:p-4 sm:py-6 font-sans">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-slate-900/40 dark:bg-slate-950/80 backdrop-blur-md transition-opacity duration-200" onClick={onClose} />
 

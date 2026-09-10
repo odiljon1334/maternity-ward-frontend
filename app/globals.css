@@ -281,3 +281,14 @@ html.dark ::-webkit-scrollbar-thumb:hover {
 .animate-ios-sheet {
   animation: iosSheet .55s cubic-bezier(.22,1,.36,1) forwards;
 }
+/* ─────────────────────────────────────────────────────────────────────────
+   Mobil modal ("bottom sheet") uchun xavfsiz zona.
+
+   Mobilda modallar ekran pastiga yopishadi (items-end). iPhone'da o'sha
+   joyda "home indicator" chizig'i bo'ladi va tugmalar uning ostida qolib
+   ketadi. Bu qoida sheet'ni shu balandlikka ko'taradi.
+   Desktopda (sm:) modal markazda bo'lgani uchun ta'sir qilmaydi.
+   ───────────────────────────────────────────────────────────────────────── */
+.sheet-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}

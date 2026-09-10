@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { attendanceApi, departmentsApi, photoThumbUrl } from "@/lib/api";
@@ -172,6 +172,40 @@ export default function AttendancePage() {
       return true;
     });
   }, [records, searchQuery, statusFilter, shiftFilter]);
+
+  // ── Sekin-asta ko'rsatish ────────────────────────────────────────────────────
+  // 525 xodimni bir vaqtda chizish mobilda ham, desktopda ham og'ir.
+  // Pastga yetganda porsiya-porsiya qo'shiladi (sahifa scrolli bo'yicha).
+  const PAGE_SIZE = 20;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  // Filtr/sana o'zgarsa — boshidan
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [date, searchQuery, deptFilter, statusFilter, shiftFilter]);
+
+  const visibleRecords = useMemo(
+    () => filteredRecords.slice(0, visibleCount),
+    [filteredRecords, visibleCount],
+  );
+  const hasMore = visibleCount < filteredRecords.length;
+
+  useEffect(() => {
+    if (!hasMore) return;
+    const el = sentinelRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setVisibleCount((c) => Math.min(c + PAGE_SIZE, filteredRecords.length));
+        }
+      },
+      { rootMargin: "200px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasMore, filteredRecords.length]);
 
   // ─────────────────────────────────────────────────────────────────────────────
 
@@ -389,7 +423,9 @@ export default function AttendancePage() {
 
       {/* Main Table */}
       <div className="bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-380px)]">
+        {/* Jadval — faqat sm: dan yuqorida. Mobilda kartochkalar ko'rsatiladi
+            (ichki vertikal scroll o'rniga sahifaning o'zi scroll bo'ladi) */}
+        <div className="hidden sm:block overflow-x-auto overflow-y-auto max-h-[calc(100vh-380px)]">
           <table className="w-full text-left text-xs">
             <thead className="sticky top-0 bg-slate-100/95 dark:bg-slate-950/95 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase font-semibold tracking-wider z-20">
               <tr>
@@ -418,7 +454,7 @@ export default function AttendancePage() {
               ))}
 
               {/* Rows */}
-              {!isLoading && filteredRecords.map((r: any) => {
+              {!isLoading && visibleRecords.map((r: any) => {
                 const isNoSchedule = r.status === "NO_SCHEDULE";
                 const isOffDuty    = OFF_DUTY_STATUSES.has(r.status);
                 const isDimmed     = isNoSchedule || isOffDuty;
@@ -569,9 +605,120 @@ export default function AttendancePage() {
           </table>
         </div>
 
+        {/* ── Mobil ko'rinish: kartochkalar ── */}
+        <div className="sm:hidden divide-y divide-slate-200 dark:divide-slate-800">
+          {isLoading && [...Array(6)].map((_, i) => (
+            <div key={i} className="p-4 space-y-2">
+              <div className="h-4 w-40 rounded bg-slate-200 dark:bg-slate-800 animate-pulse" />
+              <div className="h-3 w-24 rounded bg-slate-200 dark:bg-slate-800 animate-pulse" />
+            </div>
+          ))}
+
+          {!isLoading && visibleRecords.map((r: any) => {
+            const isNoSchedule = r.status === "NO_SCHEDULE";
+            const isOffDuty    = OFF_DUTY_STATUSES.has(r.status);
+            const st = STATUS_CONFIG[r.status] ?? {
+              label: r.status,
+              badgeCls: "bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-300",
+            };
+            const isNight = r.schedule?.shift?.type === "NIGHTTIME" ||
+              (r.expectedCheckIn ? dayjs(r.expectedCheckIn).hour() >= 14 : false);
+
+            return (
+              <div
+                key={r.id}
+                onClick={() => r.employee?.id && router.push(`/dashboard/employees/${r.employee.id}`)}
+                className={cn(
+                  "p-4 active:bg-slate-50 dark:active:bg-slate-800/40 transition-colors",
+                  (isNoSchedule || isOffDuty) && "opacity-70"
+                )}
+              >
+                {/* Yuqori qator: xodim + holat */}
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 flex-shrink-0 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60">
+                    {r.employee?.photoUrl ? (
+                      <img
+                        src={photoThumbUrl(r.employee.photoUrl)}
+                        alt={r.employee.fullName}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    ) : (
+                      <div className={cn("w-full h-full flex items-center justify-center font-bold text-xs text-white", getAvatarColor(r.employee?.fullName || ""))}>
+                        {getInitials(r.employee?.fullName || "?")}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-slate-800 dark:text-slate-200 text-sm truncate">
+                      {r.employee?.fullName || "—"}
+                    </p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                      {r.employee?.department?.name || "—"} · {r.employee?.position?.name || "—"}
+                    </p>
+                  </div>
+
+                  <span className={cn(
+                    "flex-shrink-0 text-[10px] font-semibold px-2 py-1 rounded-lg border whitespace-nowrap",
+                    st.badgeCls
+                  )}>
+                    {st.label}
+                  </span>
+                </div>
+
+                {/* Pastki qator: vaqtlar */}
+                <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                  <div className="rounded-lg bg-slate-50 dark:bg-slate-800/40 py-1.5">
+                    <p className="text-[9px] uppercase tracking-wide text-slate-400">Kelish</p>
+                    <p className="text-xs font-mono font-semibold text-slate-800 dark:text-slate-200">
+                      {r.checkIn ? dayjs(r.checkIn).format("HH:mm") : "—"}
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-slate-50 dark:bg-slate-800/40 py-1.5">
+                    <p className="text-[9px] uppercase tracking-wide text-slate-400">Ketish</p>
+                    <p className="text-xs font-mono text-slate-600 dark:text-slate-400">
+                      {r.checkOut ? dayjs(r.checkOut).format("HH:mm") : "—"}
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-slate-50 dark:bg-slate-800/40 py-1.5">
+                    <p className="text-[9px] uppercase tracking-wide text-slate-400">Smena</p>
+                    <p className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                      {isNoSchedule ? "Yo'q" : isOffDuty ? "—" : isNight ? "Kechki" : "Kunduzgi"}
+                    </p>
+                  </div>
+                </div>
+
+                {(r.lateMinutes ?? 0) > 0 && (
+                  <p className="mt-2 text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                    ⏱ {r.lateMinutes} daqiqa kechikdi
+                  </p>
+                )}
+              </div>
+            );
+          })}
+
+          {!isLoading && filteredRecords.length === 0 && (
+            <div className="py-12 text-center text-xs text-slate-400 dark:text-slate-500">
+              Xodim topilmadi
+            </div>
+          )}
+        </div>
+
+        {/* Scroll sentinel — ko'ringanda keyingi porsiya qo'shiladi */}
+        {!isLoading && hasMore && (
+          <div ref={sentinelRef} className="py-4 text-center text-[11px] text-slate-400 dark:text-slate-500 border-t border-slate-200 dark:border-slate-800">
+            <span className="inline-flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
+              Yana {filteredRecords.length - visibleCount} xodim yuklanmoqda...
+            </span>
+          </div>
+        )}
+
         {/* Footer */}
         <div className="px-4 py-2.5 bg-slate-50 dark:bg-slate-950/80 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500">
-          <span>Ko&apos;rsatilmoqda: {filteredRecords.length} / {records.length} xodim</span>
+          <span>Ko&apos;rsatilmoqda: {visibleRecords.length} / {filteredRecords.length} xodim</span>
           <span>Avtomatik yangilanish: Har 1 daqiqada</span>
         </div>
       </div>
