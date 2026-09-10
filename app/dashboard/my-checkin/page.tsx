@@ -107,30 +107,99 @@ function useCameraCapture() {
 }
 
 // ─── GPS hook ──────────────────────────────────────────────────────────────────
+
+/** Shu aniqlikka yetganda qidiruv to'xtaydi — bundan yaxshisini kutish shart emas */
+const GPS_TARGET_ACCURACY_M = 25;
+/** Ish joyini saqlash uchun ruxsat etilgan eng past aniqlik.
+ *  ⚠️ Next.js sahifa fayllarida faqat maxsus export'larga ruxsat bor —
+ *  shuning uchun bu konstanta export qilinmaydi. */
+const GPS_MAX_SAVE_ACCURACY_M = 75;
+/** Sun'iy yo'ldosh qulfini kutish muddati */
+const GPS_MAX_WAIT_MS = 25_000;
+
 function useGPS() {
   const [coords,  setCoords]  = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState<string | null>(null);
+  const watchRef = useRef<number | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const stop = useCallback(() => {
+    if (watchRef.current !== null) {
+      navigator.geolocation.clearWatch(watchRef.current);
+      watchRef.current = null;
+    }
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  /**
+   * ⚠️ getCurrentPosition BIRINCHI kelgan koordinatani beradi — telefonda bu
+   * deyarli har doim Wi-Fi / uyali antenna orqali aniqlangan taxminiy nuqta
+   * bo'ladi (aniqlik 500–3000 m). GPS chipi sun'iy yo'ldoshni ushlashi uchun
+   * 10–40 soniya kerak. Shu sabab xodim ish joyida turgan bo'lsa ham har safar
+   * bir xil "uzoqroq" nuqta yozilardi.
+   *
+   * Endi watchPosition ishlatiladi: koordinata aniqlashgani sari yangilanadi,
+   * eng aniqi saqlanadi va yetarli aniqlikka yetganda to'xtaydi.
+   */
   const locate = useCallback(() => {
     if (!navigator.geolocation) {
       setError("Brauzeringiz GPS ni qo'llab-quvvatlamaydi");
       return;
     }
+    stop();
     setLoading(true);
     setError(null);
-    navigator.geolocation.getCurrentPosition(
+    setCoords(null);
+
+    let best: { lat: number; lng: number; accuracy: number } | null = null;
+
+    watchRef.current = navigator.geolocation.watchPosition(
       (pos) => {
-        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy });
-        setLoading(false);
+        const next = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+        };
+        // Faqat aniqroq o'lchov qabul qilinadi
+        if (!best || next.accuracy < best.accuracy) {
+          best = next;
+          setCoords(next);
+        }
+        if (next.accuracy <= GPS_TARGET_ACCURACY_M) {
+          stop();
+          setLoading(false);
+        }
       },
-      () => {
-        setError("GPS joylashuvini aniqlab bo'lmadi. Ruxsat bering va qayta urinib ko'ring.");
+      (err) => {
+        stop();
         setLoading(false);
+        if (!best) {
+          setError(
+            err.code === err.PERMISSION_DENIED
+              ? "Joylashuvga ruxsat berilmagan. Brauzer sozlamalaridan ruxsat bering."
+              : "GPS joylashuvini aniqlab bo'lmadi. Ochiq joyga chiqib qayta urinib ko'ring.",
+          );
+        }
       },
-      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 0 },
+      { enableHighAccuracy: true, timeout: GPS_MAX_WAIT_MS, maximumAge: 0 },
     );
-  }, []);
+
+    // Belgilangan vaqt tugasa — eng aniq o'lchov bilan to'xtaymiz
+    timerRef.current = setTimeout(() => {
+      stop();
+      setLoading(false);
+      if (!best) {
+        setError("GPS signal topilmadi. Ochiq joyga chiqib qayta urinib ko'ring.");
+      }
+    }, GPS_MAX_WAIT_MS);
+  }, [stop]);
+
+  // Sahifadan chiqilganda kuzatuvni to'xtatamiz
+  useEffect(() => stop, [stop]);
 
   return { coords, loading, error, locate };
 }
@@ -205,6 +274,10 @@ function useLiveTracking(
 // ─── Today status card (Profil sahifasidagi kabi gradientli va bezakli card) ────
 function TodayCard({ record }: { record: any }) {
   const status = STATUS_MAP[record.status] ?? { label: record.status, cls: "bg-slate-500/20 text-slate-400 border-slate-500/30" };
+
+  // Grafik bo'yicha rejadagi kelish/ketish vaqtlari
+  const planIn  = record.expectedCheckIn  ? dayjs(record.expectedCheckIn).format("HH:mm")  : null;
+  const planOut = record.expectedCheckOut ? dayjs(record.expectedCheckOut).format("HH:mm") : null;
   
   return (
     <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-950/60 via-[var(--bg-card)] to-purple-950/40 border border-[var(--border)] p-6 shadow-2xl space-y-5">
@@ -232,6 +305,9 @@ function TodayCard({ record }: { record: any }) {
             <LogIn className="w-3 h-3 text-emerald-400" /> Keldi
           </p>
           <p className="text-xl font-black text-emerald-400 tracking-tight">{fmt(record.checkIn)}</p>
+          {planIn && (
+            <p className="text-[9px] text-[var(--text-muted)] font-mono mt-0.5">Reja: {planIn}</p>
+          )}
           {record.lateMinutes > 0 && (
             <span className="inline-block text-[9px] text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded mt-1 font-semibold border border-amber-500/20">
               +{record.lateMinutes} min kech
@@ -264,6 +340,9 @@ function TodayCard({ record }: { record: any }) {
           <p className={cn("text-xl font-black tracking-tight", record.checkOut ? "text-rose-400" : "text-[var(--text-muted)] opacity-60")}>
             {fmt(record.checkOut)}
           </p>
+          {planOut && (
+            <p className="text-[9px] text-[var(--text-muted)] font-mono mt-0.5">Reja: {planOut}</p>
+          )}
         </div>
       </div>
     </div>
@@ -334,7 +413,7 @@ const savePositionGps = useCallback(async () => {
   setPositionSetupStep("saving");
   setPositionSaveError(null);
   try {
-    await attendanceApi.setPositionGps(gps.coords.lat, gps.coords.lng);
+    await attendanceApi.setPositionGps(gps.coords.lat, gps.coords.lng, gps.coords.accuracy);
 
     // Store'ni darhol yangilash — sahifa refresh kutmasdan banner yo'qoladi
     updateEmployeeGps(gps.coords.lat, gps.coords.lng);
@@ -430,8 +509,27 @@ const savePositionGps = useCallback(async () => {
                     <div className="rounded-2xl bg-[var(--bg-main)] p-4 text-xs text-amber-200 space-y-1 border border-amber-500/20">
                       <p>📍 Kenglik: <span className="font-mono">{gps.coords.lat.toFixed(6)}</span></p>
                       <p>📍 Uzunlik: <span className="font-mono">{gps.coords.lng.toFixed(6)}</span></p>
-                      <p>🎯 Aniqlik: ±{Math.round(gps.coords.accuracy)}m</p>
+                      <p className={cn(
+                        "font-semibold",
+                        gps.coords.accuracy > GPS_MAX_SAVE_ACCURACY_M ? "text-rose-400" : "text-emerald-400"
+                      )}>
+                        🎯 Aniqlik: ±{Math.round(gps.coords.accuracy)}m
+                        {gps.loading && <span className="ml-1 opacity-70">— aniqlashtirilmoqda...</span>}
+                      </p>
                     </div>
+
+                    {/* Past aniqlikda saqlash bloklanadi — aks holda ish joyi
+                        Wi-Fi/antenna orqali topilgan uzoq nuqtaga yozilib qoladi */}
+                    {gps.coords.accuracy > GPS_MAX_SAVE_ACCURACY_M && (
+                      <div className="rounded-2xl border border-rose-500/40 bg-rose-500/10 p-3 text-xs text-rose-300 space-y-1">
+                        <p className="font-bold">⚠️ Aniqlik yetarli emas (±{Math.round(gps.coords.accuracy)}m)</p>
+                        <p className="text-rose-300/80">
+                          Hozir joylashuv Wi-Fi/antenna orqali taxminan aniqlanmoqda.
+                          Deraza yoniga yoki ochiq havoga chiqing va bir necha soniya kuting —
+                          aniqlik ±{GPS_MAX_SAVE_ACCURACY_M}m dan yaxshi bo'lishi kerak.
+                        </p>
+                      </div>
+                    )}
 
                     <div className="w-full h-48 rounded-2xl overflow-hidden border border-amber-500/30">
                       <YMaps query={{ apikey: process.env.NEXT_PUBLIC_YANDEX_MAPS_KEY }}>
@@ -444,13 +542,24 @@ const savePositionGps = useCallback(async () => {
                       </YMaps>
                     </div>
 
-                    <button
-                      onClick={() => setPositionSetupStep("confirming")}
-                      className="w-full py-3 rounded-2xl text-sm font-bold bg-amber-600 hover:bg-amber-700 text-white flex items-center justify-center gap-2 transition-colors shadow-lg shadow-amber-600/25"
-                    >
-                      <Building2 className="w-4 h-4" />
-                      Shu joylashuvni ish joyi sifatida saqlash
-                    </button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={gps.locate}
+                        disabled={gps.loading}
+                        className="py-3 rounded-2xl text-xs font-bold border border-amber-500/40 text-amber-300 hover:bg-amber-500/10 flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
+                      >
+                        {gps.loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MapPin className="w-3.5 h-3.5" />}
+                        Qayta o&apos;lchash
+                      </button>
+                      <button
+                        onClick={() => setPositionSetupStep("confirming")}
+                        disabled={gps.coords.accuracy > GPS_MAX_SAVE_ACCURACY_M}
+                        className="py-3 rounded-2xl text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white flex items-center justify-center gap-1.5 transition-colors shadow-lg shadow-amber-600/25 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <Building2 className="w-3.5 h-3.5" />
+                        Saqlash
+                      </button>
+                    </div>
                   </div>
                 )}
                 {gps.error && (

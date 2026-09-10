@@ -45,7 +45,10 @@ interface AttendanceRecord {
 interface ScheduleDay {
   id:         string;
   date:       string;           // ISO string
-  status:     "WORKING" | "DAY_OFF";
+  // ⚠️ Backend ScheduleStatus enum'ining barcha qiymatlarini qaytaradi —
+  //    ilgari bu yerda faqat WORKING | DAY_OFF yozilgan edi
+  status:     "WORKING" | "DAY_OFF" | "VACATION" | "SICK" | "HOLIDAY";
+  note:       string | null;    // "Ta'til: Mehnat ta'tili" kabi izoh
   employeeId: string;
   shift: {
     type:        "DAYTIME" | "NIGHTTIME";
@@ -72,6 +75,27 @@ const STATUS_MAP: Record<string, {
 };
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
+
+/**
+ * Bu kun dam olish kunimi?
+ *
+ * ⚠️ Shanba/Yakshanba emas, GRAFIK hal qiladi — kasalxonada smenali xodimlar
+ * dam olish kunlari ham ishlaydi, va aksincha, ish kunida dam olishi mumkin.
+ * Grafik yozuvi umuman bo'lmasa — eski xatti-harakat (hafta oxiri) saqlanadi.
+ */
+function resolveRestDay(dateStr: string, scheduleDay: ScheduleDay | undefined): boolean {
+  if (scheduleDay) return scheduleDay.status !== "WORKING";
+  const dow = dayjs(dateStr).day(); // 0=Yakshanba, 6=Shanba
+  return dow === 0 || dow === 6;
+}
+
+/** Ishlamaydigan kunning sababi — foydalanuvchiga ko'rsatish uchun */
+const REST_LABELS: Record<string, string> = {
+  DAY_OFF:  "Dam olish kuni",
+  VACATION: "Ta'til",
+  SICK:     "Kasallik",
+  HOLIDAY:  "Bayram",
+};
 
 /** Schedule yoki attendance record dan smena turini aniqlaydi */
 function resolveShiftType(
@@ -179,19 +203,18 @@ export default function MyAttendancePage() {
 
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr   = dayjs(`${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`).format("YYYY-MM-DD");
-      const dow       = dayjs(dateStr).day(); // 0=Ya, 6=Sh
-      const isWeekend = dow === 0 || dow === 6;
       const record    = recordsMap.get(dateStr);
       const schedule  = scheduleMap.get(dateStr);
       const shiftType = resolveShiftType(schedule, record);
       const isFuture  = dayjs(dateStr).isAfter(NOW, "day");
+      const isRestDay = resolveRestDay(dateStr, schedule);
 
       days.push({
         empty: false,
         key: dateStr,
         day: d,
         dateStr,
-        isWeekend,
+        isRestDay,
         isFuture,
         record,
         schedule,
@@ -208,7 +231,7 @@ export default function MyAttendancePage() {
   const selectedSchedule = scheduleMap.get(selectedDate);
   const selectedDayJs    = dayjs(selectedDate);
   const isSelectedToday   = selectedDate === NOW.format("YYYY-MM-DD");
-  const isSelectedWeekend = selectedDayJs.day() === 0 || selectedDayJs.day() === 6;
+  const isSelectedRestDay = resolveRestDay(selectedDate, selectedSchedule);
   const isSelectedFuture  = selectedDayJs.isAfter(NOW, "day");
   const selectedShiftType = resolveShiftType(selectedSchedule, selectedRecord);
 
@@ -331,7 +354,7 @@ export default function MyAttendancePage() {
                       ? "ring-2 ring-indigo-500 border-indigo-500 bg-indigo-500/10"
                       : st
                         ? cn(st.cls, "hover:opacity-80")
-                        : item.isWeekend
+                        : item.isRestDay
                           ? "bg-[var(--bg-hover)] opacity-50 border-[var(--border)]"
                           : item.isFuture
                             ? "border-dashed border-[var(--border)] opacity-40"
@@ -348,7 +371,7 @@ export default function MyAttendancePage() {
                     </span>
 
                     {/* ✅ Real schedule ga asoslangan smena icon */}
-                    {item.isWeekend ? (
+                    {item.isRestDay ? (
                       <Star className="w-3 h-3 text-amber-400/70 flex-shrink-0" />
                     ) : item.shiftType === "NIGHT" ? (
                       <Moon className="w-3 h-3 text-violet-400 flex-shrink-0" />
@@ -381,7 +404,7 @@ export default function MyAttendancePage() {
           schedule={selectedSchedule}
           shiftType={selectedShiftType}
           isToday={isSelectedToday}
-          isWeekend={isSelectedWeekend}
+          isRestDay={isSelectedRestDay}
           isFuture={isSelectedFuture}
           isInOfficeNow={isInOfficeNow}
         />
@@ -427,20 +450,26 @@ interface SelectedDayCardProps {
   schedule?:     ScheduleDay;
   shiftType:     "DAY" | "NIGHT" | null;
   isToday:       boolean;
-  isWeekend:     boolean;
+  isRestDay:     boolean;
   isFuture:      boolean;
   isInOfficeNow: boolean;
 }
 
 function SelectedDayCard({
   dateStr, record, schedule, shiftType,
-  isToday, isWeekend, isFuture, isInOfficeNow,
+  isToday, isRestDay, isFuture, isInOfficeNow,
 }: SelectedDayCardProps) {
   const dayJs = dayjs(dateStr);
   const st    = record ? STATUS_MAP[record.status] : null;
 
+  // Grafikdagi rejadagi kelish/ketish vaqtlari — davomat yozuvi bo'lmasa ham ko'rsatiladi
+  const plannedShift     = schedule?.status === "WORKING" ? schedule.shift : undefined;
+  const plannedStart     = plannedShift?.startTime?.slice(0, 5);
+  const plannedEnd       = plannedShift?.endTime?.slice(0, 5);
+  const plannedOvernight = plannedShift?.isOvernight === true;
+
   // Gradient
-  const gradient = isWeekend
+  const gradient = isRestDay
     ? "from-slate-600 to-slate-800"
     : isFuture
       ? "from-indigo-700 to-slate-800"
@@ -448,9 +477,14 @@ function SelectedDayCard({
         ? st.gradientCls
         : "from-slate-700 to-slate-800";
 
+  // Ishlamaydigan kunning sababi — grafikdan
+  const restLabel = isRestDay
+    ? REST_LABELS[schedule?.status ?? ""] ?? "Dam olish kuni"
+    : null;
+
   // Badge text
-  const badgeText = isWeekend
-    ? "🌴 Dam olish kuni"
+  const badgeText = isRestDay
+    ? `🌴 ${restLabel}`
     : isFuture
       ? "⏳ Kelajak"
       : isInOfficeNow
@@ -460,8 +494,10 @@ function SelectedDayCard({
           : "📋 Davomat yo'q";
 
   // Sarlavha
-  const title = isWeekend
-    ? "Dam olish kuningiz xayrli o'tsin!"
+  const title = isRestDay
+    ? schedule?.status === "DAY_OFF" || !schedule
+      ? "Dam olish kuningiz xayrli o'tsin!"
+      : `${restLabel} — bugun ishlamaysiz`
     : isFuture
       ? "Bu kun hali kelmagan"
       : record
@@ -489,7 +525,7 @@ function SelectedDayCard({
       <div className="px-4 py-2">
         <h4 className="text-base font-bold">{title}</h4>
         {/* Smena turi */}
-        {!isWeekend && !isFuture && shiftType && (
+        {!isRestDay && !isFuture && shiftType && (
           <p className="text-xs text-white/70 mt-0.5 flex items-center gap-1">
             {shiftType === "NIGHT"
               ? <><Moon className="w-3 h-3" /> Kechki smena</>
@@ -505,7 +541,7 @@ function SelectedDayCard({
       </div>
 
       {/* ── Davomat detail rows ── */}
-      {record && !isWeekend && !isFuture && (
+      {record && !isRestDay && !isFuture && (
         <div className="mx-4 mb-4 mt-1 bg-white/10 backdrop-blur-sm rounded-2xl divide-y divide-white/10">
 
           {/* Kelish */}
@@ -570,8 +606,24 @@ function SelectedDayCard({
         </div>
       )}
 
+      {/* Record yo'q, lekin grafik bor — rejadagi kelish/ketish vaqti */}
+      {!record && !isRestDay && plannedStart && (
+        <div className="mx-4 mb-4 mt-1 bg-white/10 backdrop-blur-sm rounded-2xl divide-y divide-white/10">
+          <DetailRow
+            icon={<LogIn className="w-3.5 h-3.5" />}
+            label="Kelish (reja)"
+            value={plannedStart}
+          />
+          <DetailRow
+            icon={<LogOut className="w-3.5 h-3.5" />}
+            label="Ketish (reja)"
+            value={plannedEnd ? `${plannedEnd}${plannedOvernight ? " (+1 kun)" : ""}` : "—"}
+          />
+        </div>
+      )}
+
       {/* Record yo'q, ish kuni, o'tgan kun */}
-      {!record && !isWeekend && !isFuture && (
+      {!record && !isRestDay && !isFuture && (
         <p className="px-4 pb-4 text-xs text-white/70">
           Bu sana uchun davomat yozuvi mavjud emas.
         </p>
@@ -586,10 +638,14 @@ function SelectedDayCard({
         </p>
       )}
 
-      {/* Dam olish */}
-      {isWeekend && (
+      {/* Dam olish / ta'til / kasallik */}
+      {isRestDay && (
         <p className="px-4 pb-4 text-xs text-white/70">
-          Bugun dam olish kuni. Vaqtingizni maroqli o&apos;tkazing!
+          {schedule?.note
+            ? schedule.note
+            : schedule?.status === "DAY_OFF" || !schedule
+              ? "Grafik bo'yicha bugun dam olish kuningiz. Vaqtingizni maroqli o'tkazing!"
+              : `Grafik bo'yicha bugun ${restLabel?.toLowerCase()} — ishga chiqish talab qilinmaydi.`}
         </p>
       )}
     </div>

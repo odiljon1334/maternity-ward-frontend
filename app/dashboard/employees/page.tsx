@@ -6,7 +6,7 @@ import { useState, useEffect, useRef, useCallback, memo, useMemo, useTransition 
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { employeesApi, departmentsApi, positionsApi, attendanceApi, leaveApi, downloadBlob, photoUrl as buildPhotoUrl } from "@/lib/api";
+import { employeesApi, departmentsApi, positionsApi, attendanceApi, leaveApi, downloadBlob, photoUrl as buildPhotoUrl, photoThumbUrl } from "@/lib/api";
 import { Topbar } from "@/components/layout/Topbar";
 import { getInitials, getAvatarColor, formatMoney, cn, isSuperLike } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth";
@@ -188,7 +188,7 @@ function EmployeeModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center sheet-safe justify-center p-0 sm:p-4 animate-in fade-in duration-200">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={onClose} />
       <div className="relative card w-full sm:max-w-lg max-h-[92vh] sm:max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl border border-[var(--border)] shadow-2xl bg-[var(--bg-card)] text-[var(--text-primary)]">
         <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border)] sticky top-0 bg-[var(--bg-card)]/90 backdrop-blur-md z-10">
@@ -207,9 +207,9 @@ function EmployeeModal({
               className="relative group w-16 h-16 rounded-full flex-shrink-0 overflow-hidden border-2 border-dashed border-[var(--border)] hover:border-indigo-500 cursor-pointer transition-all flex items-center justify-center bg-[var(--bg-hover)]"
             >
               {photoPreview ? (
-                <img src={photoPreview} alt="preview" className="w-full h-full object-cover" />
+                <img src={photoPreview} alt="preview" className="w-full h-full object-cover" loading="lazy" decoding="async" />
               ) : employee?.photoUrl ? (
-                <img src={buildPhotoUrl(employee.photoUrl)} alt="photo" className="w-full h-full object-cover" />
+                <img src={buildPhotoUrl(employee.photoUrl)} alt="photo" className="w-full h-full object-cover" loading="lazy" decoding="async" />
               ) : (
                 <Camera className="w-6 h-6 text-[var(--text-muted)] group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors" />
               )}
@@ -274,10 +274,9 @@ function EmployeeModal({
                             <div className="flex items-center gap-2.5">
                               {r.photoUrl ? (
                                 <img
-                                  src={buildPhotoUrl(r.photoUrl)}
+                                  src={photoThumbUrl(r.photoUrl)}
                                   alt={r.fullName}
-                                  className="w-9 h-9 rounded-full object-cover flex-shrink-0"
-                                />
+                                  className="w-9 h-9 rounded-full object-cover flex-shrink-0" loading="lazy" decoding="async" />
                               ) : (
                                 <div className={cn("w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0", getAvatarColor(r.fullName))}>
                                   {getInitials(r.fullName)}
@@ -516,7 +515,7 @@ function FireModal({
   if (!open || !employee) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center sheet-safe justify-center p-0 sm:p-4 animate-in fade-in duration-200">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={onClose} />
       <div className="relative card w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl border border-[var(--border)] shadow-2xl bg-[var(--bg-card)] text-[var(--text-primary)]">
         
@@ -541,8 +540,7 @@ function FireModal({
               <img
                 src={buildPhotoUrl(employee.photoUrl)}
                 alt={employee.fullName}
-                className="w-11 h-11 rounded-full object-cover flex-shrink-0"
-              />
+                className="w-11 h-11 rounded-full object-cover flex-shrink-0" loading="lazy" decoding="async" />
             ) : (
               <div className={cn("w-11 h-11 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0", getAvatarColor(employee.fullName))}>
                 {getInitials(employee.fullName)}
@@ -667,7 +665,7 @@ const EmpRow = memo(function EmpRow({
         <div className="flex items-center gap-3">
           <button onClick={(e) => { e.stopPropagation(); onPhoto(emp.id); }} className="relative group flex-shrink-0">
             {emp.photoUrl ? (
-              <img src={buildPhotoUrl(emp.photoUrl)} alt={emp.fullName} className="w-10 h-10 rounded-full object-cover border border-[var(--border)]" />
+              <img src={photoThumbUrl(emp.photoUrl)} alt={emp.fullName} className="w-10 h-10 rounded-full object-cover border border-[var(--border)]" loading="lazy" decoding="async" />
             ) : (
               <div className={cn("w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-inner", getAvatarColor(emp.fullName))}>
                 {getInitials(emp.fullName)}
@@ -1279,7 +1277,7 @@ const resetGpsMutation = useMutation({
 
                 <button onClick={() => handlePhotoClick(emp.id)} className="relative group flex-shrink-0">
                   {emp.photoUrl
-                    ? <img src={buildPhotoUrl(emp.photoUrl)} alt={emp.fullName} className="w-11 h-11 rounded-full object-cover border border-[var(--border)]" />
+                    ? <img src={photoThumbUrl(emp.photoUrl)} alt={emp.fullName} className="w-11 h-11 rounded-full object-cover border border-[var(--border)]" loading="lazy" decoding="async" />
                     : <div className={cn("w-11 h-11 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-inner", getAvatarColor(emp.fullName))}>
                         {getInitials(emp.fullName)}
                       </div>

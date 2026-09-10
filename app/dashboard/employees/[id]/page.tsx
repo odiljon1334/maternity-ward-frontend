@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { employeesApi, attendanceApi, payrollApi, photoUrl as buildPhotoUrl } from "@/lib/api";
@@ -25,7 +25,10 @@ interface AttendanceRecord {
   lateMinutes?: number;
   lunchLateMin?: number;
   netWorkMin?: number;
-  status: "PRESENT" | "LATE" | "LATE_EARLY" | "ABSENT" | "EARLY_LEAVE";
+  // Backend davomat statuslari + grafikdan keladigan virtual statuslar
+  status:
+    | "PRESENT" | "LATE" | "LATE_EARLY" | "ABSENT" | "EARLY_LEAVE"
+    | "PLANNED" | "DAY_OFF" | "VACATION" | "SICK" | "HOLIDAY";
   schedule?: {
     shift?: {
       startTime?: string;
@@ -50,6 +53,8 @@ interface AttendanceResponse {
     present?: number;
     late?: number;
     absent?: number;
+    /** Kelgusidagi rejalashtirilgan ish kunlari */
+    planned?: number;
     totalLateMin?: number;
   };
 }
@@ -87,7 +92,16 @@ const STATUS_LABELS: Record<string, { label: string; color: string; bg: string; 
   LATE_EARLY:  { label: "Kech+Erta",  color: "text-orange-700 dark:text-orange-400", bg: "bg-orange-50 dark:bg-orange-500/10", border: "border-orange-200 dark:border-orange-500/20" },
   ABSENT:      { label: "Kelmadi",    color: "text-rose-700 dark:text-rose-400",     bg: "bg-rose-50 dark:bg-rose-500/10",    border: "border-rose-200 dark:border-rose-500/20" },
   EARLY_LEAVE: { label: "Erta ketdi", color: "text-sky-700 dark:text-sky-400",      bg: "bg-sky-50 dark:bg-sky-500/10",     border: "border-sky-200 dark:border-sky-500/20" },
+  // ─── Davomat yozuvi yo'q, faqat grafik bor bo'lgan kunlar ──────────────────
+  PLANNED:     { label: "Rejada",     color: "text-indigo-700 dark:text-indigo-400", bg: "bg-indigo-50 dark:bg-indigo-500/10", border: "border-indigo-200 dark:border-indigo-500/20" },
+  DAY_OFF:     { label: "Dam olish",  color: "text-slate-600 dark:text-slate-400",   bg: "bg-slate-100 dark:bg-slate-500/10", border: "border-slate-200 dark:border-slate-500/20" },
+  VACATION:    { label: "Ta'til",     color: "text-teal-700 dark:text-teal-400",     bg: "bg-teal-50 dark:bg-teal-500/10",    border: "border-teal-200 dark:border-teal-500/20" },
+  SICK:        { label: "Kasallik",   color: "text-pink-700 dark:text-pink-400",     bg: "bg-pink-50 dark:bg-pink-500/10",    border: "border-pink-200 dark:border-pink-500/20" },
+  HOLIDAY:     { label: "Bayram",     color: "text-violet-700 dark:text-violet-400", bg: "bg-violet-50 dark:bg-violet-500/10", border: "border-violet-200 dark:border-violet-500/20" },
 };
+
+/** Ishlamaydigan kunlar — jadvalda xiraroq ko'rsatiladi */
+const NON_WORK_STATUSES = new Set(["DAY_OFF", "VACATION", "SICK", "HOLIDAY"]);
 
 // ─── Stat Card ───────────────────────────────────────────────────────────────
 function StatCard({ label, value, sub, icon, iconBg, progressColor, percent = 100 }: {
@@ -144,6 +158,42 @@ function AttendanceTab({ employeeId }: { employeeId: string }) {
   }, [rawData]);
 
   const serverStats = Array.isArray(rawData) ? null : rawData?.stats;
+
+  // ── Cheksiz scroll ──────────────────────────────────────────────────────────
+  // Butun oy bitta so'rovda keladi, lekin 30+ qator sahifani cho'zib yuborardi.
+  // Boshida PAGE_SIZE ta qator ko'rsatiladi, jadval ichida pastga scroll
+  // qilinganda keyingi porsiya qo'shiladi.
+  const PAGE_SIZE = 7;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const sentinelRef = useRef<HTMLTableRowElement | null>(null);
+  const scrollBoxRef = useRef<HTMLDivElement | null>(null);
+
+  // Oy almashganda boshidan boshlanadi
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+    scrollBoxRef.current?.scrollTo({ top: 0 });
+  }, [month, year, employeeId]);
+
+  const visibleRows = useMemo(() => arr.slice(0, visibleCount), [arr, visibleCount]);
+  const hasMore = visibleCount < arr.length;
+
+  useEffect(() => {
+    if (!hasMore) return;
+    const el = sentinelRef.current;
+    const root = scrollBoxRef.current;
+    if (!el || !root) return;
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setVisibleCount((c) => Math.min(c + PAGE_SIZE, arr.length));
+        }
+      },
+      { root, rootMargin: "80px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasMore, arr.length, visibleCount]);
 
   const total          = serverStats?.totalDays   ?? arr.length;
   const present        = serverStats?.present     ?? arr.filter((r) => r.status === "PRESENT").length;
@@ -227,10 +277,11 @@ function AttendanceTab({ employeeId }: { employeeId: string }) {
 
       {/* Data Grid Table */}
       <div className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/80 rounded-2xl overflow-hidden backdrop-blur-md shadow-sm dark:shadow-xl">
-        <div className="overflow-x-auto">
+        {/* Balandligi cheklangan — sahifa cho'zilib ketmasligi uchun */}
+        <div ref={scrollBoxRef} className="overflow-x-auto overflow-y-auto max-h-[62vh]">
           <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300 min-w-[700px]">
             <thead>
-              <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold bg-slate-50 dark:bg-slate-950/60 uppercase tracking-wider text-[11px]">
+              <tr className="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold bg-slate-50 dark:bg-slate-950 uppercase tracking-wider text-[11px]">
                 {["Sana", "Kelishi kerak", "Ketishi kerak", "Keldi", "Ketdi", "Tushlik", "Ish vaqti", "Kechikish", "Holat"].map((h, idx) => (
                   <th key={h} className={cn("px-4 py-3.5", idx === 8 && "text-right")}>{h}</th>
                 ))}
@@ -245,7 +296,7 @@ function AttendanceTab({ employeeId }: { employeeId: string }) {
                 </tr>
               ))}
 
-              {!isLoading && arr.map((r) => {
+              {!isLoading && visibleRows.map((r) => {
                 const s = STATUS_LABELS[r.status] ?? { label: r.status, color: "text-slate-600 dark:text-slate-400", bg: "bg-slate-100 dark:bg-slate-800", border: "border-slate-200 dark:border-slate-700" };
                 const shiftStartApi = fmtTimeVal(r.schedule?.shift?.startTime ?? r.shift?.startTime);
                 const shiftStartComputed = (r.checkIn && (r.lateMinutes ?? 0) > 0)
@@ -256,8 +307,13 @@ function AttendanceTab({ employeeId }: { employeeId: string }) {
                   ?? (r.expectedCheckOut ? fmt(r.expectedCheckOut) : null);
                 const isLate = (r.lateMinutes ?? 0) > 0;
 
+                const isNonWork = NON_WORK_STATUSES.has(r.status);
+
                 return (
-                  <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                  <tr key={r.id} className={cn(
+                    "hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors",
+                    isNonWork && "opacity-60"
+                  )}>
                     <td className="px-4 py-3.5 font-medium text-slate-900 dark:text-slate-200 font-mono text-xs whitespace-nowrap">
                       {fmtDate(r.workDate ?? r.date)}
                     </td>
@@ -304,6 +360,18 @@ function AttendanceTab({ employeeId }: { employeeId: string }) {
                   </tr>
                 );
               })}
+
+              {/* Scroll sentinel — ko'ringanda keyingi porsiya yuklanadi */}
+              {!isLoading && hasMore && (
+                <tr ref={sentinelRef}>
+                  <td colSpan={9} className="px-4 py-4 text-center text-[11px] text-slate-400 dark:text-slate-500">
+                    <span className="inline-flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
+                      Yana {arr.length - visibleCount} kun yuklanmoqda...
+                    </span>
+                  </td>
+                </tr>
+              )}
 
               {!isLoading && arr.length === 0 && (
                 <tr>
@@ -622,8 +690,7 @@ export default function EmployeeProfilePage() {
                   <img 
                     src={buildPhotoUrl(employee.photoUrl)} 
                     alt={employee.fullName}
-                    className="w-20 h-20 rounded-2xl object-cover ring-2 ring-indigo-500/30 shadow-xl" 
-                  />
+                    className="w-20 h-20 rounded-2xl object-cover ring-2 ring-indigo-500/30 shadow-xl" loading="lazy" decoding="async" />
                 ) : (
                   <div className={cn("w-20 h-20 rounded-2xl flex items-center justify-center text-2xl font-bold text-white shadow-xl ring-2 ring-indigo-500/30", avatarColor)}>
                     {initials}
