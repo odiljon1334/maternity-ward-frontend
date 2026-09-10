@@ -165,7 +165,8 @@ function AttendanceTab({ employeeId }: { employeeId: string }) {
   // qilinganda keyingi porsiya qo'shiladi.
   const PAGE_SIZE = 7;
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  const sentinelRef = useRef<HTMLTableRowElement | null>(null);
+  const sentinelRef = useRef<HTMLTableRowElement | null>(null);       // jadval ichida (desktop)
+  const mobileSentinelRef = useRef<HTMLDivElement | null>(null);      // kartochkalar ostida (mobil)
   const scrollBoxRef = useRef<HTMLDivElement | null>(null);
 
   // Oy almashganda boshidan boshlanadi
@@ -179,19 +180,24 @@ function AttendanceTab({ employeeId }: { employeeId: string }) {
 
   useEffect(() => {
     if (!hasMore) return;
-    const el = sentinelRef.current;
-    const root = scrollBoxRef.current;
-    if (!el || !root) return;
+    const targets = [sentinelRef.current, mobileSentinelRef.current].filter(
+      Boolean,
+    ) as Element[];
+    if (!targets.length) return;
 
+    // root: viewport.
+    // Desktopda jadval sentineli scroll qutisi pastiga yetganda ko'rinadi,
+    // mobilda kartochkalar sentineli sahifa scrolli bilan.
+    // Ikkinchisi o'sha paytda display:none — u hech qachon ishlamaydi.
     const io = new IntersectionObserver(
       (entries) => {
-        if (entries[0]?.isIntersecting) {
+        if (entries.some((e) => e.isIntersecting)) {
           setVisibleCount((c) => Math.min(c + PAGE_SIZE, arr.length));
         }
       },
-      { root, rootMargin: "80px" },
+      { rootMargin: "120px" },
     );
-    io.observe(el);
+    targets.forEach((t) => io.observe(t));
     return () => io.disconnect();
   }, [hasMore, arr.length, visibleCount]);
 
@@ -277,8 +283,9 @@ function AttendanceTab({ employeeId }: { employeeId: string }) {
 
       {/* Data Grid Table */}
       <div className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/80 rounded-2xl overflow-hidden backdrop-blur-md shadow-sm dark:shadow-xl">
-        {/* Balandligi cheklangan — sahifa cho'zilib ketmasligi uchun */}
-        <div ref={scrollBoxRef} className="overflow-x-auto overflow-y-auto max-h-[62vh]">
+        {/* Jadval — faqat sm: dan yuqorida (balandligi cheklangan).
+            Mobilda kartochkalar: ichki vertikal scroll o'rniga sahifa scrolli */}
+        <div ref={scrollBoxRef} className="hidden sm:block overflow-x-auto overflow-y-auto max-h-[62vh]">
           <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300 min-w-[700px]">
             <thead>
               <tr className="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold bg-slate-50 dark:bg-slate-950 uppercase tracking-wider text-[11px]">
@@ -383,6 +390,92 @@ function AttendanceTab({ employeeId }: { employeeId: string }) {
             </tbody>
           </table>
         </div>
+
+        {/* ── Mobil ko'rinish: kartochkalar (ichki scroll yo'q) ── */}
+        <div className="sm:hidden divide-y divide-slate-200 dark:divide-slate-800">
+          {isLoading && [...Array(4)].map((_, i) => (
+            <div key={i} className="p-4 space-y-2">
+              <div className="h-4 w-28 rounded bg-slate-200 dark:bg-slate-800 animate-pulse" />
+              <div className="h-3 w-40 rounded bg-slate-200 dark:bg-slate-800 animate-pulse" />
+            </div>
+          ))}
+
+          {!isLoading && visibleRows.map((r) => {
+            const s = STATUS_LABELS[r.status] ?? { label: r.status, color: "text-slate-600 dark:text-slate-400", bg: "bg-slate-100 dark:bg-slate-800", border: "border-slate-200 dark:border-slate-700" };
+            const isNonWork = NON_WORK_STATUSES.has(r.status);
+            const shiftStart = fmtTimeVal(r.schedule?.shift?.startTime ?? r.shift?.startTime);
+            const shiftEnd   = fmtTimeVal(r.schedule?.shift?.endTime ?? r.shift?.endTime);
+            const isLate = (r.lateMinutes ?? 0) > 0;
+
+            return (
+              <div key={r.id} className={cn("p-4", isNonWork && "opacity-60")}>
+                {/* Sana + holat */}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono font-semibold text-sm text-slate-900 dark:text-slate-200">
+                    {fmtDate(r.workDate ?? r.date)}
+                  </span>
+                  <span className={cn("px-2 py-0.5 rounded-md border text-[10px] font-semibold", s.color, s.bg, s.border)}>
+                    {s.label}
+                  </span>
+                </div>
+
+                {/* Reja va haqiqat */}
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div className="rounded-lg bg-slate-50 dark:bg-slate-800/40 p-2">
+                    <p className="text-[9px] uppercase tracking-wide text-slate-400 mb-0.5">Kelishi kerak</p>
+                    <p className="text-xs font-mono text-slate-700 dark:text-slate-300">{shiftStart ?? "—"}</p>
+                    <p className="text-[9px] uppercase tracking-wide text-slate-400 mt-1.5 mb-0.5">Keldi</p>
+                    <p className={cn("text-xs font-mono font-semibold", isLate ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400")}>
+                      {r.checkIn ? fmt(r.checkIn) : "—"}
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-slate-50 dark:bg-slate-800/40 p-2">
+                    <p className="text-[9px] uppercase tracking-wide text-slate-400 mb-0.5">Ketishi kerak</p>
+                    <p className="text-xs font-mono text-slate-700 dark:text-slate-300">{shiftEnd ?? "—"}</p>
+                    <p className="text-[9px] uppercase tracking-wide text-slate-400 mt-1.5 mb-0.5">Ketdi</p>
+                    <p className="text-xs font-mono text-slate-600 dark:text-slate-400">
+                      {r.checkOut ? fmt(r.checkOut) : "—"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Qo'shimcha ma'lumot */}
+                {(isLate || (r.netWorkMin ?? 0) > 0) && (
+                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
+                    {isLate && (
+                      <span className="text-amber-600 dark:text-amber-400 font-medium">
+                        ⏱ {r.lateMinutes} daqiqa kech
+                      </span>
+                    )}
+                    {(r.netWorkMin ?? 0) > 0 && (
+                      <span className="text-purple-600 dark:text-purple-400 font-medium">
+                        ⚡ {formatMinutes(r.netWorkMin!)} sof ish
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {!isLoading && arr.length === 0 && (
+            <div className="py-12 text-center text-xs text-slate-400 dark:text-slate-500">
+              Bu oy uchun davomat ma&apos;lumoti topilmadi
+            </div>
+          )}
+
+          {/* Mobil sentinel — kartochkalar ostida */}
+          {!isLoading && hasMore && (
+            <div ref={mobileSentinelRef} className="py-3 text-center text-[11px] text-slate-400 dark:text-slate-500">
+              <span className="inline-flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
+                Yana {arr.length - visibleCount} kun yuklanmoqda...
+              </span>
+            </div>
+          )}
+        </div>
+
+
       </div>
     </div>
   );

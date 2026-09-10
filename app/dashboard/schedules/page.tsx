@@ -626,6 +626,9 @@ export default function SchedulesPage() {
 
   // Scroll konteyner ref'i Infinite Scroll uchun
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  // Mobil ko'rinishda keyingi sahifani sahifa scrolli yuklaydi
+  // (desktopdagi jadval ichidagi onScroll o'rniga)
+  const mobileLoadRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setDeptFilter("");
@@ -671,6 +674,23 @@ export default function SchedulesPage() {
 });
 
   // Infinite scroll hodisasini kuzatish
+  useEffect(() => {
+    if (!hasNextPage || isFetchingNextPage) return;
+    const el = mobileLoadRef.current;
+    if (!el) return;
+
+    // Desktopda bu element display:none — hech qachon "intersecting"
+    // bo'lmaydi, shuning uchun faqat mobilda ishlaydi.
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) fetchNextPage();
+      },
+      { rootMargin: "300px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
   const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
     const { scrollTop, scrollHeight, clientHeight } = event.currentTarget;
     
@@ -1014,10 +1034,13 @@ export default function SchedulesPage() {
         {/* Main Grid Calendar with Infinite Scroll */}
         {view === "grafik" && (
           <div className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-2xl rounded-2xl overflow-hidden">
+            {/* Jadval — faqat sm: dan yuqorida. 220px ism ustuni + 31x46px kun
+                ustunlari ≈ 1650px kenglik; mobilda ishlatib bo'lmaydi,
+                shuning uchun pastda kartochka ko'rinishi bor. */}
             <div 
               ref={scrollContainerRef}
               onScroll={handleScroll}
-              className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-320px)] relative"
+              className="hidden sm:block overflow-x-auto overflow-y-auto max-h-[calc(100vh-320px)] relative"
             >
               <table className="w-full border-collapse text-xs table-fixed">
                 <thead className="sticky top-0 z-30 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-xl">
@@ -1127,6 +1150,121 @@ export default function SchedulesPage() {
                 </div>
               )}
             </div>
+
+            {/* ── Mobil ko'rinish: har xodim uchun kartochka ──
+                Kun tasmasi gorizontal scroll bo'ladi, sahifa esa vertikal.
+                Ism ustiga bosilsa grafik yaratish, kun ustiga bosilsa
+                o'sha kunni tahrirlash oynasi ochiladi. */}
+            <div className="sm:hidden divide-y divide-slate-200 dark:divide-slate-800">
+              {isLoading && [...Array(4)].map((_, i) => (
+                <div key={i} className="p-4 space-y-2">
+                  <div className="h-4 w-40 rounded bg-slate-100 dark:bg-white/5 animate-pulse" />
+                  <div className="h-10 w-full rounded bg-slate-100 dark:bg-white/5 animate-pulse" />
+                </div>
+              ))}
+
+              {!isLoading && employees.length === 0 && (
+                <div className="py-12 text-center text-sm text-slate-400 dark:text-slate-500">
+                  Xodimlar topilmadi
+                </div>
+              )}
+
+              {!isLoading && employees.map((emp: any) => {
+                const empSchedules = scheduleMap.get(emp.id);
+                let ish = 0, dam = 0;
+                if (empSchedules) {
+                  // Array.from — tsconfig target ES5 bo'lgani uchun
+                  // Map iteratorini to'g'ridan-to'g'ri aylantirib bo'lmaydi
+                  Array.from(empSchedules.values()).forEach((sch: any) => {
+                    if (sch.status === "WORKING") ish++;
+                    else dam++;
+                  });
+                }
+
+                return (
+                  <div key={emp.id} className="py-3">
+                    {/* Xodim sarlavhasi */}
+                    <div
+                      className="flex items-center justify-between gap-2 px-4 mb-2 cursor-pointer"
+                      onClick={() => { setGenerateEmpId(emp.id); setModalOpen(true); }}
+                    >
+                      <div className="min-w-0">
+                        <p className="font-semibold text-sm text-slate-900 dark:text-white truncate">
+                          {emp.fullName}
+                        </p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                          {emp.department?.name || "Bo'limsiz"}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+                          Ish {ish}
+                        </span>
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-slate-500/10 text-slate-500 dark:text-slate-400 border border-slate-500/20">
+                          Dam {dam}
+                        </span>
+                        <Edit3 className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
+                      </div>
+                    </div>
+
+                    {/* Kun tasmasi — gorizontal scroll */}
+                    <div className="flex gap-1 overflow-x-auto px-4 pb-1 scrollbar-none">
+                      {dayCells.map((c) => {
+                        const sch = empSchedules?.get(c.dateStr);
+                        return (
+                          <button
+                            key={c.dateStr}
+                            type="button"
+                            onClick={() => {
+                              if (!sch) return;
+                              setEditEntry({
+                                id: sch.id,
+                                status: sch.status,
+                                shiftId: sch.shiftId,
+                                employeeName: emp.fullName,
+                                date: c.dateStr,
+                              });
+                            }}
+                            className={cn(
+                              "flex-shrink-0 w-[46px] rounded-lg border p-1 text-center transition-colors",
+                              c.isToday
+                                ? "border-indigo-500/60 bg-indigo-500/10"
+                                : c.isWeekend
+                                  ? "border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/[0.02]"
+                                  : "border-slate-200 dark:border-white/5",
+                              sch && "active:bg-slate-100 dark:active:bg-white/5"
+                            )}
+                          >
+                            <span className={cn(
+                              "block text-[10px] font-bold leading-none mb-1",
+                              c.isToday
+                                ? "text-indigo-600 dark:text-indigo-400"
+                                : c.isWeekend
+                                  ? "text-rose-500 dark:text-rose-400"
+                                  : "text-slate-500 dark:text-slate-400"
+                            )}>
+                              {c.day}
+                            </span>
+                            <CellBadge sch={sch} />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Mobil sentinel — keyingi xodimlar sahifa scrolli bilan yuklanadi */}
+              {!isLoading && hasNextPage && (
+                <div ref={mobileLoadRef} className="py-4 text-center text-xs text-slate-400">
+                  <span className="inline-flex items-center gap-2">
+                    <span className="w-4 h-4 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
+                    Keyingi xodimlar yuklanmoqda...
+                  </span>
+                </div>
+              )}
+            </div>
+
 
             {/* Table Footer / Legend */}
             <div className="flex flex-wrap items-center gap-6 px-6 py-3.5 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400">
