@@ -252,9 +252,14 @@ export const attendanceApi = {
       .then((r) => r.data.data ?? r.data),
 
   /** Birinchi marta ish joyi GPS ni position uchun o'rnatish */
-  setPositionGps: (lat: number, lng: number) =>
-  api.post("/attendance/set-employee-gps", { lat: String(lat), lng: String(lng) })
-    .then((r) => r.data.data ?? r.data),
+  // accuracy — brauzer bergan o'lchov aniqligi (metr). Server past aniqlikdagi
+  // (Wi-Fi/antenna orqali topilgan) koordinatani saqlashni rad etadi.
+  setPositionGps: (lat: number, lng: number, accuracy?: number) =>
+  api.post("/attendance/set-employee-gps", {
+    lat: String(lat),
+    lng: String(lng),
+    ...(accuracy !== undefined ? { accuracy: String(accuracy) } : {}),
+  }).then((r) => r.data.data ?? r.data),
 
   setEmployeeGps: (lat: number, lng: number) =>
     api.post("/attendance/set-employee-gps", { lat: String(lat), lng: String(lng) })

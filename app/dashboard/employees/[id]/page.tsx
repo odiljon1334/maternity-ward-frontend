@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { employeesApi, attendanceApi, payrollApi, photoUrl as buildPhotoUrl } from "@/lib/api";
@@ -159,6 +159,42 @@ function AttendanceTab({ employeeId }: { employeeId: string }) {
 
   const serverStats = Array.isArray(rawData) ? null : rawData?.stats;
 
+  // ── Cheksiz scroll ──────────────────────────────────────────────────────────
+  // Butun oy bitta so'rovda keladi, lekin 30+ qator sahifani cho'zib yuborardi.
+  // Boshida PAGE_SIZE ta qator ko'rsatiladi, jadval ichida pastga scroll
+  // qilinganda keyingi porsiya qo'shiladi.
+  const PAGE_SIZE = 7;
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const sentinelRef = useRef<HTMLTableRowElement | null>(null);
+  const scrollBoxRef = useRef<HTMLDivElement | null>(null);
+
+  // Oy almashganda boshidan boshlanadi
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+    scrollBoxRef.current?.scrollTo({ top: 0 });
+  }, [month, year, employeeId]);
+
+  const visibleRows = useMemo(() => arr.slice(0, visibleCount), [arr, visibleCount]);
+  const hasMore = visibleCount < arr.length;
+
+  useEffect(() => {
+    if (!hasMore) return;
+    const el = sentinelRef.current;
+    const root = scrollBoxRef.current;
+    if (!el || !root) return;
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setVisibleCount((c) => Math.min(c + PAGE_SIZE, arr.length));
+        }
+      },
+      { root, rootMargin: "80px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasMore, arr.length, visibleCount]);
+
   const total          = serverStats?.totalDays   ?? arr.length;
   const present        = serverStats?.present     ?? arr.filter((r) => r.status === "PRESENT").length;
   const late           = serverStats?.late        ?? arr.filter((r) => ["LATE", "LATE_EARLY"].includes(r.status)).length;
@@ -241,10 +277,11 @@ function AttendanceTab({ employeeId }: { employeeId: string }) {
 
       {/* Data Grid Table */}
       <div className="bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/80 rounded-2xl overflow-hidden backdrop-blur-md shadow-sm dark:shadow-xl">
-        <div className="overflow-x-auto">
+        {/* Balandligi cheklangan — sahifa cho'zilib ketmasligi uchun */}
+        <div ref={scrollBoxRef} className="overflow-x-auto overflow-y-auto max-h-[62vh]">
           <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300 min-w-[700px]">
             <thead>
-              <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold bg-slate-50 dark:bg-slate-950/60 uppercase tracking-wider text-[11px]">
+              <tr className="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold bg-slate-50 dark:bg-slate-950 uppercase tracking-wider text-[11px]">
                 {["Sana", "Kelishi kerak", "Ketishi kerak", "Keldi", "Ketdi", "Tushlik", "Ish vaqti", "Kechikish", "Holat"].map((h, idx) => (
                   <th key={h} className={cn("px-4 py-3.5", idx === 8 && "text-right")}>{h}</th>
                 ))}
@@ -259,7 +296,7 @@ function AttendanceTab({ employeeId }: { employeeId: string }) {
                 </tr>
               ))}
 
-              {!isLoading && arr.map((r) => {
+              {!isLoading && visibleRows.map((r) => {
                 const s = STATUS_LABELS[r.status] ?? { label: r.status, color: "text-slate-600 dark:text-slate-400", bg: "bg-slate-100 dark:bg-slate-800", border: "border-slate-200 dark:border-slate-700" };
                 const shiftStartApi = fmtTimeVal(r.schedule?.shift?.startTime ?? r.shift?.startTime);
                 const shiftStartComputed = (r.checkIn && (r.lateMinutes ?? 0) > 0)
@@ -323,6 +360,18 @@ function AttendanceTab({ employeeId }: { employeeId: string }) {
                   </tr>
                 );
               })}
+
+              {/* Scroll sentinel — ko'ringanda keyingi porsiya yuklanadi */}
+              {!isLoading && hasMore && (
+                <tr ref={sentinelRef}>
+                  <td colSpan={9} className="px-4 py-4 text-center text-[11px] text-slate-400 dark:text-slate-500">
+                    <span className="inline-flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
+                      Yana {arr.length - visibleCount} kun yuklanmoqda...
+                    </span>
+                  </td>
+                </tr>
+              )}
 
               {!isLoading && arr.length === 0 && (
                 <tr>

@@ -1,12 +1,12 @@
 "use client";
 import dayjs from "dayjs";
+import RealtimeAttendanceFeed from "./RealtimeAttendanceFeed";
 import {
   AreaChart, Area,
   XAxis, YAxis,
   CartesianGrid, Tooltip,
   ResponsiveContainer, Legend,
 } from "recharts";
-import { formatMinutes } from "@/lib/utils";
 
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
@@ -27,10 +27,11 @@ function CustomTooltip({ active, payload, label }: any) {
 
 interface Props {
   trend?: any[];
-  topLate?: any[];
+  /** Real-time tasma uchun boshlang'ich hodisalar (bugungi davomat) */
+  initialEvents?: any[];
 }
 
-export default function DashboardCharts({ trend, topLate }: Props) {
+export default function DashboardCharts({ trend, initialEvents }: Props) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       {/* Attendance trend (2/3 width) */}
@@ -71,44 +72,8 @@ export default function DashboardCharts({ trend, topLate }: Props) {
         </ResponsiveContainer>
       </div>
 
-      {/* Top late employees (1/3 width) */}
-      <div className="card p-5 hover:border-amber-500/20 transition-all duration-300 flex flex-col justify-between">
-        <div>
-          <div className="mb-4">
-            <h3 className="font-semibold text-[var(--text-primary)] text-base">Ko'p kechikkanlar</h3>
-            <p className="text-xs text-[var(--text-muted)] mt-0.5">Shu oy bo'yicha TOP-5</p>
-          </div>
-          
-          <div className="space-y-3">
-            {(topLate || []).slice(0, 5).map((emp: any, i: number) => (
-              <div 
-                key={emp.employeeId} 
-                className="flex items-center gap-3 p-2 rounded-xl hover:bg-[var(--bg-hover)] transition-colors group"
-              >
-                <span className="text-xs font-semibold text-[var(--text-muted)] w-4 text-center">
-                  {i + 1}
-                </span>
-                <div className="w-8 h-8 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-xs font-bold text-indigo-400 group-hover:scale-105 transition-transform">
-                  {emp.name?.[0] ?? "?"}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-[var(--text-primary)] truncate">{emp.name}</p>
-                  <p className="text-[11px] text-[var(--text-muted)]">{emp.lateCount} marta kechikdi</p>
-                </div>
-                <span className="badge-yellow text-[11px] font-mono px-2 py-0.5 rounded-md">
-                  {formatMinutes(emp.totalLateMin)}
-                </span>
-              </div>
-            ))}
-
-            {(!topLate || topLate.length === 0) && (
-              <div className="flex flex-col items-center justify-center py-10 text-center">
-                <p className="text-xs text-[var(--text-muted)]">Ma'lumot topilmadi</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
+      {/* Real-time keldi/ketdi (1/3) — ilgari bu yerda "Ko'p kechikkanlar" edi */}
+      <RealtimeAttendanceFeed initialEvents={initialEvents} />
     </div>
   );
 }
