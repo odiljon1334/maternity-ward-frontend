@@ -4,7 +4,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { ArchivedBioModal } from "@/components/employees/ArchivedBioModal";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { employeesApi, photoUrl as buildPhotoUrl } from "@/lib/api";
+import { employeesApi, photoThumbUrl } from "@/lib/api";
 import { Topbar } from "@/components/layout/Topbar";
 import { getInitials, getAvatarColor, formatMoney, cn, isSuperLike } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth";
@@ -58,10 +58,12 @@ function ArchiveCard({ emp, onClick }: { emp: any; onClick: () => void }) {
           <div className="relative flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14">
             {emp.photoUrl ? (
               <img
-                src={buildPhotoUrl(emp.photoUrl)}
+                src={photoThumbUrl(emp.photoUrl)}
                 alt={emp.fullName}
                 className="w-full h-full rounded-2xl object-cover ring-2 ring-slate-200 dark:ring-slate-700/60 group-hover:ring-indigo-500/60 transition-all shadow-md"
-              />
+          loading="lazy"
+          decoding="async"
+        />
             ) : (
               <div className={cn("w-full h-full rounded-2xl flex items-center justify-center text-base font-bold text-white shadow-md ring-2 ring-slate-200 dark:ring-slate-700/60 group-hover:ring-indigo-500/60 transition-all", getAvatarColor(emp.fullName))}>
                 {getInitials(emp.fullName)}

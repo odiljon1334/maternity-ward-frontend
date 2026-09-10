@@ -1,5 +1,5 @@
 "use client";
-import { photoUrl as buildPhotoUrl } from "@/lib/api";
+import { photoThumbUrl } from "@/lib/api";
 import { getInitials, getAvatarColor, formatMoney, cn } from "@/lib/utils";
 
 interface ToolResult {
@@ -11,7 +11,7 @@ interface ToolResult {
 function Avatar({ name, photoUrl, size = "sm" }: { name: string; photoUrl?: string; size?: "sm" | "md" }) {
   const sz = size === "sm" ? "w-7 h-7 text-[10px]" : "w-9 h-9 text-xs";
   if (photoUrl) {
-    return <img src={buildPhotoUrl(photoUrl)} alt={name} className={`${sz} rounded-full object-cover flex-shrink-0`} />;
+    return <img src={photoThumbUrl(photoUrl)} alt={name} className={`${sz} rounded-full object-cover flex-shrink-0`} loading="lazy" decoding="async" />;
   }
   return (
     <div className={cn(sz, "rounded-full flex items-center justify-center font-bold text-white flex-shrink-0", getAvatarColor(name))}>

@@ -16,6 +16,21 @@ import dayjs from "dayjs";
 import { useForm } from "react-hook-form";
 import { useAuthStore } from "@/stores/auth";
 
+// ─── Sana kaliti keshi ──────────────────────────────────────────────────────
+// Backend ISO sana qaytaradi; jadval kalitlari "YYYY-MM-DD" ko'rinishida.
+// Bir oyda ~31 xil qiymat bo'lgani uchun natijani keshlaymiz — bu dayjs
+// chaqiruvlarini ~10 000 dan ~31 taga tushiradi. Semantika o'zgarmaydi.
+const dateKeyCache = new Map<string, string>();
+function toDateKey(raw: string | Date): string {
+  const s = String(raw);
+  let key = dateKeyCache.get(s);
+  if (key === undefined) {
+    key = dayjs(s).format("YYYY-MM-DD");
+    dateKeyCache.set(s, key);
+  }
+  return key;
+}
+
 // ─── Shift Duration Calc ───────────────────────────────────────────────────
 function calcDuration(start: string, end: string, overnight: boolean): number {
   if (!start || !end) return 0;
@@ -301,31 +316,67 @@ function ShiftsView({ targetHospitalId }: { targetHospitalId?: string }) {
 }
 
 // ─── Cell Badge Component ────────────────────────────────────────────────     
+// Ishlamaydigan kunlar uchun qisqa belgilar
+const NON_WORKING_BADGE: Record<string, { mark: string; title: string; cls: string }> = {
+  DAY_OFF:  { mark: "○",  title: "Dam olish kuni", cls: "text-slate-400 dark:text-slate-500" },
+  VACATION: { mark: "Ta", title: "Ta'til",         cls: "text-teal-600 dark:text-teal-400" },
+  SICK:     { mark: "Ka", title: "Kasallik",       cls: "text-pink-600 dark:text-pink-400" },
+  HOLIDAY:  { mark: "B",  title: "Bayram",         cls: "text-indigo-600 dark:text-indigo-400" },
+};
+
 function CellBadge({ sch }: { sch?: any }) {
   if (!sch) return <span className="text-slate-300 dark:text-slate-600 text-xs font-light">—</span>;
-  if (sch.status === "DAY_OFF") return <span className="text-slate-400 dark:text-slate-500 text-[11px] font-semibold">○</span>;
-  
-  const type = sch.shift?.type;
-  const startTime = sch.shift?.startTime?.substring(0, 5);
 
-  if (type === "DAYTIME") return (
-    <div className="inline-flex flex-col items-center justify-center w-full py-1 px-0.5 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 group-hover:scale-105 transition-transform" title={`Kunduzgi smen (${sch.shift?.startTime} - ${sch.shift?.endTime})`}>
-      <span className="font-bold text-[10px] leading-tight">K</span>
-      {startTime && <span className="text-[9px] font-mono opacity-80 leading-none">{startTime}</span>}
-    </div>
-  );
-  
-  if (type === "NIGHTTIME") return (
-    <div className="inline-flex flex-col items-center justify-center w-full py-1 px-0.5 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 group-hover:scale-105 transition-transform" title={`Tungi smen (${sch.shift?.startTime} - ${sch.shift?.endTime})`}>
-      <span className="font-bold text-[10px] leading-tight">Tu</span>
-      {startTime && <span className="text-[9px] font-mono opacity-80 leading-none">{startTime}</span>}
-    </div>
-  );
+  // Dam olish / ta'til / kasallik / bayram
+  const nonWorking = NON_WORKING_BADGE[sch.status as string];
+  if (nonWorking) {
+    return (
+      <span
+        className={cn("text-[11px] font-semibold", nonWorking.cls)}
+        title={sch.note || nonWorking.title}
+      >
+        {nonWorking.mark}
+      </span>
+    );
+  }
+
+  const type      = sch.shift?.type;
+  const startTime = sch.shift?.startTime?.substring(0, 5);
+  const endTime   = sch.shift?.endTime?.substring(0, 5);
+  // Tungi smen ertangi kunga o'tadimi
+  const overnight = sch.shift?.isOvernight === true;
+
+  const label = type === "DAYTIME" ? "K" : type === "NIGHTTIME" ? "Tu" : "✓";
+  const shiftName =
+    type === "DAYTIME" ? "Kunduzgi smen" : type === "NIGHTTIME" ? "Tungi smen" : "Ish kuni";
+
+  const cls =
+    type === "DAYTIME"
+      ? "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20"
+      : type === "NIGHTTIME"
+        ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20"
+        : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20";
 
   return (
-    <div className="inline-flex flex-col items-center justify-center w-full py-1 px-0.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 group-hover:scale-105 transition-transform">
-      <span className="font-bold text-[10px] leading-tight">✓</span>
-      {startTime && <span className="text-[9px] font-mono opacity-80 leading-none">{startTime}</span>}
+    <div
+      className={cn(
+        "inline-flex flex-col items-center justify-center w-full py-1 px-0.5 rounded-xl border group-hover:scale-105 transition-transform",
+        cls
+      )}
+      title={`${shiftName} — ${startTime ?? "?"} dan ${endTime ?? "?"} gacha${overnight ? " (ertangi kun)" : ""}`}
+    >
+      {/* 1-qator: smen turi */}
+      <span className="text-[8px] font-bold leading-none opacity-90">{label}</span>
+      {/* 2-qator: kelish vaqti */}
+      {startTime && (
+        <span className="text-[9px] font-mono font-semibold leading-tight">{startTime}</span>
+      )}
+      {/* 3-qator: ketish vaqti — Kadr uchun eng muhim qo'shimcha */}
+      {endTime && (
+        <span className="text-[9px] font-mono leading-tight opacity-70">
+          {endTime}{overnight ? <sup className="text-[7px]">+1</sup> : null}
+        </span>
+      )}
     </div>
   );
 }
@@ -352,7 +403,7 @@ function CellEditModal({
   const mutation = useMutation({
     mutationFn: () => schedulesApi.update(entry!.id, { status, shiftId }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["schedules-monthly-paginated"] });
+      qc.invalidateQueries({ queryKey: ["staff-schedule-paginated"] });
       toast.success("Grafik yangilandi");
       onClose();
     },
@@ -631,10 +682,16 @@ export default function SchedulesPage() {
     }
   };
 
-  const { data: employeesResp, isLoading: empLoading } = useQuery({
+  // ⚡ Bu ro'yxat FAQAT "Grafik yaratish" modalidagi hodim tanlash uchun kerak.
+  // Ilgari sahifa ochilishi bilan 1000 tagacha xodim (bo'lim, lavozim, user
+  // bilan birga) yuklanardi — jadval bilan bir vaqtda. Endi modal ochilganda
+  // yuklanadi va 5 daqiqa keshda turadi.
+  const { data: employeesResp } = useQuery({
     queryKey: ["employees-all", targetHospitalId],
     queryFn: () => employeesApi.list({ limit: 1000, ...(targetHospitalId ? { targetHospitalId } : {}) }),
-    staleTime: 30_000,
+    enabled: modalOpen,
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
   });
   const allEmployees: any[] = (employeesResp as any)?.data ?? [];
 
@@ -653,24 +710,21 @@ export default function SchedulesPage() {
     if (!paginatedData?.pages) return [];
   
     const list: any[] = [];
-    const seenNames = new Set(); // Ismlar bo'yicha tekshiramiz
-  
+    // ⚠️ Ilgari dedupe ISM bo'yicha edi — bir xil F.I.Sh li ikkinchi xodim
+    //    jadvaldan butunlay tushib qolardi (349 xodimda bu real ehtimol).
+    //    Endi ID bo'yicha: ID unikal, ism esa yo'q.
+    const seenIds = new Set<string>();
+
     for (const page of paginatedData.pages) {
       const items = Array.isArray(page) ? page : (page?.data ?? page?.items ?? page?.result ?? []);
-  
+
       if (Array.isArray(items)) {
         for (const item of items) {
-          // Xodimning to'liq ismi (fullName yoki name)
-          const fullName = (item.fullName || item.name || item.employee?.fullName || "").trim().toLowerCase();
-          
-          if (fullName) {
-            if (!seenNames.has(fullName)) {
-              seenNames.add(fullName);
-              list.push(item);
-            }
-          } else {
-            list.push(item);
-          }
+          const id = item?.id ?? item?.employee?.id;
+          if (!id) { list.push(item); continue; }
+          if (seenIds.has(id)) continue;
+          seenIds.add(id);
+          list.push(item);
         }
       }
     }
@@ -684,7 +738,9 @@ export default function SchedulesPage() {
       if (!map.has(emp.id)) map.set(emp.id, new Map());
       if (emp.schedules) {
         for (const s of emp.schedules) {
-          const dateKey = dayjs(s.date).format("YYYY-MM-DD");
+          // ⚡ toDateKey — oyda atigi ~31 xil sana bo'lgani uchun keshlanadi.
+          // Ilgari har bir yozuv uchun dayjs() chaqirilardi (~10 000 marta).
+          const dateKey = toDateKey(s.date);
           map.get(emp.id)!.set(dateKey, s);
         }
       }
@@ -698,18 +754,18 @@ export default function SchedulesPage() {
       ? employeesWithSchedules.filter((e) => e.department?.id === deptFilter || e.departmentId === deptFilter)
       : [...employeesWithSchedules];
 
+    // "Grafikli" = kamida bitta grafik yozuvi bor (WORKING, DAY_OFF, ta'til...).
+    // Bu "Grafikli / Grafiksiz" kartochkalaridagi backend hisobiga mos keladi —
+    // ilgari filtr faqat WORKING ni sanardi va kartochka bilan farq qilardi.
+    const hasAnySchedule = (id: string) => {
+      const empSch = scheduleMap.get(id);
+      return !!empSch && empSch.size > 0;
+    };
+
     if (scheduleFilter === "with") {
-      list = list.filter((e) => {
-        const empSch = scheduleMap.get(e.id);
-        if (!empSch) return false;
-        return Array.from(empSch.values()).some((s: any) => s.status === "WORKING");
-      });
+      list = list.filter((e) => hasAnySchedule(e.id));
     } else if (scheduleFilter === "without") {
-      list = list.filter((e) => {
-        const empSch = scheduleMap.get(e.id);
-        if (!empSch) return true;
-        return !Array.from(empSch.values()).some((s: any) => s.status === "WORKING");
-      });
+      list = list.filter((e) => !hasAnySchedule(e.id));
     }
 
     if (empSearch.trim()) {
@@ -719,8 +775,32 @@ export default function SchedulesPage() {
     return list;
   }, [employeesWithSchedules, deptFilter, scheduleFilter, empSearch, scheduleMap]);
 
-  const isLoading = schedLoading || empLoading;
+  // Jadval yuklanishi faqat grafik so'roviga bog'liq.
+  // Hodimlar ro'yxati modal uchun alohida yuklanadi — u jadvalni bloklamasligi kerak.
+  const isLoading = schedLoading;
   const daysInMonth = dayjs(`${year}-${String(month).padStart(2, "0")}-01`).daysInMonth();
+
+  // ⚡ Kun ustunlari metadatasi — oyiga BIR MARTA hisoblanadi.
+  //
+  // Ilgari har bir katak o'z ichida `dayjs(dateStr)` va `dayjs()` yaratardi:
+  //   349 xodim × 31 kun × 2 = ~21 000 ta dayjs obyekti HAR RENDER da.
+  //   Endi 31 ta. Jadval "osilib qolishi"ning asosiy sababi shu edi.
+  const dayCells = useMemo(() => {
+    const todayStr = dayjs().format("YYYY-MM-DD");
+    const mm = String(month).padStart(2, "0");
+    return Array.from({ length: daysInMonth }, (_, i) => {
+      const dateStr = `${year}-${mm}-${String(i + 1).padStart(2, "0")}`;
+      const d = dayjs(dateStr);
+      const dow = d.day();
+      return {
+        day: i + 1,
+        dateStr,
+        dowLabel: d.format("dd"),
+        isWeekend: dow === 0 || dow === 6,
+        isToday: dateStr === todayStr,
+      };
+    });
+  }, [year, month, daysInMonth]);
 
   const navMonth = (dir: number) => {
     const next = dayjs(`${year}-${String(month).padStart(2, "0")}-01`).add(dir, "month");
@@ -739,7 +819,7 @@ export default function SchedulesPage() {
       const params = targetHospitalId ? { targetHospitalId } : undefined;
       const res = await schedulesApi.rollover({ fromMonth: prev.month() + 1, fromYear: prev.year(), toMonth: month, toYear: year }, params);
       toast.success(res?.message || "Grafiklar muvaffaqiyatli ko'chirildi", { id: tid });
-      qc.invalidateQueries({ queryKey: ["schedules-monthly-paginated"] });
+      qc.invalidateQueries({ queryKey: ["staff-schedule-paginated"] });
       qc.invalidateQueries({ queryKey: ["schedule-statistics"] });
     } catch (e: any) {
       toast.error(e?.response?.data?.message || "Ko'chirishda xatolik", { id: tid });
@@ -945,24 +1025,19 @@ export default function SchedulesPage() {
                     <th className="sticky left-0 z-40 bg-white dark:bg-slate-900 text-left px-4 py-3.5 font-bold text-slate-500 dark:text-slate-400 uppercase text-[10px] tracking-wider w-[220px] min-w-[220px] border-r border-slate-200 dark:border-slate-800 shadow-[4px_0_12px_-2px_rgba(0,0,0,0.05)] dark:shadow-[4px_0_12px_-2px_rgba(0,0,0,0.5)]">
                       Xodimlarning F.I.Sh
                     </th>
-                    {Array.from({ length: daysInMonth }, (_, i) => {
-                      const d = dayjs(`${year}-${String(month).padStart(2, "0")}-${String(i + 1).padStart(2, "0")}`);
-                      const isWeekend = d.day() === 0 || d.day() === 6;
-                      const isToday = d.isSame(dayjs(), "day");
-                      return (
-                        <th
-                          key={i}
-                          className={cn(
-                            "text-center py-2.5 px-1 w-[46px] min-w-[46px] border-r border-slate-200 dark:border-white/5 font-medium transition-colors",
-                            isWeekend ? "bg-slate-50 dark:bg-white/[0.02] text-rose-500 dark:text-rose-400" : "text-slate-500 dark:text-slate-400",
-                            isToday && "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-bold"
-                          )}
-                        >
-                          <div className="text-xs font-bold">{i + 1}</div>
-                          <div className="text-[9px] uppercase tracking-tighter opacity-70">{d.format("dd")}</div>
-                        </th>
-                      );
-                    })}
+                    {dayCells.map((c) => (
+                      <th
+                        key={c.dateStr}
+                        className={cn(
+                          "text-center py-2.5 px-1 w-[46px] min-w-[46px] border-r border-slate-200 dark:border-white/5 font-medium transition-colors",
+                          c.isWeekend ? "bg-slate-50 dark:bg-white/[0.02] text-rose-500 dark:text-rose-400" : "text-slate-500 dark:text-slate-400",
+                          c.isToday && "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-bold"
+                        )}
+                      >
+                        <div className="text-xs font-bold">{c.day}</div>
+                        <div className="text-[9px] uppercase tracking-tighter opacity-70">{c.dowLabel}</div>
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-white/[0.03]">
@@ -1010,20 +1085,17 @@ export default function SchedulesPage() {
                           </td>
 
                           {/* Calendar Cells */}
-                          {Array.from({ length: daysInMonth }, (_, i) => {
-                            const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(i + 1).padStart(2, "0")}`;
-                            const d = dayjs(dateStr);
-                            const isWeekend = d.day() === 0 || d.day() === 6;
-                            const isToday = d.isSame(dayjs(), "day");
-                            const sch = empSchedules?.get(dateStr);
+                          {/* ⚡ Oldindan hisoblangan dayCells — katak ichida dayjs chaqirilmaydi */}
+                          {dayCells.map((c) => {
+                            const sch = empSchedules?.get(c.dateStr);
 
                             return (
                               <td
-                                key={i}
+                                key={c.dateStr}
                                 className={cn(
                                   "text-center p-1 border-r border-slate-200 dark:border-white/5 relative transition-all",
-                                  isWeekend && "bg-slate-50/50 dark:bg-white/[0.01]",
-                                  isToday && "bg-indigo-500/5",
+                                  c.isWeekend && "bg-slate-50/50 dark:bg-white/[0.01]",
+                                  c.isToday && "bg-indigo-500/5",
                                   sch && "cursor-pointer hover:bg-slate-100 dark:hover:bg-white/[0.04]"
                                 )}
                                 onClick={() => {
@@ -1033,7 +1105,7 @@ export default function SchedulesPage() {
                                     status: sch.status,
                                     shiftId: sch.shiftId,
                                     employeeName: emp.fullName,
-                                    date: dateStr,
+                                    date: c.dateStr,
                                   });
                                 }}
                               >
@@ -1065,7 +1137,23 @@ export default function SchedulesPage() {
                 <span className="bg-purple-500/10 text-purple-600 dark:text-purple-400 font-bold px-2 py-0.5 rounded-lg border border-purple-500/20 text-[10px]">Tu</span> Tungi smen
               </span>
               <span className="flex items-center gap-2 font-medium">
-                <span className="font-bold text-slate-400 dark:text-slate-500">○</span> Dam olish kuni
+                <span className="inline-flex flex-col items-center leading-none font-mono text-[9px] text-slate-500 dark:text-slate-400">
+                  <span className="font-semibold">08:00</span>
+                  <span className="opacity-70">20:00</span>
+                </span>
+                Kelish / ketish vaqti
+              </span>
+              <span className="flex items-center gap-2 font-medium">
+                <span className="font-mono text-[10px] text-slate-500 dark:text-slate-400">+1</span> Ertangi kunga o&apos;tadi
+              </span>
+              <span className="flex items-center gap-2 font-medium">
+                <span className="font-bold text-slate-400 dark:text-slate-500">○</span> Dam olish
+              </span>
+              <span className="flex items-center gap-2 font-medium">
+                <span className="font-bold text-teal-600 dark:text-teal-400 text-[10px]">Ta</span> Ta&apos;til
+              </span>
+              <span className="flex items-center gap-2 font-medium">
+                <span className="font-bold text-pink-600 dark:text-pink-400 text-[10px]">Ka</span> Kasallik
               </span>
               <span className="flex items-center gap-1.5 ml-auto text-[11px] font-medium text-indigo-600 dark:text-indigo-400">
                 <Edit3 className="w-3.5 h-3.5" /> Katak ustiga bosib grafikni o&apos;zgartirishingiz mumkin
@@ -1087,7 +1175,7 @@ export default function SchedulesPage() {
         onMonthChange={(m, y) => {
           setMonth(m);
           setYear(y);
-          qc.invalidateQueries({ queryKey: ["schedules-monthly-paginated"] });
+          qc.invalidateQueries({ queryKey: ["staff-schedule-paginated"] });
           qc.invalidateQueries({ queryKey: ["schedule-statistics"] });
         }}
       />
@@ -1105,7 +1193,7 @@ export default function SchedulesPage() {
         year={year}
         targetHospitalId={targetHospitalId}
         onSuccess={() => {
-          qc.invalidateQueries({ queryKey: ["schedules-monthly-paginated"] });
+          qc.invalidateQueries({ queryKey: ["staff-schedule-paginated"] });
           qc.invalidateQueries({ queryKey: ["schedule-statistics"] });
         }}
       />

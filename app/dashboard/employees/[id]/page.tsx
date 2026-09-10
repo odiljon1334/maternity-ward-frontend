@@ -622,8 +622,7 @@ export default function EmployeeProfilePage() {
                   <img 
                     src={buildPhotoUrl(employee.photoUrl)} 
                     alt={employee.fullName}
-                    className="w-20 h-20 rounded-2xl object-cover ring-2 ring-indigo-500/30 shadow-xl" 
-                  />
+                    className="w-20 h-20 rounded-2xl object-cover ring-2 ring-indigo-500/30 shadow-xl" loading="lazy" decoding="async" />
                 ) : (
                   <div className={cn("w-20 h-20 rounded-2xl flex items-center justify-center text-2xl font-bold text-white shadow-xl ring-2 ring-indigo-500/30", avatarColor)}>
                     {initials}

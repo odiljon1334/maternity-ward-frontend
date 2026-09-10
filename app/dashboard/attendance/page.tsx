@@ -5,7 +5,7 @@
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { attendanceApi, departmentsApi, photoUrl as buildPhotoUrl } from "@/lib/api";
+import { attendanceApi, departmentsApi, photoThumbUrl } from "@/lib/api";
 import { Topbar } from "@/components/layout/Topbar";
 import { useAuthStore } from "@/stores/auth";
 import { getInitials, getAvatarColor, formatMinutes, cn, isSuperLike } from "@/lib/utils";
@@ -33,7 +33,7 @@ dayjs.extend(isoWeek);
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
-type StatusFilter = "ALL" | "PRESENT" | "LATE" | "ABSENT" | "EARLY_LEAVE" | "NO_SCHEDULE";
+type StatusFilter = "ALL" | "PRESENT" | "LATE" | "ABSENT" | "EARLY_LEAVE" | "OFF_DUTY" | "NO_SCHEDULE";
 type ShiftFilter  = "ALL" | "DAY" | "NIGHT";
 
 // ─── STATUS CONFIG ────────────────────────────────────────────────────────────
@@ -44,12 +44,28 @@ const STATUS_CONFIG: Record<string, { label: string; badgeCls: string }> = {
   ABSENT:      { label: "Kelmadi",      badgeCls: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20" },
   EARLY_LEAVE: { label: "Erta ketdi",   badgeCls: "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20" },
   LATE_EARLY:  { label: "Kech+Erta",    badgeCls: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20" },
-  // Backend dan keladi — DB ga yozilmaydi, virtual object
+  // ─── Grafik bo'yicha ishlamaydigan kunlar (backend dan virtual keladi) ──────
+  DAY_OFF:     { label: "Dam olish",    badgeCls: "bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20" },
+  VACATION:    { label: "Ta'tilda",     badgeCls: "bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20" },
+  SICK:        { label: "Kasallik",     badgeCls: "bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/20" },
+  HOLIDAY:     { label: "Bayram",       badgeCls: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20" },
+  // Grafik yozuvi umuman yo'q — DB ga yozilmaydi, virtual object
   NO_SCHEDULE: { label: "Grafik yo'q",  badgeCls: "bg-slate-500/10 text-slate-500 dark:text-slate-400 border-slate-400/20" },
 };
 
 // Keldi deb hisoblanadigan statuslar
 const PRESENT_STATUSES = new Set(["PRESENT", "LATE", "EARLY_LEAVE", "LATE_EARLY"]);
+
+/**
+ * Grafigi bor, lekin o'sha kuni ishlamaydigan xodimlar.
+ * Bular "kelmagan" ham, "grafik yo'q" ham emas — davomat foizidan chiqariladi.
+ */
+const OFF_DUTY_STATUSES = new Set(["DAY_OFF", "VACATION", "SICK", "HOLIDAY"]);
+
+/** Davomat foizi hisobiga umuman kirmaydigan statuslar */
+const NOT_EXPECTED_STATUSES = new Set([
+  "DAY_OFF", "VACATION", "SICK", "HOLIDAY", "NO_SCHEDULE",
+]);
 
 // ─── WEEKEND HELPER ───────────────────────────────────────────────────────────
 
@@ -112,12 +128,13 @@ export default function AttendancePage() {
     const late       = all.filter(r => r.status === "LATE" || r.status === "LATE_EARLY").length;
     const lunchLate  = all.filter(r => (r.lunchLateMin ?? 0) > 0).length;
     const noSchedule = all.filter(r => r.status === "NO_SCHEDULE").length;
+    const offDuty    = all.filter(r => OFF_DUTY_STATUSES.has(r.status)).length;
 
-    // Rate: grafik yo'q xodimlarni denominator dan olib tashlaymiz
-    const scheduledTotal = total - noSchedule;
+    // Rate: bugun ishlashi kerak bo'lganlar = jami − (dam olish/ta'til/kasallik) − grafik yo'q
+    const scheduledTotal = all.filter(r => !NOT_EXPECTED_STATUSES.has(r.status)).length;
     const rate = scheduledTotal > 0 ? Math.round((present / scheduledTotal) * 100) : 0;
 
-    return { total, present, absent, late, lunchLate, noSchedule, rate };
+    return { total, present, absent, late, lunchLate, noSchedule, offDuty, scheduledTotal, rate };
   }, [records]);
 
   // ── Client-side Filtering ─────────────────────────────────────────────────────
@@ -139,12 +156,13 @@ export default function AttendancePage() {
         case "LATE":        if (r.status !== "LATE" && r.status !== "LATE_EARLY") return false; break;
         case "ABSENT":      if (r.status !== "ABSENT") return false; break;
         case "EARLY_LEAVE": if (r.status !== "EARLY_LEAVE" && r.status !== "LATE_EARLY") return false; break;
+        case "OFF_DUTY":    if (!OFF_DUTY_STATUSES.has(r.status)) return false; break;
         case "NO_SCHEDULE": if (r.status !== "NO_SCHEDULE") return false; break;
       }
 
-      // Shift filter — NO_SCHEDULE xodimlarga smena yo'q, DAY/NIGHT filtrdan o'tkazmaymiz
+      // Shift filter — ishlamaydigan xodimlarga smena yo'q, DAY/NIGHT filtrdan o'tkazmaymiz
       if (shiftFilter !== "ALL") {
-        if (r.status === "NO_SCHEDULE") return false;
+        if (NOT_EXPECTED_STATUSES.has(r.status)) return false;
         const isNight = r.schedule?.shift?.type === "NIGHTTIME" ||
           (r.expectedCheckIn ? dayjs(r.expectedCheckIn).hour() >= 14 : false);
         if (shiftFilter === "DAY"   &&  isNight) return false;
@@ -166,14 +184,15 @@ export default function AttendancePage() {
         <div className="flex items-center gap-3 bg-violet-500/10 border border-violet-500/20 text-violet-700 dark:text-violet-300 rounded-xl px-4 py-3 text-sm font-medium">
           <Palmtree className="w-4 h-4 flex-shrink-0" />
           <span>
-            {dayjs(date).day() === 6 ? "Shanba" : "Yakshanba"} — dam olish kuni.
-            Xodimlar ABSENT hisoblanmaydi.
+            {dayjs(date).day() === 6 ? "Shanba" : "Yakshanba"}.
+            Holat grafik bo&apos;yicha aniqlanadi — grafigida ish kuni bo&apos;lganlargina
+            &quot;Kelmadi&quot; deb belgilanadi.
           </span>
         </div>
       )}
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
         {/* Jami */}
         <KpiCard
           label="Jami xodimlar"
@@ -210,7 +229,14 @@ export default function AttendancePage() {
           icon={<Coffee className="w-3.5 h-3.5 text-orange-500" />}
           valueClass="text-orange-600 dark:text-orange-400"
         />
-        {/* Grafik yo'q */}
+        {/* Dam olish / Ta'til / Kasallik — grafigi BOR, lekin bugun ishlamaydi */}
+        <KpiCard
+          label="Dam/Ta'til"
+          value={summary.offDuty}
+          icon={<Palmtree className="w-3.5 h-3.5 text-violet-500" />}
+          valueClass="text-violet-600 dark:text-violet-400"
+        />
+        {/* Grafik yo'q — grafik yozuvi umuman yo'q */}
         <KpiCard
           label="Grafik yo'q"
           value={summary.noSchedule}
@@ -221,7 +247,12 @@ export default function AttendancePage() {
 
       {/* Davomat ko'rsatkichi — alohida full-width card */}
       <div className="bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 p-3.5 rounded-xl shadow-sm flex items-center gap-4">
-        <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">Davomat ko&apos;rsatkichi</span>
+        <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
+          Davomat ko&apos;rsatkichi
+          <span className="ml-1.5 text-slate-400 dark:text-slate-500">
+            ({summary.present}/{summary.scheduledTotal} ishlashi kerak)
+          </span>
+        </span>
         <div className="flex-1 bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
           <div
             className="bg-indigo-600 dark:bg-indigo-500 h-full rounded-full transition-all duration-500"
@@ -299,7 +330,7 @@ export default function AttendancePage() {
       <span className="text-slate-400 px-1 flex items-center gap-1 whitespace-nowrap">
         <Filter className="w-3 h-3" /> Holat:
       </span>
-      {(["ALL", "PRESENT", "ABSENT", "LATE", "EARLY_LEAVE", "NO_SCHEDULE"] as StatusFilter[]).map(st => (
+      {(["ALL", "PRESENT", "ABSENT", "LATE", "EARLY_LEAVE", "OFF_DUTY", "NO_SCHEDULE"] as StatusFilter[]).map(st => (
         <button
           key={st}
           onClick={() => setStatusFilter(st)}
@@ -310,7 +341,7 @@ export default function AttendancePage() {
               : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800"
           )}
         >
-          {st === "ALL" ? "Barchasi" : st === "PRESENT" ? "Keldi" : st === "ABSENT" ? "Kelmadi" : st === "LATE" ? "Kechikdi" : st === "EARLY_LEAVE" ? "Erta ketdi" : "Grafik yo'q"}
+          {st === "ALL" ? "Barchasi" : st === "OFF_DUTY" ? "Dam/Ta'til" : STATUS_CONFIG[st]?.label ?? st}
         </button>
       ))}
     </div>
@@ -389,6 +420,8 @@ export default function AttendancePage() {
               {/* Rows */}
               {!isLoading && filteredRecords.map((r: any) => {
                 const isNoSchedule = r.status === "NO_SCHEDULE";
+                const isOffDuty    = OFF_DUTY_STATUSES.has(r.status);
+                const isDimmed     = isNoSchedule || isOffDuty;
                 const st = STATUS_CONFIG[r.status] ?? {
                   label: r.status,
                   badgeCls: "bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-300",
@@ -403,8 +436,8 @@ export default function AttendancePage() {
                     onClick={() => r.employee?.id && router.push(`/dashboard/employees/${r.employee.id}`)}
                     className={cn(
                       "transition-colors cursor-pointer group",
-                      // NO_SCHEDULE — biroz xira ko'rinish
-                      isNoSchedule
+                      // Ishlamaydigan kun — biroz xira ko'rinish
+                      isDimmed
                         ? "bg-slate-50/60 dark:bg-slate-900/30 hover:bg-slate-100/80 dark:hover:bg-slate-800/30 opacity-70"
                         : "hover:bg-slate-50 dark:hover:bg-slate-800/40"
                     )}
@@ -414,7 +447,7 @@ export default function AttendancePage() {
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 flex-shrink-0 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/60">
                           {r.employee?.photoUrl ? (
-                            <img src={buildPhotoUrl(r.employee.photoUrl)} alt={r.employee.fullName} className="w-full h-full object-cover" />
+                            <img src={photoThumbUrl(r.employee.photoUrl)} alt={r.employee.fullName} className="w-full h-full object-cover" loading="lazy" decoding="async" />
                           ) : (
                             <div className={cn("w-full h-full flex items-center justify-center font-bold text-[10px] text-white", getAvatarColor(r.employee?.fullName || ""))}>
                               {getInitials(r.employee?.fullName || "?")}
@@ -443,6 +476,14 @@ export default function AttendancePage() {
                       {isNoSchedule ? (
                         <span className="inline-flex items-center gap-1 text-[10px] text-slate-400 dark:text-slate-400">
                           <CalendarOff className="w-3 h-3" /> Grafik yo&apos;q
+                        </span>
+                      ) : isOffDuty ? (
+                        // Grafigi BOR, lekin bugun ishlamaydi — sababini ko'rsatamiz
+                        <span className={cn(
+                          "inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded border",
+                          st.badgeCls
+                        )}>
+                          <Palmtree className="w-2.5 h-2.5" /> {st.label}
                         </span>
                       ) : hasSchedule ? (
                         <span className={cn(

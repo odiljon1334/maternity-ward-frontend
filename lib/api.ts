@@ -14,6 +14,23 @@ export function photoUrl(url: string | null | undefined): string | undefined {
   return `${BACKEND_ORIGIN}${url}`;
 }
 
+/**
+ * Ro'yxatlardagi kichik avatar uchun URL (128x128, ~3-6 KB).
+ *
+ * Backend `/uploads/thumb/<fayl>` ni birinchi so'rovda o'zi generatsiya qiladi,
+ * keyin diskdan beradi. Migratsiya kerak emas.
+ * To'liq o'lchamli rasm kerak bo'lsa (profil sahifasi) — `photoUrl` ishlatiladi.
+ */
+export function photoThumbUrl(url: string | null | undefined): string | undefined {
+  if (!url) return undefined;
+  if (url.startsWith("http")) return url;
+  if (!url.startsWith("/uploads/")) return `${BACKEND_ORIGIN}${url}`;
+  const filename = url.slice("/uploads/".length);
+  // Ichki papkadagi fayllar (masalan selfies/) thumbnail qilinmaydi
+  if (filename.includes("/")) return `${BACKEND_ORIGIN}${url}`;
+  return `${BACKEND_ORIGIN}/uploads/thumb/${filename}`;
+}
+
 export const api = axios.create({
   baseURL: BASE_URL,
   timeout: 15000,
@@ -110,6 +127,9 @@ export const shiftsApi = {
     api.get("/shifts", { params }).then((r) => r.data.data),
   create: (data: any, params?: { targetHospitalId?: string }) =>
     api.post("/shifts", data, { params }).then((r) => r.data.data),
+  /** Vaqt oralig'i bo'yicha smenni topadi yoki yaratadi (idempotent) */
+  resolve: (data: any, params?: { targetHospitalId?: string }) =>
+    api.post("/shifts/resolve", data, { params }).then((r) => r.data.data),
   update: (id: string, data: any, params?: { targetHospitalId?: string }) =>
     api.put(`/shifts/${id}`, data, { params }).then((r) => r.data.data),
   delete: (id: string, params?: { targetHospitalId?: string }) =>

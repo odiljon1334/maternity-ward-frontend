@@ -5,7 +5,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { dashboardApi, photoUrl as buildPhotoUrl } from "@/lib/api";
+import { dashboardApi, photoThumbUrl} from "@/lib/api";
 import { Topbar } from "@/components/layout/Topbar";
 import { formatMoney, formatMinutes, isSuperLike, getInitials, getAvatarColor, cn } from "@/lib/utils";
 import {
@@ -316,10 +316,9 @@ export default function DashboardPage() {
                       <div className="flex items-center gap-3">
                         {a.photoUrl ? (
                           <img 
-                            src={buildPhotoUrl(a.photoUrl)} 
+                            src={photoThumbUrl(a.photoUrl)} 
                             alt={a.employeeName}
-                            className="w-8 h-8 rounded-full object-cover ring-1 ring-slate-200 dark:ring-slate-700" 
-                          />
+                            className="w-8 h-8 rounded-full object-cover ring-1 ring-slate-200 dark:ring-slate-700" loading="lazy" decoding="async" />
                         ) : (
                           <div className={cn(
                             "w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold text-white",

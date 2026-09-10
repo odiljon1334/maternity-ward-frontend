@@ -21,6 +21,27 @@ interface ShiftPreset {
   lunchEnd: string;
 }
 
+/**
+ * Kalendardagi bitta kunning grafigi.
+ *
+ * ⚠️ MUHIM: ilgari kalendarda faqat smen TURI (day/night/off) saqlanardi va
+ * vaqtlar submit paytida bitta umumiy preset dan olinardi — shuning uchun
+ * bir oyda barcha kunduzgi kunlar majburan bir xil vaqtga ega bo'lardi.
+ * Endi har bir kun o'z vaqtini saqlaydi → har kuni har xil grafik mumkin.
+ */
+type DayEntry = ShiftPreset;
+
+/** Bir xil smenlarni guruhlash uchun kalit (ShiftTemplate ni qayta ishlatish) */
+function presetKey(p: ShiftPreset): string {
+  if (p.type === "off") return "off";
+  return [
+    p.type,
+    p.startTime,
+    p.endTime,
+    p.lunchEnabled ? `${p.lunchStart}-${p.lunchEnd}` : "nolunch",
+  ].join("|");
+}
+
 function toMin(t: string) {
   if (!t || !t.includes(":")) return 0;
   const [h, m] = t.split(":").map(Number);
@@ -232,7 +253,7 @@ const ScheduleCalendar = memo(function ScheduleCalendar({
 }: {
   year: number;
   month: number;
-  dayMap: Record<number, ShiftType>;
+  dayMap: Record<number, DayEntry>;
   dayPresets: Record<ShiftType, ShiftPreset>;
   activeShift: ShiftType;
   onDayClick: (day: number) => void;
@@ -242,9 +263,23 @@ const ScheduleCalendar = memo(function ScheduleCalendar({
   const firstDow    = dayjs(`${year}-${String(month).padStart(2, "0")}-01`).day();
   const offset      = firstDow === 0 ? 6 : firstDow - 1;
 
-  const workedDays = Object.values(dayMap).filter((t) => t !== "off").length;
-  const offDays    = Object.values(dayMap).filter((t) => t === "off").length;
+  const entries    = Object.values(dayMap);
+  const workedDays = entries.filter((e) => e.type !== "off").length;
+  const offDays    = entries.filter((e) => e.type === "off").length;
   const emptyDays  = daysInMonth - workedDays - offDays;
+
+  // Oyda nechta HAR XIL vaqt ishlatilgan — Kadr uchun ko'rinadigan xulosa
+  const timeGroups = useMemo(() => {
+    const map = new Map<string, { label: string; count: number; type: ShiftType }>();
+    for (const e of entries) {
+      if (e.type === "off") continue;
+      const key = presetKey(e);
+      const existing = map.get(key);
+      if (existing) existing.count++;
+      else map.set(key, { label: `${e.startTime}–${e.endTime}`, count: 1, type: e.type });
+    }
+    return Array.from(map.values()).sort((a, b) => b.count - a.count);
+  }, [entries]);
 
   return (
     <div>
@@ -281,8 +316,10 @@ const ScheduleCalendar = memo(function ScheduleCalendar({
           const day    = i + 1;
           const dow    = dayjs(`${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`).day();
           const isWk   = dow === 0 || dow === 6;
-          const type   = dayMap[day];
-          const preset = type ? dayPresets[type] : null;
+          // Har bir kun o'z vaqtini saqlaydi — umumiy preset dan olinmaydi
+          const entry  = dayMap[day];
+          const type   = entry?.type;
+          const preset = entry ?? null;
           const hasLunch = preset?.lunchEnabled && type !== "off";
 
           return (
@@ -354,9 +391,38 @@ const ScheduleCalendar = memo(function ScheduleCalendar({
           className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
         >
           <Copy className="w-3 h-3" />
-          Oldingi oydan ko'chir
+          Bo'sh kunlarni to'ldirish
         </button>
       </div>
+
+      {/* Ishlatilgan vaqtlar xulosasi — har xil vaqtlar aniq ko'rinishi uchun */}
+      {timeGroups.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-[var(--border)]">
+          <p className="text-[11px] text-[var(--text-muted)] mb-1.5">
+            Ishlatilgan vaqtlar
+            {timeGroups.length > 1 && (
+              <span className="ml-1 text-indigo-400 font-medium">
+                ({timeGroups.length} xil)
+              </span>
+            )}
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {timeGroups.map((g) => (
+              <span
+                key={g.label + g.type}
+                className={cn(
+                  "text-[10px] font-mono px-2 py-1 rounded-md border",
+                  g.type === "day"
+                    ? "bg-blue-500/10 border-blue-500/30 text-blue-500 dark:text-blue-400"
+                    : "bg-violet-500/10 border-violet-500/30 text-violet-500 dark:text-violet-400"
+                )}
+              >
+                {g.label} · {g.count} kun
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 });
@@ -494,7 +560,7 @@ export function GenerateModal({
   const [singleEmpId, setSingleEmpId] = useState(preEmployeeId ?? "");
   const [multiSelected, setMultiSelected] = useState<Set<string>>(new Set());
   const [activeShift, setActiveShift] = useState<ShiftType>("day");
-  const [dayMap, setDayMap]           = useState<Record<number, ShiftType>>({});
+  const [dayMap, setDayMap]           = useState<Record<number, DayEntry>>({});
   const [submitting, setSubmitting]   = useState(false);
 
   const [presets, setPresets] = useState<Record<ShiftType, ShiftPreset>>({
@@ -519,23 +585,27 @@ export function GenerateModal({
     });
   }, [calYear]);
 
+  // Kunga bosilganda — HOZIRGI preset vaqtlari o'sha kunga nusxalanadi.
+  // Shu sababli vaqtni o'zgartirib boshqa kunga bossangiz, u kun boshqa
+  // vaqtni oladi → bir oyda har xil grafiklar bo'lishi mumkin.
   const handleDayClick = useCallback((day: number) => {
-    setDayMap((prev) => ({ ...prev, [day]: activeShift }));
-  }, [activeShift]);
+    setDayMap((prev) => ({ ...prev, [day]: { ...presets[activeShift] } }));
+  }, [activeShift, presets]);
 
   const handleCopyPrev = useCallback(() => {
     const daysInMonth = dayjs(`${calYear}-${String(calMonth).padStart(2, "0")}-01`).daysInMonth();
     setDayMap((prev) => {
-      const newMap: Record<number, ShiftType> = { ...prev };
+      const newMap: Record<number, DayEntry> = { ...prev };
       for (let d = 1; d <= daysInMonth; d++) {
         if (!newMap[d]) {
           const dow = dayjs(`${calYear}-${String(calMonth).padStart(2, "0")}-${String(d).padStart(2, "0")}`).day();
-          newMap[d] = (dow === 0 || dow === 6) ? "off" : "day";
+          // Bo'sh kunlar joriy preset vaqtlari bilan to'ldiriladi
+          newMap[d] = { ...presets[(dow === 0 || dow === 6) ? "off" : "day"] };
         }
       }
       return newMap;
     });
-  }, [calYear, calMonth]);
+  }, [calYear, calMonth, presets]);
 
   const updatePreset = useCallback((type: ShiftType, patch: Partial<ShiftPreset>) => {
     setPresets((prev) => ({ ...prev, [type]: { ...prev[type], ...patch } }));
@@ -544,16 +614,20 @@ export function GenerateModal({
   const resolveShift = async (preset: ShiftPreset): Promise<string | undefined> => {
     if (preset.type === "off") return undefined;
     const shiftType = preset.type === "day" ? "DAYTIME" : "NIGHTTIME";
+    // Mavjud smenni qayta ishlatamiz — har safar yangi ShiftTemplate yaratmaslik uchun
     const found = (existingShifts as any[]).find(
       (s) => s.type === shiftType
-        && s.startTime === preset.startTime
-        && s.endTime   === preset.endTime
+        && s.startTime?.slice(0, 5) === preset.startTime
+        && s.endTime?.slice(0, 5)   === preset.endTime
     );
     if (found) return found.id;
 
     const ovn   = isOvernightFn(preset.startTime, preset.endTime);
     const gross = calcGross(preset.startTime, preset.endTime);
-    const newShift = await shiftsApi.create({
+
+    // shiftsApi.resolve — server tomonda "topib-yaratish".
+    // Bir xil nomli smen mavjud bo'lsa 409 bermaydi, mavjudini qaytaradi.
+    const shift = await shiftsApi.resolve({
       name:        `${preset.type === "day" ? "Kunduzgi" : "Kechki"} ${preset.startTime}–${preset.endTime}`,
       type:        shiftType,
       startTime:   preset.startTime,
@@ -561,12 +635,13 @@ export function GenerateModal({
       durationH:   Math.round(gross / 60),
       isOvernight: ovn,
       graceMinutes: 15,
-      lunchStart:  preset.lunchEnabled ? preset.lunchStart : null,
-      lunchEnd:    preset.lunchEnabled ? preset.lunchEnd   : null,
+      ...(preset.lunchEnabled
+        ? { lunchStart: preset.lunchStart, lunchEnd: preset.lunchEnd }
+        : {}),
       lunchGraceMin: 10,
     }, apiParams);
     qc.invalidateQueries({ queryKey: ["shifts"] });
-    return newShift.id;
+    return shift.id;
   };
 
   const handleSubmit = async () => {
@@ -579,29 +654,36 @@ export function GenerateModal({
 
     setSubmitting(true);
     try {
-      const cache   = new Map<ShiftType, string | undefined>();
+      // ⚠️ Cache endi smen TURI bo'yicha emas, aniq VAQT bo'yicha kalitlanadi.
+      // Ilgari `Map<ShiftType, id>` edi — shuning uchun bir oydagi barcha
+      // kunduzgi kunlar majburan bitta vaqtni olardi.
+      const cache   = new Map<string, string | undefined>();
       const entries: Array<{ date: string; status: string; shiftId?: string }> = [];
 
-      for (const [dayStr, type] of Object.entries(dayMap)) {
+      for (const [dayStr, entry] of Object.entries(dayMap)) {
         const day     = Number(dayStr);
         const dateStr = `${calYear}-${String(calMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 
-        if (type === "off") {
+        if (entry.type === "off") {
           entries.push({ date: dateStr, status: "DAY_OFF" });
           continue;
         }
-        if (!cache.has(type)) {
-          cache.set(type, await resolveShift(presets[type]));
+
+        const key = presetKey(entry);
+        if (!cache.has(key)) {
+          // Har xil vaqt uchun alohida ShiftTemplate topiladi yoki yaratiladi
+          cache.set(key, await resolveShift(entry));
         }
-        entries.push({ date: dateStr, status: "WORKING", shiftId: cache.get(type) });
+        entries.push({ date: dateStr, status: "WORKING", shiftId: cache.get(key) });
       }
 
-      let total = 0;
-      for (const empId of empIds) {
-        const res = await schedulesApi.bulkManual({ employeeId: empId, entries });
-        total += res?.created ?? entries.filter((e) => e.status === "WORKING").length;
-      }
-      qc.invalidateQueries({ queryKey: ["schedules-monthly"] });
+      // ⚡ Barcha xodimlar uchun BITTA so'rov.
+      // Ilgari har bir xodimga alohida HTTP so'rov ketardi (100 xodim = 100 so'rov).
+      const res = await schedulesApi.bulkManual({ employeeIds: empIds, entries });
+      const total = (res?.created ?? 0) + (res?.updated ?? 0);
+      // Grid ("staff-schedule-paginated") va statistika kartochkalari
+      qc.invalidateQueries({ queryKey: ["staff-schedule-paginated"] });
+      qc.invalidateQueries({ queryKey: ["schedule-statistics"] });
       onMonthChange?.(calMonth, calYear);
       toast.success(
         empIds.length > 1

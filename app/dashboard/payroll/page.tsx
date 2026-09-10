@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { payrollApi, departmentsApi, downloadBlob, photoUrl as buildPhotoUrl } from "@/lib/api";
+import { payrollApi, departmentsApi, downloadBlob, photoThumbUrl } from "@/lib/api";
 import { Topbar } from "@/components/layout/Topbar";
 import { formatMoney, formatMinutes, cn, isSuperLike, getInitials, getAvatarColor } from "@/lib/utils";
 import {
@@ -308,7 +308,7 @@ export default function PayrollPage() {
                 <div className="flex items-center gap-3 mb-3">
                   <div className="flex-shrink-0">
                     {r.employee?.photoUrl
-                      ? <img src={buildPhotoUrl(r.employee.photoUrl)} alt={r.employee.fullName} className="w-10 h-10 rounded-full object-cover" />
+                      ? <img src={photoThumbUrl(r.employee.photoUrl)} alt={r.employee.fullName} className="w-10 h-10 rounded-full object-cover" loading="lazy" decoding="async" />
                       : <div className={cn("w-10 h-10 rounded-full flex items-center justify-center text-xs font-semibold text-white", getAvatarColor(r.employee?.fullName || ""))}>
                           {getInitials(r.employee?.fullName || "?")}
                         </div>
@@ -411,7 +411,7 @@ export default function PayrollPage() {
                         <div className="flex items-center gap-3">
                           <div className="flex-shrink-0">
                             {r.employee?.photoUrl
-                              ? <img src={buildPhotoUrl(r.employee.photoUrl)} alt={r.employee.fullName} className="w-8 h-8 rounded-full object-cover ring-1 ring-[var(--border)]" />
+                              ? <img src={photoThumbUrl(r.employee.photoUrl)} alt={r.employee.fullName} className="w-8 h-8 rounded-full object-cover ring-1 ring-[var(--border)]" loading="lazy" decoding="async" />
                               : <div className={cn("w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold text-white", getAvatarColor(r.employee?.fullName || ""))}>
                                   {getInitials(r.employee?.fullName || "?")}
                                 </div>

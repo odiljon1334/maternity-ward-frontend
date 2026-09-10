@@ -128,8 +128,7 @@ export function ArchivedBioModal({ empId, onClose }: ArchivedBioModalProps) {
                 <img
                   src={buildPhotoUrl(emp.photoUrl)}
                   alt={emp.fullName}
-                  className="w-full h-full rounded-2xl object-cover ring-2 ring-indigo-500/30 shadow-md"
-                />
+                  className="w-full h-full rounded-2xl object-cover ring-2 ring-indigo-500/30 shadow-md" loading="lazy" decoding="async" />
               ) : (
                 <div className={cn(
                   "w-full h-full rounded-2xl flex items-center justify-center text-2xl font-bold text-white shadow-md ring-2 ring-indigo-500/30",
