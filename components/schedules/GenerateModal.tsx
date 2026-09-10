@@ -611,7 +611,10 @@ export function GenerateModal({
     setPresets((prev) => ({ ...prev, [type]: { ...prev[type], ...patch } }));
   }, []);
 
-  const resolveShift = async (preset: ShiftPreset): Promise<string | undefined> => {
+  const resolveShift = async (
+    preset: ShiftPreset,
+    forEmployeeId?: string,
+  ): Promise<string | undefined> => {
     if (preset.type === "off") return undefined;
     const shiftType = preset.type === "day" ? "DAYTIME" : "NIGHTTIME";
     // Mavjud smenni qayta ishlatamiz — har safar yangi ShiftTemplate yaratmaslik uchun
@@ -628,6 +631,9 @@ export function GenerateModal({
     // shiftsApi.resolve — server tomonda "topib-yaratish".
     // Bir xil nomli smen mavjud bo'lsa 409 bermaydi, mavjudini qaytaradi.
     const shift = await shiftsApi.resolve({
+      // SUPER_ADMIN da kasalxona tanlanmagan bo'lsa, server kasalxonani
+      // shu xodim orqali aniqlaydi (JWT dagi hospitalId null bo'ladi)
+      employeeId:  forEmployeeId,
       name:        `${preset.type === "day" ? "Kunduzgi" : "Kechki"} ${preset.startTime}–${preset.endTime}`,
       type:        shiftType,
       startTime:   preset.startTime,
@@ -672,7 +678,7 @@ export function GenerateModal({
         const key = presetKey(entry);
         if (!cache.has(key)) {
           // Har xil vaqt uchun alohida ShiftTemplate topiladi yoki yaratiladi
-          cache.set(key, await resolveShift(entry));
+          cache.set(key, await resolveShift(entry, empIds[0]));
         }
         entries.push({ date: dateStr, status: "WORKING", shiftId: cache.get(key) });
       }
