@@ -100,6 +100,20 @@ function CompactScheduleCalendar({
           const isDayOff   = hasData && schedule.status === "DAY_OFF";
           const isNight    = isWorkDay && schedule?.shift?.type === "NIGHTTIME";
 
+          // Grafikdagi aniq kelish/ketish vaqtlari
+          const startTime = isWorkDay ? schedule?.shift?.startTime?.slice(0, 5) : undefined;
+          const endTime   = isWorkDay ? schedule?.shift?.endTime?.slice(0, 5)   : undefined;
+          // Tungi smen ertangi kunga o'tadimi
+          const overnight = isWorkDay && schedule?.shift?.isOvernight === true;
+          // Dam olishdan boshqa ishlamaydigan kunlar (ta'til, kasallik, bayram)
+          // Katak juda tor (~38px) — desktop jadvaldagi kabi qisqa belgilar
+          const offMark   = hasData && !isWorkDay && !isDayOff
+            ? ({ VACATION: "Ta", SICK: "Ka", HOLIDAY: "B" } as Record<string, string>)[schedule.status]
+            : undefined;
+          const offLabel  = hasData && !isWorkDay && !isDayOff
+            ? ({ VACATION: "Ta'til", SICK: "Kasallik", HOLIDAY: "Bayram" } as Record<string, string>)[schedule.status]
+            : undefined;
+
           // Skeleton
           if (isLoading) {
             return (
@@ -116,18 +130,18 @@ function CompactScheduleCalendar({
               title={
                 !hasData    ? "Grafik belgilanmagan"
                 : isDayOff  ? "Dam olish kuni"
-                : isNight   ? `Kechki smena: ${schedule.shift?.startTime ?? ""}–${schedule.shift?.endTime ?? ""}`
-                :             `Kunduzgi smena: ${schedule.shift?.startTime ?? ""}–${schedule.shift?.endTime ?? ""}`
+                : offLabel  ? (schedule.note || offLabel)
+                : `${isNight ? "Kechki" : "Kunduzgi"} smena: ${startTime ?? "?"} dan ${endTime ?? "?"} gacha${overnight ? " (ertangi kun)" : ""}`
               }
               className={cn(
-                "aspect-square rounded-2xl p-1.5 flex flex-col justify-between transition-all border",
+                "aspect-square rounded-2xl p-1 flex flex-col justify-between transition-all border overflow-hidden",
                 isToday
                   ? "bg-indigo-500/20 border-indigo-500/60 ring-2 ring-indigo-500/40 shadow-lg shadow-indigo-500/20"
                   : isWorkDay && isNight
                     ? "bg-indigo-500/10 border-indigo-500/20"
                     : isWorkDay
                       ? "bg-amber-500/10 border-amber-500/20"
-                      : isDayOff
+                      : isDayOff || offLabel
                         ? "bg-[var(--bg-main)] border-[var(--border)] opacity-50"
                         : "border-dashed border-[var(--border)] opacity-30",
               )}
@@ -145,7 +159,7 @@ function CompactScheduleCalendar({
 
                 {!hasData ? (
                   <span className="text-[9px] text-[var(--text-muted)] opacity-50">—</span>
-                ) : isDayOff ? (
+                ) : isDayOff || offLabel ? (
                   <Star className="w-3 h-3 text-slate-400" />
                 ) : isNight ? (
                   <Moon className="w-3 h-3 text-indigo-500 dark:text-indigo-400" />
@@ -154,20 +168,27 @@ function CompactScheduleCalendar({
                 )}
               </div>
 
-              {/* Shift startTime */}
-              <div className="text-center">
-                <span className={cn(
-                  "text-[9px] font-mono font-medium",
-                  isToday
-                    ? "text-indigo-500 dark:text-indigo-300"
-                    : "text-[var(--text-muted)]"
-                )}>
-                  {isWorkDay && schedule?.shift?.startTime
-                    ? schedule.shift.startTime.slice(0, 5)
-                    : isDayOff
-                      ? "🌴"
-                      : "—"}
-                </span>
+              {/* Kelish va ketish vaqti — grafikdan */}
+              <div className={cn(
+                "text-center leading-none",
+                isToday ? "text-indigo-500 dark:text-indigo-300" : "text-[var(--text-muted)]"
+              )}>
+                {isWorkDay && startTime ? (
+                  <>
+                    <div className="text-[8px] font-mono font-semibold tracking-tighter">{startTime}</div>
+                    {endTime && (
+                      // Mobil katak ~38px — "+1" belgisi vaqtni kesib qo'yadi.
+                      // Tungi smena oy ikonkasi va tooltip orqali bilinadi.
+                      <div className="text-[8px] font-mono opacity-70 tracking-tighter">
+                        {endTime}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <span className="text-[9px] font-mono font-medium">
+                    {isDayOff ? "🌴" : offMark ?? "—"}
+                  </span>
+                )}
               </div>
             </div>
           );

@@ -205,6 +205,10 @@ function useLiveTracking(
 // ─── Today status card (Profil sahifasidagi kabi gradientli va bezakli card) ────
 function TodayCard({ record }: { record: any }) {
   const status = STATUS_MAP[record.status] ?? { label: record.status, cls: "bg-slate-500/20 text-slate-400 border-slate-500/30" };
+
+  // Grafik bo'yicha rejadagi kelish/ketish vaqtlari
+  const planIn  = record.expectedCheckIn  ? dayjs(record.expectedCheckIn).format("HH:mm")  : null;
+  const planOut = record.expectedCheckOut ? dayjs(record.expectedCheckOut).format("HH:mm") : null;
   
   return (
     <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-950/60 via-[var(--bg-card)] to-purple-950/40 border border-[var(--border)] p-6 shadow-2xl space-y-5">
@@ -232,6 +236,9 @@ function TodayCard({ record }: { record: any }) {
             <LogIn className="w-3 h-3 text-emerald-400" /> Keldi
           </p>
           <p className="text-xl font-black text-emerald-400 tracking-tight">{fmt(record.checkIn)}</p>
+          {planIn && (
+            <p className="text-[9px] text-[var(--text-muted)] font-mono mt-0.5">Reja: {planIn}</p>
+          )}
           {record.lateMinutes > 0 && (
             <span className="inline-block text-[9px] text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded mt-1 font-semibold border border-amber-500/20">
               +{record.lateMinutes} min kech
@@ -264,6 +271,9 @@ function TodayCard({ record }: { record: any }) {
           <p className={cn("text-xl font-black tracking-tight", record.checkOut ? "text-rose-400" : "text-[var(--text-muted)] opacity-60")}>
             {fmt(record.checkOut)}
           </p>
+          {planOut && (
+            <p className="text-[9px] text-[var(--text-muted)] font-mono mt-0.5">Reja: {planOut}</p>
+          )}
         </div>
       </div>
     </div>
