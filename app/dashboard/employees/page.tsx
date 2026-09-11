@@ -751,39 +751,14 @@ const EmpRow = memo(function EmpRow({
 // ── Main Page ────────────────────────────────────
 
 /**
- * Rasm yuklash natijasini tushunarli qilib ko'rsatadi.
+ * Rasm yuklash natijasini ko'rsatadi.
  *
- * Rasm serverga saqlanadi, lekin u terminalga ham yetib borishi kerak —
- * aks holda xodim davomat belgilay olmaydi. Ilgari ikkala holatda ham
- * "Rasm yuklandi" chiqardi va terminal xatosi ko'rinmasdi.
+ * Rasm bazaga saqlanadi va terminalga FONDA yuboriladi — foydalanuvchi
+ * terminalni kutmaydi. Terminal o'chiq bo'lsa rasm baribir saqlanadi va
+ * keyinroq Kasalxonalar sahifasidagi "Sync" tugmasi bilan yuboriladi.
  */
-function showPhotoResult(updatedEmp: any, toastId: string | number) {
-  const sync = updatedEmp?.terminalSync;
-
-  // Eski backend terminalSync qaytarmaydi — oddiy xabar
-  if (!sync) {
-    toast.success("Rasm yuklandi", { id: toastId });
-    return;
-  }
-
-  if (sync.ok) {
-    const where = sync.synced?.length
-      ? ` va terminalga yuborildi (${sync.synced.join(", ")})`
-      : "";
-    toast.success(`Rasm yuklandi${where}`, { id: toastId });
-    return;
-  }
-
-  // Rasm saqlandi, lekin terminal(lar)ga bormadi — buni yashirmaymiz
-  const problems = (sync.failed ?? [])
-    .map((f: any) => `${f.terminal} — ${f.reason}`)
-    .join("; ");
-
-  toast.error(
-    `Rasm saqlandi, lekin terminalga yuborilmadi: ${problems}. ` +
-      `Xodim hozircha terminaldan o'ta olmaydi — muammo bartaraf bo'lgach rasmni qayta yuklang.`,
-    { id: toastId, duration: 12000 },
-  );
+function showPhotoResult(_updatedEmp: any, toastId: string | number) {
+  toast.success("Rasm saqlandi", { id: toastId });
 }
 
 /** Yuklash umuman o'tmagan holat uchun tushunarli izoh */
