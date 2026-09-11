@@ -158,6 +158,9 @@ export const employeesApi = {
     return api.post(`/employees/${id}/photo`, form, {
       headers: { "Content-Type": "multipart/form-data" },
       params,
+      // Rasm terminal(lar)ga ham yuboriladi — bu 15 soniyadan uzoq
+      // cho'zilishi mumkin, shuning uchun alohida uzunroq muddat
+      timeout: 90_000,
     }).then((r) => r.data.data);
   },
   exportExcel: (params?: { targetHospitalId?: string }) =>
