@@ -1067,18 +1067,35 @@ const resetGpsMutation = useMutation({
       qc.invalidateQueries({ queryKey: ["employees"] });
       qc.invalidateQueries({ queryKey: ["departments"] });
       qc.invalidateQueries({ queryKey: ["positions"] });
-      const imported  = result?.imported ?? 0;
-      const newDepts  = result?.created?.departments ?? [];
-      const newPos    = result?.created?.positions ?? [];
-      const errs      = result?.errors ?? [];
+      const imported   = result?.imported ?? 0;
+      const newDepts   = result?.created?.departments ?? [];
+      const newPos     = result?.created?.positions ?? [];
+      const errs       = result?.errors ?? [];
+      // Backend allaqachon bazada bor xodimlarni o'tkazib yuboradi
+      const duplicates = result?.duplicates ?? [];
+
       if (imported > 0) {
         const extras: string[] = [];
         if (newDepts.length > 0) extras.push(`${newDepts.length} yangi bo'lim`);
         if (newPos.length > 0)   extras.push(`${newPos.length} yangi lavozim`);
         toast.success(`${imported} ta xodim import qilindi${extras.length ? ` (${extras.join(", ")} yaratildi)` : ""}`);
+      } else if (duplicates.length > 0) {
+        toast.warning(
+          `Yangi xodim qo'shilmadi — ${duplicates.length} tasi allaqachon bazada bor`,
+        );
       } else {
         toast.warning("Hech qanday xodim import qilinmadi");
       }
+
+      // Dublikatlar — xato emas, lekin ko'rinishi kerak
+      if (duplicates.length > 0 && imported > 0) {
+        toast.warning(
+          `${duplicates.length} ta xodim o'tkazib yuborildi (allaqachon bazada bor): ` +
+            `${duplicates.slice(0, 2).join("; ")}${duplicates.length > 2 ? " ..." : ""}`,
+          { duration: 10000 },
+        );
+      }
+
       if (errs.length > 0) toast.error(`${errs.length} ta xatolik: ${errs.slice(0, 2).join("; ")}${errs.length > 2 ? " ..." : ""}`);
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Import xatoligi");
