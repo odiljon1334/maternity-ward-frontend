@@ -7,6 +7,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { employeesApi, departmentsApi, positionsApi, attendanceApi, leaveApi, downloadBlob, photoUrl as buildPhotoUrl, photoThumbUrl } from "@/lib/api";
+import { compressImage, formatBytes } from "@/lib/image";
 import { Topbar } from "@/components/layout/Topbar";
 import { getInitials, getAvatarColor, formatMoney, cn, isSuperLike } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth";
@@ -173,7 +174,11 @@ function EmployeeModal({
             { ...rest, birthDate: birthDate || undefined },
             params
           );
-      if (photoFile) await employeesApi.uploadPhoto(emp.id, photoFile, params);
+      if (photoFile) {
+        // Modal orqali saqlanganda ham rasm oldin kichraytiriladi
+        const prepared = await compressImage(photoFile);
+        await employeesApi.uploadPhoto(emp.id, prepared, params);
+      }
       return emp;
     },
     onSuccess: () => {
@@ -1111,9 +1116,21 @@ const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !uploadingEmpId) return;
     e.target.value = "";
-    const toastId = toast.loading("Rasm yuklanmoqda...");
+    const toastId = toast.loading("Rasm tayyorlanmoqda...");
     try {
-      const updatedEmp = await employeesApi.uploadPhoto(uploadingEmpId, file, params);
+      // ⚠️ Xom kamera fayli 3-10 MB bo'ladi va sekin internetda yuklash
+      //    1-2 daqiqa davom etardi. Server uni baribir 800x800 ga siqadi,
+      //    shuning uchun brauzerda oldindan kichraytiramiz.
+      const original = file;
+      const prepared = await compressImage(file);
+      if (prepared.size < original.size) {
+        console.info(
+          `Rasm siqildi: ${formatBytes(original.size)} → ${formatBytes(prepared.size)}`,
+        );
+      }
+
+      toast.loading("Rasm yuklanmoqda...", { id: toastId });
+      const updatedEmp = await employeesApi.uploadPhoto(uploadingEmpId, prepared, params);
   
       qc.setQueriesData({ queryKey: ["employees"] }, (old: any) => {
         if (!old?.pages) return old;
