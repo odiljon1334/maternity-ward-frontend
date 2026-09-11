@@ -29,9 +29,11 @@ interface Props {
   trend?: any[];
   /** Real-time tasma uchun boshlang'ich hodisalar (bugungi davomat) */
   initialEvents?: any[];
+  /** Tanlangan kasalxona — boshqa shifoxona hodisalarini filtrlash uchun */
+  hospitalId?: string;
 }
 
-export default function DashboardCharts({ trend, initialEvents }: Props) {
+export default function DashboardCharts({ trend, initialEvents, hospitalId }: Props) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
       {/* Attendance trend (2/3 width) */}
@@ -73,7 +75,7 @@ export default function DashboardCharts({ trend, initialEvents }: Props) {
       </div>
 
       {/* Real-time keldi/ketdi (1/3) — ilgari bu yerda "Ko'p kechikkanlar" edi */}
-      <RealtimeAttendanceFeed initialEvents={initialEvents} />
+      <RealtimeAttendanceFeed initialEvents={initialEvents} hospitalId={hospitalId} />
     </div>
   );
 }

@@ -271,7 +271,7 @@ export default function DashboardPage() {
         </div>
 
         {/* ── 4. Dynamic Charts Row ── */}
-        <DashboardCharts trend={trend} initialEvents={overview?.todayAttendances} />
+        <DashboardCharts trend={trend} initialEvents={overview?.todayAttendances} hospitalId={targetHospitalId} />
 
         {/* ── 5. Department Bar Chart ── */}
         {departments && departments.length > 0 && (

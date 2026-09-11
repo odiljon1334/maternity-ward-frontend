@@ -13,6 +13,8 @@ const MAX_EVENTS = 25;
 interface AttendanceEvent {
   id: string;
   action: "CHECK_IN" | "CHECK_OUT";
+  /** Qaysi kasalxonaga tegishli — SUPER_ADMIN uchun filtrlash kaliti */
+  hospitalId?: string | null;
   at?: string;
   employee: {
     id: string;
@@ -94,9 +96,18 @@ function normalizeInitial(records?: any[]): AttendanceEvent[] {
  */
 export default function RealtimeAttendanceFeed({
   initialEvents,
+  hospitalId,
 }: {
   /** Sahifa ochilganda ko'rsatiladigan bugungi davomat yozuvlari */
   initialEvents?: any[];
+  /**
+   * Tanlangan kasalxona (SUPER_ADMIN uchun).
+   *
+   * ⚠️ SUPER_ADMIN socket'da 'super-admins' xonasiga qo'shiladi va u yerga
+   * BARCHA kasalxonalar hodisasi keladi. Bu bo'lmasa boshqa shifoxonaning
+   * kirdi-chiqdisi shu kartochkada ko'rinib qolardi.
+   */
+  hospitalId?: string;
 }) {
   const seeded = useMemo(() => normalizeInitial(initialEvents), [initialEvents]);
   const [events, setEvents] = useState<AttendanceEvent[]>(seeded);
@@ -137,6 +148,9 @@ export default function RealtimeAttendanceFeed({
     socket.on("connect_error", () => setConnected(false));
 
     socket.on("attendance:event", (ev: AttendanceEvent) => {
+      // Boshqa kasalxona hodisasini ko'rsatmaymiz
+      if (hospitalId && ev.hospitalId && ev.hospitalId !== hospitalId) return;
+
       setEvents((prev) => {
         // Bir hodisa ikki marta kelib qolmasligi uchun
         if (prev.some((p) => p.id === ev.id)) return prev;
@@ -149,7 +163,12 @@ export default function RealtimeAttendanceFeed({
       socket.disconnect();
       socketRef.current = null;
     };
-  }, []);
+  }, [hospitalId]);
+
+  // Kasalxona almashtirilganda eski hodisalar qolib ketmasligi kerak
+  useEffect(() => {
+    setEvents(seeded);
+  }, [hospitalId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const summary = useMemo(() => {
     const today = dayjs().format("YYYY-MM-DD");
