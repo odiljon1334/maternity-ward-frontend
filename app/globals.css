@@ -292,3 +292,27 @@ html.dark ::-webkit-scrollbar-thumb:hover {
 .sheet-safe {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Yuz skanerlash animatsiyasi (check-in kamera ramkasi ichida) — Qaror 4
+   ───────────────────────────────────────────────────────────────────────── */
+@keyframes faceScanLine {
+  0% {
+    top: 12%;
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    top: 88%;
+    opacity: 0;
+  }
+}
+
+.animate-face-scan-line {
+  animation: faceScanLine 2.2s ease-in-out infinite;
+}

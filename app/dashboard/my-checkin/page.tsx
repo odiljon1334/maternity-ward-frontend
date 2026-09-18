@@ -9,6 +9,7 @@ import { locationApi } from "@/lib/api";
 import {
   Camera, MapPin, CheckCircle2, XCircle, Loader2,
   RefreshCw, AlertTriangle, Clock, LogIn, LogOut, Building2, Sparkles, User,
+  ScanFace,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { attendanceApi, photoUrl } from "@/lib/api";
@@ -776,8 +777,34 @@ const savePositionGps = useCallback(async () => {
                     playsInline
                     muted
                   />
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="w-44 h-52 rounded-full border-2 border-white/60 border-dashed" />
+
+                  {/* Yuz skanerlash ramkasi — check-in'da yuz tekshiruvi (Qaror 4)
+                      ishlashini vizual ravishda xodimga tushunarli qiladi */}
+                  <div className="absolute inset-0 pointer-events-none">
+                    {/* Burchak qavslari */}
+                    <div className="absolute inset-5 sm:inset-7">
+                      <span className="absolute top-0 left-0 w-8 h-8 border-t-[3px] border-l-[3px] border-indigo-400 rounded-tl-2xl" />
+                      <span className="absolute top-0 right-0 w-8 h-8 border-t-[3px] border-r-[3px] border-indigo-400 rounded-tr-2xl" />
+                      <span className="absolute bottom-0 left-0 w-8 h-8 border-b-[3px] border-l-[3px] border-indigo-400 rounded-bl-2xl" />
+                      <span className="absolute bottom-0 right-0 w-8 h-8 border-b-[3px] border-r-[3px] border-indigo-400 rounded-br-2xl" />
+                      {/* Ingichka nuqtali chegara — butun ramkani ko'rsatadi */}
+                      <div className="absolute inset-0 rounded-3xl border-2 border-dashed border-indigo-400/30" />
+                    </div>
+
+                    {/* Markaziy doira + yuz ikonkasi + skanerlash chizig'i */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="relative w-36 h-36 sm:w-40 sm:h-40 rounded-full border border-indigo-300/50 overflow-hidden flex items-center justify-center bg-indigo-500/5">
+                        <ScanFace className="w-14 h-14 text-indigo-300/80" strokeWidth={1.5} />
+                        <div className="absolute inset-x-2 top-0 h-0.5 rounded-full bg-gradient-to-r from-transparent via-indigo-300 to-transparent animate-face-scan-line" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Pastki ko'rsatma matni */}
+                  <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent pt-10 pb-3 text-center pointer-events-none">
+                    <p className="text-[11px] font-semibold text-white/90 tracking-wide">
+                      Yuzni skanerlash doirasiga qarating
+                    </p>
                   </div>
                 </div>
                 <canvas ref={cam.canvasRef} className="hidden" />
