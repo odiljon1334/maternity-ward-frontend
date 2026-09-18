@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
+import { toast } from "sonner";
 import { useAuthStore } from "@/stores/auth";
 import {
   MapPin,
@@ -14,6 +15,7 @@ import {
   Clock3,
   Signal,
   Users,
+  AlertTriangle,
 } from "lucide-react";
 import { API_ORIGIN } from "@/lib/api";
 import dynamic from "next/dynamic";
@@ -51,6 +53,7 @@ export interface EmployeeMarker {
   checkIn: string | null;
   checkOut: string | null;
   attendanceStatus: string | null;
+  isOutside?: boolean;
 }
 
 // ─────────────────────────────────────────────
@@ -243,6 +246,18 @@ export default function LiveMapPage() {
       "location:update",
       (data: EmployeeMarker) => {
         setMarkers((prev) => {
+          const wasOutside = prev.get(data.userId)?.isOutside;
+          // Xodim endigina geofence tashqarisiga chiqqanini tasdiqlasa — ogohlantirish
+          if (data.isOutside && !wasOutside) {
+            toast.warning(`${data.name} ish joyini tark etdi`, {
+              description:
+                data.distance != null
+                  ? `Ish joyidan ${data.distance}m uzoqlikda`
+                  : undefined,
+              duration: 8000,
+            });
+          }
+
           const next = new Map(prev);
 
           next.set(
@@ -610,13 +625,19 @@ export default function LiveMapPage() {
                         )}
 
                         <span
-                          className={`text-[10px] flex items-center gap-0.5 ${
-                            isSelected
+                          className={`text-[10px] flex items-center gap-0.5 font-bold ${
+                            emp.isOutside
+                              ? "text-red-400"
+                              : isSelected
                               ? "text-indigo-200"
                               : "text-[var(--text-muted)]"
                           }`}
                         >
-                          <Navigation className="w-3 h-3" />
+                          {emp.isOutside ? (
+                            <AlertTriangle className="w-3 h-3" />
+                          ) : (
+                            <Navigation className="w-3 h-3" />
+                          )}
 
                           {emp.distance !==
                             null &&

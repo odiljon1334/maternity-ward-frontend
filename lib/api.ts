@@ -72,6 +72,22 @@ export const authApi = {
     api.post("/auth/register", data).then((r) => r.data.data),
   changePassword: (data: { currentPassword: string; newPassword: string }) =>
     api.put("/auth/change-password", data).then((r) => r.data.data),
+
+  // ─── Email tasdiqlash ───
+  updateEmail: (data: { email: string }) =>
+    api.put("/auth/email", data).then((r) => r.data.data),
+  resendEmailOtp: () =>
+    api.post("/auth/email/resend-otp").then((r) => r.data.data),
+  verifyEmailOtp: (data: { code: string }) =>
+    api.post("/auth/email/verify-otp", data).then((r) => r.data.data),
+
+  // ─── Parolni tiklash ───
+  forgotPassword: (data: { username: string }) =>
+    api.post("/auth/forgot-password", data).then((r) => r.data.data),
+  resetPassword: (data: { token: string; newPassword: string }) =>
+    api.post("/auth/reset-password", data).then((r) => r.data.data),
+  verifyResetOtp: (data: { username: string; code: string; newPassword: string }) =>
+    api.post("/auth/reset-password/otp", data).then((r) => r.data.data),
 };
 
 // ─── Dashboard ──────────────────────────────────
@@ -275,7 +291,11 @@ export const attendanceApi = {
 // ─── Location ─────────────────────────────────
 export const locationApi = {
   sendLive: (opts: { latitude: number; longitude: number; accuracy: number; battery?: number }) =>
-    api.post("/location/live", opts).then((r) => r.data),
+    api.post("/location/live", opts).then((r) => r.data.data as {
+      ok: boolean;
+      stopTracking?: boolean;
+      reason?: string;
+    }),
 };
 
 // ─── Payroll ────────────────────────────────────

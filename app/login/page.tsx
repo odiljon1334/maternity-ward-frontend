@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { Eye, EyeOff, Activity, Users, Clock, TrendingUp, Shield, Mail, Phone, Send } from "lucide-react";
@@ -208,6 +209,14 @@ export default function LoginPage() {
                 {errors.password && (
                   <p className="mt-1 text-xs text-red-400">{errors.password.message}</p>
                 )}
+                <div className="flex justify-end mt-2">
+                  <Link
+                    href="/forgot-password"
+                    className="text-xs font-medium text-indigo-500 hover:text-indigo-400 transition-colors"
+                  >
+                    Parolni unutdingizmi?
+                  </Link>
+                </div>
               </div>
 
               {/* Submit */}

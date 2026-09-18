@@ -11,7 +11,8 @@ import { useAuthStore } from "@/stores/auth";
 import { useTheme } from "next-themes";
 import {
   User, Lock, Sun, Moon, Camera, Eye, EyeOff,
-  Building2, Briefcase, Hash, AtSign, Sparkles, ShieldCheck
+  Building2, Briefcase, Hash, AtSign, Sparkles, ShieldCheck,
+  Mail, MailCheck, Send, Pencil
 } from "lucide-react";
 import { cn, getAvatarColor, getInitials } from "@/lib/utils";
 
@@ -67,6 +68,41 @@ export default function ProfilePage() {
     currentPw.length > 0 &&
     newPw.length >= 6 &&
     newPw === confirmPw;
+
+  // ── Email tasdiqlash ──────────────────────────────────────
+  const userEmail: string | undefined = (profile as any)?.email;
+  const emailVerifiedAt: string | null = (profile as any)?.emailVerifiedAt ?? null;
+
+  const [editingEmail, setEditingEmail] = useState(false);
+  const [emailInput, setEmailInput] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+
+  const updateEmailMut = useMutation({
+    mutationFn: (email: string) => authApi.updateEmail({ email }),
+    onSuccess: () => {
+      toast.success("Tasdiqlash kodi emailga yuborildi");
+      setEditingEmail(false);
+      setOtpCode("");
+      refetch();
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message || "Xatolik yuz berdi"),
+  });
+
+  const resendOtpMut = useMutation({
+    mutationFn: () => authApi.resendEmailOtp(),
+    onSuccess: () => toast.success("Kod qayta yuborildi"),
+    onError: (e: any) => toast.error(e?.response?.data?.message || "Xatolik yuz berdi"),
+  });
+
+  const verifyOtpMut = useMutation({
+    mutationFn: (code: string) => authApi.verifyEmailOtp({ code }),
+    onSuccess: () => {
+      toast.success("Email muvaffaqiyatli tasdiqlandi!");
+      setOtpCode("");
+      refetch();
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message || "Kod noto'g'ri yoki muddati o'tgan"),
+  });
 
   // ─────────────────────────────────────────────────────────
   return (
@@ -165,6 +201,138 @@ export default function ProfilePage() {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* ── Email tasdiqlash ──────────────────────────────── */}
+        <div className="rounded-3xl bg-[var(--bg-card)] border border-[var(--border)] p-6 shadow-xl space-y-4">
+          <div className="flex items-center gap-2 pb-3 border-b border-[var(--border)]">
+            <div className="p-2 rounded-xl bg-sky-500/10 text-sky-400 border border-sky-500/20">
+              <Mail className="w-4 h-4" />
+            </div>
+            <span className="font-black text-sm text-[var(--text-primary)] uppercase tracking-wider">Email tasdiqlash</span>
+          </div>
+
+          {/* Holat: email umuman yo'q, yoki o'zgartirish rejimi */}
+          {(!userEmail || editingEmail) && (
+            <div className="space-y-3">
+              <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                Parolni unutgan holatda tiklash havolasi shu emailga yuboriladi. Avval kiritilgan kodni tasdiqlashingiz kerak bo&apos;ladi.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="email"
+                  placeholder="email@masalan.com"
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                  className="flex-1 bg-[var(--bg-main)] border border-[var(--border)] rounded-2xl px-4 py-3 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-sky-500/40"
+                />
+                <button
+                  onClick={() => emailInput && updateEmailMut.mutate(emailInput)}
+                  disabled={updateEmailMut.isPending || !emailInput}
+                  className="px-4 py-3 rounded-2xl text-xs font-bold uppercase tracking-wider bg-sky-600 hover:bg-sky-700 text-white transition-all shadow-lg shadow-sky-500/25 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer flex-shrink-0"
+                >
+                  {updateEmailMut.isPending ? (
+                    <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
+              {userEmail && editingEmail && (
+                <button
+                  onClick={() => { setEditingEmail(false); setEmailInput(""); }}
+                  className="text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+                >
+                  Bekor qilish
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Holat: email bor, lekin hali tasdiqlanmagan — OTP kiritish */}
+          {userEmail && !editingEmail && !emailVerifiedAt && (
+            <div className="space-y-3.5">
+              <div className="flex items-center justify-between p-3.5 bg-amber-500/10 rounded-2xl border border-amber-500/20">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex-shrink-0">
+                    <Mail className="w-4 h-4" />
+                  </div>
+                  <span className="text-xs font-bold text-[var(--text-primary)] truncate">{userEmail}</span>
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 flex-shrink-0 ml-2">Kutilmoqda</span>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-[var(--text-muted)]">Emailga yuborilgan 6 xonali kod</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  placeholder="000000"
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
+                  className="w-full bg-[var(--bg-main)] border border-[var(--border)] rounded-2xl px-4 py-3 text-sm text-[var(--text-primary)] text-center tracking-[0.5em] font-bold text-lg focus:outline-none focus:ring-2 focus:ring-sky-500/40"
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => otpCode.length === 6 && verifyOtpMut.mutate(otpCode)}
+                  disabled={verifyOtpMut.isPending || otpCode.length !== 6}
+                  className="flex-1 py-3 rounded-2xl text-xs font-bold uppercase tracking-wider bg-sky-600 hover:bg-sky-700 text-white transition-all shadow-lg shadow-sky-500/25 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                >
+                  {verifyOtpMut.isPending ? (
+                    <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <ShieldCheck className="w-4 h-4" /> Tasdiqlash
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => resendOtpMut.mutate()}
+                  disabled={resendOtpMut.isPending}
+                  className="px-4 py-3 rounded-2xl text-xs font-bold uppercase tracking-wider bg-[var(--bg-main)] border border-[var(--border)] text-[var(--text-primary)] hover:bg-[var(--border)] transition-all disabled:opacity-50 cursor-pointer flex-shrink-0"
+                  title="Kodni qayta yuborish"
+                >
+                  {resendOtpMut.isPending ? (
+                    <span className="w-4 h-4 border-2 border-current/40 border-t-current rounded-full animate-spin block" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
+
+              <button
+                onClick={() => { setEditingEmail(true); setEmailInput(userEmail); }}
+                className="flex items-center gap-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+              >
+                <Pencil className="w-3 h-3" /> Boshqa email kiritish
+              </button>
+            </div>
+          )}
+
+          {/* Holat: email tasdiqlangan */}
+          {userEmail && !editingEmail && emailVerifiedAt && (
+            <div className="flex items-center justify-between p-3.5 bg-emerald-500/10 rounded-2xl border border-emerald-500/20">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex-shrink-0">
+                  <MailCheck className="w-4 h-4" />
+                </div>
+                <span className="text-xs font-bold text-[var(--text-primary)] truncate">{userEmail}</span>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Tasdiqlangan</span>
+                <button
+                  onClick={() => { setEditingEmail(true); setEmailInput(userEmail); }}
+                  className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+                  title="Emailni o'zgartirish"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── Parolni o'zgartirish ─────────────────────────── */}

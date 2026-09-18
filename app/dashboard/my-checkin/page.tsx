@@ -210,11 +210,23 @@ function useLiveTracking(
   isCheckedOut: boolean,
   expectedCheckOut: string | null | undefined,
 ) {
+  // Serverdan "stopTracking" signali kelsa — mahalliy holatni ham to'xtatamiz,
+  // shunda useEffect qayta o'ynamaguncha (masalan sahifa fokusga qaytmaguncha)
+  // ortiqcha so'rov yuborilmaydi.
+  const stoppedRef = useRef(false);
+
   // sendLocation ref orqali — har safar yangi coords oladi
   const sendLocationRef = useRef<() => Promise<void>>();
 
   sendLocationRef.current = async () => {
-    if (!isCheckedIn || isCheckedOut) return;
+    if (!isCheckedIn || isCheckedOut || stoppedRef.current) return;
+
+    // Ish vaqti tugagan bo'lsa — GPS so'ramasdan to'xtatamiz (asosiy himoya
+    // serverda, lekin bu yerda ham tekshirish keraksiz so'rovlarning oldini oladi)
+    if (expectedCheckOut && new Date() > new Date(expectedCheckOut)) {
+      stoppedRef.current = true;
+      return;
+    }
 
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
@@ -224,12 +236,17 @@ function useLiveTracking(
             const bat = await (navigator as any).getBattery();
             battery = Math.round(bat.level * 100);
           }
-          await locationApi.sendLive({
+          const res = await locationApi.sendLive({
             latitude:  pos.coords.latitude,
             longitude: pos.coords.longitude,
             accuracy:  pos.coords.accuracy,
             battery,
           });
+          // Server "ish vaqti tugadi / check-out qilingan" deb topsa —
+          // kuzatishni shu yerda ham to'xtatamiz (eski PWA keshi bo'lsa ham xavfsiz)
+          if (res?.stopTracking) {
+            stoppedRef.current = true;
+          }
         } catch {
           // Silent fail
         }
@@ -240,12 +257,13 @@ function useLiveTracking(
   };
 
   useEffect(() => {
+    stoppedRef.current = false;
+
     if (!isCheckedIn || isCheckedOut) return;
 
-    if (expectedCheckOut) {
-      const now = new Date();
-      const endTime = new Date(expectedCheckOut);
-      if (now > endTime) return;
+    if (expectedCheckOut && new Date() > new Date(expectedCheckOut)) {
+      stoppedRef.current = true;
+      return;
     }
 
     // Darhol bir marta yuborish
@@ -264,8 +282,22 @@ function useLiveTracking(
       sendLocationRef.current?.();
     }, 3 * 60 * 1000);
 
+    // Ish vaqti tugashi bilan — check-out qilinmagan bo'lsa ham kuzatishni
+    // darhol to'xtatish (keyingi 3-daqiqalik tikni kutmasdan)
+    let stopTimer: ReturnType<typeof setTimeout> | null = null;
+    if (expectedCheckOut) {
+      const msUntilEnd = new Date(expectedCheckOut).getTime() - Date.now();
+      if (msUntilEnd > 0) {
+        stopTimer = setTimeout(() => {
+          stoppedRef.current = true;
+          clearInterval(interval);
+        }, msUntilEnd);
+      }
+    }
+
     return () => {
       clearInterval(interval);
+      if (stopTimer) clearTimeout(stopTimer);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [isCheckedIn, isCheckedOut, expectedCheckOut]);
