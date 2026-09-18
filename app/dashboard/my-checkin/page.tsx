@@ -70,14 +70,43 @@ function useCameraCapture() {
     }
   }, []);
 
+  /** Rasm juda qorong'u bo'lsa check-in rad etiladi — bu chegaradan pastda
+   *  yuz shakli deyarli ko'rinmaydi (0=qora, 255=oq shkala bo'yicha). */
+  const MIN_BRIGHTNESS = 45;
+
   const capture = useCallback(() => {
     const video  = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas) return;
 
+    setError(null); // oldingi ("juda qorong'u" kabi) ogohlantirishni tozalash
+
     canvas.width  = video.videoWidth  || 640;
     canvas.height = video.videoHeight || 640;
-    canvas.getContext("2d")!.drawImage(video, 0, 0);
+    const ctx = canvas.getContext("2d")!;
+    ctx.drawImage(video, 0, 0);
+
+    // Qorong'ulikni tekshirish — o'rtacha yorug'lik (luminance) hisoblanadi.
+    // Har bir pikselni emas, tezlik uchun qadam (stride) bilan sinov qilinadi.
+    const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    let total = 0;
+    let count = 0;
+    const stride = 4 * 8; // har 8-pikselni tekshiradi
+    for (let i = 0; i < data.length; i += stride) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      total += 0.299 * r + 0.587 * g + 0.114 * b;
+      count++;
+    }
+    const avgBrightness = count > 0 ? total / count : 255;
+
+    if (avgBrightness < MIN_BRIGHTNESS) {
+      setError(
+        "Rasm juda qorong'u — yuzingiz aniq ko'rinmayapti. Iltimos, yorug'roq joyga o'ting yoki chiroqni yoqib, qaytadan urinib ko'ring.",
+      );
+      return; // kamera ishlashda davom etadi — foydalanuvchi darhol qayta urinishi mumkin
+    }
 
     canvas.toBlob((blob) => {
       if (!blob) return;
