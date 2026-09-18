@@ -9,7 +9,6 @@ import { locationApi } from "@/lib/api";
 import {
   Camera, MapPin, CheckCircle2, XCircle, Loader2,
   RefreshCw, AlertTriangle, Clock, LogIn, LogOut, Building2, Sparkles, User,
-  ScanFace,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { attendanceApi, photoUrl } from "@/lib/api";
@@ -778,27 +777,47 @@ const savePositionGps = useCallback(async () => {
                     muted
                   />
 
-                  {/* Yuz skanerlash ramkasi — check-in'da yuz tekshiruvi (Qaror 4)
-                      ishlashini vizual ravishda xodimga tushunarli qiladi */}
-                  <div className="absolute inset-0 pointer-events-none">
-                    {/* Burchak qavslari */}
-                    <div className="absolute inset-5 sm:inset-7">
-                      <span className="absolute top-0 left-0 w-8 h-8 border-t-[3px] border-l-[3px] border-indigo-400 rounded-tl-2xl" />
-                      <span className="absolute top-0 right-0 w-8 h-8 border-t-[3px] border-r-[3px] border-indigo-400 rounded-tr-2xl" />
-                      <span className="absolute bottom-0 left-0 w-8 h-8 border-b-[3px] border-l-[3px] border-indigo-400 rounded-bl-2xl" />
-                      <span className="absolute bottom-0 right-0 w-8 h-8 border-b-[3px] border-r-[3px] border-indigo-400 rounded-br-2xl" />
-                      {/* Ingichka nuqtali chegara — butun ramkani ko'rsatadi */}
-                      <div className="absolute inset-0 rounded-3xl border-2 border-dashed border-indigo-400/30" />
-                    </div>
-
-                    {/* Markaziy doira + yuz ikonkasi + skanerlash chizig'i */}
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="relative w-36 h-36 sm:w-40 sm:h-40 rounded-full border border-indigo-300/50 overflow-hidden flex items-center justify-center bg-indigo-500/5">
-                        <ScanFace className="w-14 h-14 text-indigo-300/80" strokeWidth={1.5} />
-                        <div className="absolute inset-x-2 top-0 h-0.5 rounded-full bg-gradient-to-r from-transparent via-indigo-300 to-transparent animate-face-scan-line" />
-                      </div>
-                    </div>
-                  </div>
+                  {/* Yuz skanerlash ramkasi (Apple Face ID uslubida) — check-in'da
+                      yuz tekshiruvi (Qaror 4) ishlashini vizual ravishda ko'rsatadi */}
+                  <svg
+                    viewBox="0 0 280 280"
+                    className="absolute inset-0 w-full h-full pointer-events-none"
+                  >
+                    <ellipse
+                      cx="140"
+                      cy="140"
+                      rx="96"
+                      ry="122"
+                      className="fill-none stroke-white/25"
+                      strokeWidth="1.5"
+                      strokeDasharray="1 7"
+                      strokeLinecap="round"
+                    />
+                        <circle cx="140.0" cy="18.0" r="3.6" className="faceid-chase-dot" style={{ animationDelay: "0.0s" }} />
+                        <circle cx="164.8" cy="22.2" r="3.6" className="faceid-chase-dot" style={{ animationDelay: "0.12s" }} />
+                        <circle cx="188.0" cy="34.3" r="3.6" className="faceid-chase-dot" style={{ animationDelay: "0.23s" }} />
+                        <circle cx="207.9" cy="53.7" r="3.6" className="faceid-chase-dot" style={{ animationDelay: "0.35s" }} />
+                        <circle cx="223.1" cy="79.0" r="3.6" className="faceid-chase-dot" style={{ animationDelay: "0.47s" }} />
+                        <circle cx="232.7" cy="108.4" r="3.6" className="faceid-chase-dot" style={{ animationDelay: "0.58s" }} />
+                        <circle cx="236.0" cy="140.0" r="3.6" className="faceid-chase-dot" style={{ animationDelay: "0.7s" }} />
+                        <circle cx="232.7" cy="171.6" r="3.6" className="faceid-chase-dot" style={{ animationDelay: "0.82s" }} />
+                        <circle cx="223.1" cy="201.0" r="3.6" className="faceid-chase-dot" style={{ animationDelay: "0.93s" }} />
+                        <circle cx="207.9" cy="226.3" r="3.6" className="faceid-chase-dot" style={{ animationDelay: "1.05s" }} />
+                        <circle cx="188.0" cy="245.7" r="3.6" className="faceid-chase-dot" style={{ animationDelay: "1.17s" }} />
+                        <circle cx="164.8" cy="257.8" r="3.6" className="faceid-chase-dot" style={{ animationDelay: "1.28s" }} />
+                        <circle cx="140.0" cy="262.0" r="3.6" className="faceid-chase-dot" style={{ animationDelay: "1.4s" }} />
+                        <circle cx="115.2" cy="257.8" r="3.6" className="faceid-chase-dot" style={{ animationDelay: "1.52s" }} />
+                        <circle cx="92.0" cy="245.7" r="3.6" className="faceid-chase-dot" style={{ animationDelay: "1.63s" }} />
+                        <circle cx="72.1" cy="226.3" r="3.6" className="faceid-chase-dot" style={{ animationDelay: "1.75s" }} />
+                        <circle cx="56.9" cy="201.0" r="3.6" className="faceid-chase-dot" style={{ animationDelay: "1.87s" }} />
+                        <circle cx="47.3" cy="171.6" r="3.6" className="faceid-chase-dot" style={{ animationDelay: "1.98s" }} />
+                        <circle cx="44.0" cy="140.0" r="3.6" className="faceid-chase-dot" style={{ animationDelay: "2.1s" }} />
+                        <circle cx="47.3" cy="108.4" r="3.6" className="faceid-chase-dot" style={{ animationDelay: "2.22s" }} />
+                        <circle cx="56.9" cy="79.0" r="3.6" className="faceid-chase-dot" style={{ animationDelay: "2.33s" }} />
+                        <circle cx="72.1" cy="53.7" r="3.6" className="faceid-chase-dot" style={{ animationDelay: "2.45s" }} />
+                        <circle cx="92.0" cy="34.3" r="3.6" className="faceid-chase-dot" style={{ animationDelay: "2.57s" }} />
+                        <circle cx="115.2" cy="22.2" r="3.6" className="faceid-chase-dot" style={{ animationDelay: "2.68s" }} />
+                  </svg>
 
                   {/* Pastki ko'rsatma matni */}
                   <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent pt-10 pb-3 text-center pointer-events-none">

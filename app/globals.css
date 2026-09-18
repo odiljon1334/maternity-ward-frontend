@@ -295,24 +295,22 @@ html.dark ::-webkit-scrollbar-thumb:hover {
 
 /* ─────────────────────────────────────────────────────────────────────────
    Yuz skanerlash animatsiyasi (check-in kamera ramkasi ichida) — Qaror 4
+   Apple Face ID sozlash ekranidagi "ketma-ket yorishib boruvchi nuqtalar"
+   halqasiga o'xshab ishlaydi.
    ───────────────────────────────────────────────────────────────────────── */
-@keyframes faceScanLine {
-  0% {
-    top: 12%;
-    opacity: 0;
+@keyframes faceIdChaseDot {
+  0%, 100% {
+    opacity: 0.18;
+    r: 3.6;
   }
-  15% {
+  50% {
     opacity: 1;
-  }
-  85% {
-    opacity: 1;
-  }
-  100% {
-    top: 88%;
-    opacity: 0;
+    r: 4.6;
   }
 }
 
-.animate-face-scan-line {
-  animation: faceScanLine 2.2s ease-in-out infinite;
+.faceid-chase-dot {
+  fill: #fff;
+  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.85));
+  animation: faceIdChaseDot 2.8s ease-in-out infinite;
 }
