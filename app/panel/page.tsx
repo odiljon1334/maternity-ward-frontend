@@ -1,4 +1,7 @@
 "use client";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   AreaChart,
   Area,
@@ -14,21 +17,119 @@ import {
 import Link from "next/link";
 import { Building2, ArrowRight, AlertCircle, Clock } from "lucide-react";
 import { StatCard } from "@/components/panel/StatCard";
-import {
-  MOCK_STATS,
-  MOCK_REVENUE_TREND,
-  MOCK_PAYMENT_STATUS,
-  MOCK_RECENT_HOSPITALS,
-  MOCK_ROLE_DISTRIBUTION,
-  MOCK_ATTENTION,
-} from "@/components/panel/mock-data";
+import type { PanelStat } from "@/components/panel/mock-data";
+import { paymentsApi, hospitalsApi } from "@/lib/api";
 
 const number = (n: number) => new Intl.NumberFormat("uz-UZ").format(n);
 const dateFmt = (v: string) => new Date(v).toLocaleDateString("uz-UZ");
+const amountFmt = (n: number) => `${number(n)} so'm`;
+
+const MONTH_SHORT = ["Yan", "Fev", "Mar", "Apr", "May", "Iyun", "Iyul", "Avg", "Sen", "Okt", "Noy", "Dek"];
+function periodShortLabel(period: string) {
+  const [, m] = period.split("-");
+  return MONTH_SHORT[parseInt(m, 10) - 1] || period;
+}
+
+const ROLE_LABELS: Record<string, string> = {
+  EMPLOYEE: "Xodim",
+  DEPARTMENT_HEAD: "Bo'lim boshlig'i",
+  DIRECTOR: "Direktor",
+  ADMIN: "Administrator",
+};
+// Platforma darajasidagi rollar (SUPER_ADMIN/ASSISTANT_ADMIN/MINISTRY) shu
+// diagrammada ko'rsatilmaydi — bu "tenant xodimlari" taqsimoti, ular soni
+// kam va odatda 1 tadan bo'ladi, chart'ni chalkashtiradi.
+const TENANT_ROLES = ["EMPLOYEE", "DEPARTMENT_HEAD", "DIRECTOR", "ADMIN"];
 
 export default function PanelOverviewPage() {
-  const totalRoles = MOCK_ROLE_DISTRIBUTION.reduce((s, r) => s + r.count, 0);
-  const totalPayments = MOCK_PAYMENT_STATUS.reduce((s, x) => s + x.value, 0);
+  const { data: stats, isLoading: statsLoading } = useQuery({
+    queryKey: ["panel-platform-stats"],
+    queryFn: () => paymentsApi.platformStats(8),
+  });
+
+  const { data: hospitals = [], isLoading: hospitalsLoading } = useQuery({
+    queryKey: ["hospitals"],
+    queryFn: () => hospitalsApi.list(),
+  });
+
+  const isLoading = statsLoading || hospitalsLoading;
+
+  const totalHospitals = hospitals.length;
+  const activeHospitalsCount = (hospitals as any[]).filter((h) => h.isActive).length;
+  const inactiveHospitalsCount = totalHospitals - activeHospitalsCount;
+
+  const recentHospitals = useMemo(
+    () =>
+      [...(hospitals as any[])]
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 5),
+    [hospitals],
+  );
+
+  const pendingPaymentsCount =
+    (stats?.paymentStatusCounts?.PENDING ?? 0) + (stats?.paymentStatusCounts?.OVERDUE ?? 0);
+
+  const panelStats: PanelStat[] = [
+    {
+      key: "hospitals",
+      label: "Jami shifoxonalar",
+      value: String(totalHospitals),
+      delta: {
+        value: `${activeHospitalsCount} faol`,
+        direction: "flat",
+        note: inactiveHospitalsCount > 0 ? `${inactiveHospitalsCount} nofaol` : "barchasi faol",
+      },
+      icon: "hospitals",
+      tone: "blue",
+    },
+    {
+      key: "activeUsers",
+      label: "Faol foydalanuvchilar",
+      value: String(stats?.activeUsersCount ?? 0),
+      delta: { value: "oxirgi 7 kun", direction: "flat", note: "ichida tizimga kirgan" },
+      icon: "users",
+      tone: "green",
+    },
+    {
+      key: "mrr",
+      label: "Oylik daromad (MRR)",
+      value: amountFmt(stats?.mrr ?? 0),
+      delta: { value: `ARR ${amountFmt(stats?.arr ?? 0)}`, direction: "flat", note: "yillik proyeksiya" },
+      icon: "revenue",
+      tone: "violet",
+    },
+    {
+      key: "pending",
+      label: "Kutilayotgan to'lovlar",
+      value: `${pendingPaymentsCount} ta`,
+      delta: {
+        value: amountFmt(stats?.currentMonthOutstanding ?? 0),
+        direction: "flat",
+        note: "joriy oy qoldiq",
+      },
+      icon: "pending",
+      tone: "amber",
+    },
+  ];
+
+  const revenueTrend = (stats?.trend ?? []).map((t: any) => ({
+    month: periodShortLabel(t.period),
+    mrr: t.amount,
+  }));
+
+  const paymentStatus = [
+    { name: "To'langan", value: stats?.paymentStatusCounts?.PAID ?? 0, color: "#22c55e" },
+    { name: "Kutilmoqda", value: stats?.paymentStatusCounts?.PENDING ?? 0, color: "#f59e0b" },
+    { name: "Muddati o'tgan", value: stats?.paymentStatusCounts?.OVERDUE ?? 0, color: "#ef4444" },
+  ];
+  const totalPayments = paymentStatus.reduce((s, x) => s + x.value, 0);
+
+  const roleDistribution = TENANT_ROLES.map((role) => ({
+    role,
+    label: ROLE_LABELS[role] || role,
+    count: (stats?.roleDistribution ?? []).find((r: any) => r.role === role)?.count ?? 0,
+  })).filter((r) => r.count > 0);
+  const totalRoles = roleDistribution.reduce((s, r) => s + r.count, 0) || 1;
 
   return (
     <div className="space-y-6">
@@ -51,16 +152,13 @@ export default function PanelOverviewPage() {
         </Link>
       </div>
 
-      <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-2.5 text-xs text-amber-600 dark:text-amber-400">
-        Ko&apos;rsatkichlar hozircha namunaviy (mock) ma&apos;lumot — backend ulanishi keyingi bosqichda amalga
-        oshiriladi (Reja.md, FAZA 5).
-      </div>
-
       {/* Stats */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {MOCK_STATS.map((stat) => (
-          <StatCard key={stat.key} stat={stat} />
-        ))}
+        {isLoading
+          ? [...Array(4)].map((_, i) => (
+              <div key={i} className="card rounded-2xl p-5 h-[132px] animate-pulse bg-[var(--bg-hover)]" />
+            ))
+          : panelStats.map((stat) => <StatCard key={stat.key} stat={stat} />)}
       </div>
 
       {/* Main grid */}
@@ -69,11 +167,11 @@ export default function PanelOverviewPage() {
         <div className="card rounded-2xl p-5">
           <div>
             <h2 className="text-sm font-semibold text-[var(--text-primary)]">Oylik daromad dinamikasi (MRR)</h2>
-            <p className="mt-0.5 text-xs text-[var(--text-muted)]">Oxirgi 8 oy, so&apos;mda</p>
+            <p className="mt-0.5 text-xs text-[var(--text-muted)]">Oxirgi {revenueTrend.length || 8} oy, so&apos;mda</p>
           </div>
           <div className="mt-4 h-[240px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={MOCK_REVENUE_TREND} margin={{ left: -18, right: 8, top: 8 }}>
+              <AreaChart data={revenueTrend} margin={{ left: -18, right: 8, top: 8 }}>
                 <defs>
                   <linearGradient id="mrrGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="#6366f1" stopOpacity={0.35} />
@@ -121,25 +219,33 @@ export default function PanelOverviewPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {MOCK_RECENT_HOSPITALS.map((h) => (
-                    <tr key={h.id} className="border-t border-[var(--border)]">
-                      <td className="py-2.5">
-                        <div className="font-medium text-[var(--text-primary)]">{h.name}</div>
-                        <div className="text-[10px] text-[var(--text-muted)]">{h.code}</div>
+                  {recentHospitals.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-4 text-center text-[var(--text-muted)]">
+                        Hali shifoxona yo&apos;q
                       </td>
-                      <td className="py-2.5 text-[var(--text-primary)]">{h.employees}</td>
-                      <td className="py-2.5">
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                            h.isActive ? "bg-emerald-500/10 text-emerald-500" : "bg-red-500/10 text-red-500"
-                          }`}
-                        >
-                          {h.isActive ? "Faol" : "Nofaol"}
-                        </span>
-                      </td>
-                      <td className="py-2.5 text-[var(--text-muted)]">{dateFmt(h.createdAt)}</td>
                     </tr>
-                  ))}
+                  ) : (
+                    recentHospitals.map((h: any) => (
+                      <tr key={h.id} className="border-t border-[var(--border)]">
+                        <td className="py-2.5">
+                          <div className="font-medium text-[var(--text-primary)]">{h.name}</div>
+                          <div className="text-[10px] text-[var(--text-muted)]">{h.code}</div>
+                        </td>
+                        <td className="py-2.5 text-[var(--text-primary)]">{h._count?.employees ?? 0}</td>
+                        <td className="py-2.5">
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                              h.isActive ? "bg-emerald-500/10 text-emerald-500" : "bg-red-500/10 text-red-500"
+                            }`}
+                          >
+                            {h.isActive ? "Faol" : "Nofaol"}
+                          </span>
+                        </td>
+                        <td className="py-2.5 text-[var(--text-muted)]">{dateFmt(h.createdAt)}</td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -156,14 +262,14 @@ export default function PanelOverviewPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={MOCK_PAYMENT_STATUS}
+                    data={paymentStatus}
                     dataKey="value"
                     innerRadius={48}
                     outerRadius={70}
                     paddingAngle={3}
                     strokeWidth={0}
                   >
-                    {MOCK_PAYMENT_STATUS.map((entry) => (
+                    {paymentStatus.map((entry) => (
                       <Cell key={entry.name} fill={entry.color} />
                     ))}
                   </Pie>
@@ -175,7 +281,7 @@ export default function PanelOverviewPage() {
               </div>
             </div>
             <div className="mt-4 space-y-2">
-              {MOCK_PAYMENT_STATUS.map((x) => (
+              {paymentStatus.map((x) => (
                 <div key={x.name} className="flex items-center justify-between text-xs">
                   <span className="flex items-center gap-2 text-[var(--text-muted)]">
                     <span className="h-2 w-2 rounded-full" style={{ background: x.color }} />
@@ -201,7 +307,7 @@ export default function PanelOverviewPage() {
                 <div className="flex-1">
                   <div className="text-xs font-medium text-[var(--text-primary)]">Kutilayotgan to&apos;lovlar</div>
                   <div className="text-[10px] text-[var(--text-muted)]">
-                    {MOCK_ATTENTION.pendingPaymentsCount} ta shifoxona
+                    {pendingPaymentsCount} ta shifoxona
                   </div>
                 </div>
                 <ArrowRight className="h-3.5 w-3.5 text-[var(--text-muted)]" />
@@ -216,7 +322,7 @@ export default function PanelOverviewPage() {
                 <div className="flex-1">
                   <div className="text-xs font-medium text-[var(--text-primary)]">Nofaol shifoxonalar</div>
                   <div className="text-[10px] text-[var(--text-muted)]">
-                    {MOCK_ATTENTION.inactiveHospitalsCount} ta shifoxona
+                    {inactiveHospitalsCount} ta shifoxona
                   </div>
                 </div>
                 <ArrowRight className="h-3.5 w-3.5 text-[var(--text-muted)]" />
@@ -227,22 +333,26 @@ export default function PanelOverviewPage() {
           {/* Role distribution */}
           <div className="card rounded-2xl p-5">
             <h2 className="mb-4 text-sm font-semibold text-[var(--text-primary)]">Foydalanuvchilar rollari</h2>
-            <div className="space-y-3.5">
-              {MOCK_ROLE_DISTRIBUTION.map((r) => (
-                <div key={r.role}>
-                  <div className="mb-1 flex items-center justify-between text-xs">
-                    <span className="text-[var(--text-muted)]">{r.label}</span>
-                    <span className="font-medium text-[var(--text-primary)]">{r.count}</span>
+            {roleDistribution.length === 0 ? (
+              <p className="text-xs text-[var(--text-muted)]">Ma&apos;lumot yo&apos;q</p>
+            ) : (
+              <div className="space-y-3.5">
+                {roleDistribution.map((r) => (
+                  <div key={r.role}>
+                    <div className="mb-1 flex items-center justify-between text-xs">
+                      <span className="text-[var(--text-muted)]">{r.label}</span>
+                      <span className="font-medium text-[var(--text-primary)]">{r.count}</span>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-[var(--bg-hover)]">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500"
+                        style={{ width: `${(r.count / totalRoles) * 100}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-[var(--bg-hover)]">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500"
-                      style={{ width: `${(r.count / totalRoles) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import { Building2, Users, Wallet, Clock, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { Building2, Users, Wallet, Clock, ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { PanelStat } from "./mock-data";
 
@@ -19,8 +19,12 @@ const TONES: Record<PanelStat["tone"], { bg: string; text: string }> = {
 export function StatCard({ stat }: { stat: PanelStat }) {
   const Icon = ICONS[stat.icon];
   const tone = TONES[stat.tone];
-  const DeltaIcon = stat.delta.direction === "up" ? ArrowUpRight : ArrowDownRight;
-  const deltaColor = stat.delta.direction === "up" ? "text-emerald-500" : "text-red-500";
+  const DeltaIcon =
+    stat.delta.direction === "up" ? ArrowUpRight :
+    stat.delta.direction === "down" ? ArrowDownRight : Minus;
+  const deltaColor =
+    stat.delta.direction === "up" ? "text-emerald-500" :
+    stat.delta.direction === "down" ? "text-red-500" : "text-[var(--text-muted)]";
 
   return (
     <div className="card rounded-2xl p-5">

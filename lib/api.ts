@@ -447,6 +447,9 @@ export const paymentsApi = {
   // Ko'p oylik qarzdorlik hisoboti (FAZA 5, 1-bosqich)
   debtors: (months?: number) =>
     api.get("/payments/debtors", { params: { months } }).then((r) => r.data.data),
+  // MRR/ARR va churn ko'rinishi (FAZA 5, 3-bosqich)
+  platformStats: (months?: number) =>
+    api.get("/payments/platform-stats", { params: { months } }).then((r) => r.data.data),
   list: (params?: { hospitalId?: string; period?: string; limit?: number }) =>
     api.get("/payments", { params }).then((r) => r.data.data),
   create: (data: {

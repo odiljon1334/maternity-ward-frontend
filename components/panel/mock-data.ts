@@ -14,7 +14,9 @@ export interface PanelStat {
   key: string;
   label: string;
   value: string;
-  delta: { value: string; direction: "up" | "down"; note: string };
+  // "flat" — haqiqiy tarixiy taqqoslash yo'q, faqat qo'shimcha kontekst
+  // ko'rsatiladi (o'sish/pasayish da'vo qilinmaydi).
+  delta: { value: string; direction: "up" | "down" | "flat"; note: string };
   icon: "hospitals" | "users" | "revenue" | "pending";
   tone: "blue" | "green" | "violet" | "amber";
 }
