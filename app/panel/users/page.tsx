@@ -3,8 +3,9 @@
 import { useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Search, ChevronLeft, ChevronRight, Users as UsersIcon } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Users as UsersIcon, ShieldCheck } from "lucide-react";
 import { usersApi } from "@/lib/api";
+import { UserPermissionsModal } from "@/components/panel/UserPermissionsModal";
 
 const ROLE_LABELS: Record<string, string> = {
   SUPER_ADMIN: "Super Admin",
@@ -52,6 +53,9 @@ export default function PanelUsersPage() {
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
   const limit = 20;
+  const [permissionsUser, setPermissionsUser] = useState<{ id: string; label: string } | null>(
+    null,
+  );
 
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   const handleSearchChange = (val: string) => {
@@ -176,6 +180,7 @@ export default function PanelUsersPage() {
                   <th className="px-5 py-3">Rol</th>
                   <th className="px-5 py-3">Status</th>
                   <th className="px-5 py-3">Oxirgi kirish</th>
+                  <th className="px-5 py-3">Ruxsatlar</th>
                 </tr>
               </thead>
               <tbody>
@@ -244,6 +249,24 @@ export default function PanelUsersPage() {
                       <td className="px-5 py-3 text-[var(--text-muted)]">
                         {lastLoginText(u.lastLoginAt)}
                       </td>
+                      <td className="px-5 py-3">
+                        {isPlatform ? (
+                          <span className="text-xs text-[var(--text-muted)]">—</span>
+                        ) : (
+                          <button
+                            onClick={() =>
+                              setPermissionsUser({
+                                id: u.id,
+                                label: u.employee?.fullName || u.username,
+                              })
+                            }
+                            className="btn-ghost flex items-center gap-1.5 px-2.5 py-1.5 text-xs"
+                          >
+                            <ShieldCheck className="h-3.5 w-3.5" />
+                            Ruxsatlar
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
@@ -277,6 +300,14 @@ export default function PanelUsersPage() {
           </div>
         )}
       </div>
+
+      {permissionsUser && (
+        <UserPermissionsModal
+          userId={permissionsUser.id}
+          userLabel={permissionsUser.label}
+          onClose={() => setPermissionsUser(null)}
+        />
+      )}
     </div>
   );
 }

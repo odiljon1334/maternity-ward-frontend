@@ -401,6 +401,18 @@ export const usersApi = {
     api.patch(`/users/${id}/status`, { status }, { params }).then((r) => r.data),
   updateRole: (id: string, role: string, params?: { targetHospitalId?: string }) =>
     api.patch(`/users/${id}/role`, { role }, { params }).then((r) => r.data),
+  // Granular ruxsatlar (FAZA 5, 7-bosqich)
+  getPermissions: (id: string, params?: { targetHospitalId?: string }) =>
+    api.get(`/users/${id}/permissions`, { params }).then((r) => r.data),
+  setPermission: (
+    id: string,
+    permission: string,
+    granted: boolean | null,
+    params?: { targetHospitalId?: string },
+  ) =>
+    api
+      .patch(`/users/${id}/permissions`, { permission, granted }, { params })
+      .then((r) => r.data),
 };
 
 // ─── Telegram ───────────────────────────────────
