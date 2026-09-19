@@ -3,12 +3,13 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { departmentsApi, positionsApi, } from "@/lib/api";
+import { departmentsApi, positionsApi, hikvisionApi } from "@/lib/api";
 import { Topbar } from "@/components/layout/Topbar";
 import { useAuthStore } from "@/stores/auth";
 import { useForm } from "react-hook-form";
 import {
   Building2, Briefcase, Plus, Edit2, Trash2, X, Check, Bell, BellOff,
+  Cpu, Wifi, WifiOff, RefreshCw,
 } from "lucide-react";
 import { usePushNotification } from "@/hooks/usePushNotification";
 import { cn, isSuperLike } from "@/lib/utils";
@@ -237,6 +238,14 @@ export default function SettingsPage() {
     ? (selectedHospital?.id || undefined)
     : undefined;
 
+  // Terminallar paneli: DIRECTOR/ADMIN — o'z shifoxonasi (user.hospitalId),
+  // SUPER_ADMIN/ASSISTANT_ADMIN — faqat shifoxona tanlangan bo'lsa.
+  // DEPARTMENT_HEAD'ga ko'rsatilmaydi (backend ham TERMINAL_ROLES'da yo'q).
+  const canManageTerminals = user?.role !== "DEPARTMENT_HEAD";
+  const terminalsHospitalId = canManageTerminals
+    ? (targetHospitalId || user?.hospitalId || undefined)
+    : undefined;
+
   return (
     <div>
       <Topbar title="Sozlamalar" subtitle="Bo'lim va lavozim boshqaruvi" />
@@ -246,7 +255,198 @@ export default function SettingsPage() {
           <DepartmentsPanel targetHospitalId={targetHospitalId} />
           <PositionsPanel targetHospitalId={targetHospitalId} />
         </div>
+        {canManageTerminals && <TerminalsPanel hospitalId={terminalsHospitalId} />}
         <PushNotificationsPanel />
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// TERMINALS PANEL (DIRECTOR/ADMIN — o'z shifoxonasi;
+// SUPER_ADMIN/ASSISTANT_ADMIN — tanlangan shifoxona)
+// ─────────────────────────────────────────────
+function TerminalsPanel({ hospitalId }: { hospitalId?: string }) {
+  const qc = useQueryClient();
+  const [addMode, setAddMode] = useState(false);
+  const [name, setName] = useState("");
+  const [devIndex, setDevIndex] = useState("");
+  const [password, setPassword] = useState("");
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<{
+    total: number; created: number; skipped: number; failed: number;
+    errors: { employeeNo: string; name: string; reason: string }[];
+  } | null>(null);
+
+  const { data: terminals = [], isLoading } = useQuery({
+    queryKey: ["settings-terminals", hospitalId],
+    queryFn: () => hikvisionApi.getTerminals(hospitalId as string).then((r: any) => {
+      const data = r.data;
+      if (Array.isArray(data)) return data;
+      if (Array.isArray(data?.data)) return data.data;
+      return [];
+    }),
+    enabled: !!hospitalId,
+    staleTime: 30_000,
+  });
+
+  const addMut = useMutation({
+    mutationFn: () => hikvisionApi.addTerminal({
+      hospitalId: hospitalId as string, name,
+      devIndex: devIndex.trim(),
+      password: password.trim() || undefined,
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["settings-terminals", hospitalId] });
+      toast.success("Terminal qo'shildi");
+      setName(""); setDevIndex(""); setPassword(""); setAddMode(false);
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message || "Xatolik"),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => hikvisionApi.deleteTerminal(id, hospitalId as string),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["settings-terminals", hospitalId] });
+      toast.success("Terminal o'chirildi");
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message || "Xatolik"),
+  });
+
+  const toggleMut = useMutation({
+    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
+      hikvisionApi.toggleTerminal(id, isActive, hospitalId as string),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["settings-terminals", hospitalId] });
+      toast.success("Yangilandi");
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message || "Xatolik"),
+  });
+
+  const handleSync = async () => {
+    if (!hospitalId) return;
+    if (!confirm("Barcha xodimlarni terminallarga yuklaysizmi?")) return;
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const result: any = await hikvisionApi.syncHospital(hospitalId);
+      const { total, created, skipped, failed, errors } = result;
+      setSyncResult({ total, created, skipped, failed, errors: errors ?? [] });
+      toast.success(`Sync tugadi: ${created} yaratildi, ${skipped} skip, ${failed} xato`);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Sync xatolik");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  if (!hospitalId) return null;
+
+  return (
+    <div className="card overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
+        <div className="flex items-center gap-2">
+          <Cpu className="w-4 h-4 text-indigo-400" />
+          <h3 className="font-semibold text-[var(--text-primary)]">Terminallar</h3>
+          <span className="badge-gray">{(terminals as any[]).length}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={handleSync} disabled={syncing || (terminals as any[]).length === 0} className="btn-secondary py-1.5 px-3 text-xs gap-1.5">
+            <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
+            {syncing ? "Sync..." : "Sync"}
+          </button>
+          <button onClick={() => setAddMode((v) => !v)} className="btn-primary py-1.5 px-3 text-xs">
+            <Plus className="w-3.5 h-3.5" /> Qo&apos;shish
+          </button>
+        </div>
+      </div>
+
+      <div className="p-4 space-y-3">
+        {addMode && (
+          <div className="space-y-2 pb-3 border-b border-[var(--border)]">
+            <input value={name} onChange={(e) => setName(e.target.value)} className="input-field text-sm" placeholder="Terminal nomi" />
+            <input value={devIndex} onChange={(e) => setDevIndex(e.target.value)} className="input-field font-mono text-sm" placeholder="devIndex (Gateway UUID)" />
+            <input value={password} onChange={(e) => setPassword(e.target.value)} className="input-field text-sm" placeholder="Terminal paroli (ixtiyoriy)" type="password" />
+            <p className="text-xs text-[var(--text-muted)]">devIndex — Gateway Web UI → Device Management&apos;da ko&apos;rinadi</p>
+            <div className="flex gap-2 pt-1">
+              <button onClick={() => addMut.mutate()} disabled={!name || !devIndex || addMut.isPending} className="btn-primary py-1.5 px-3 text-xs flex-1">
+                {addMut.isPending ? "Qo'shilmoqda..." : "Saqlash"}
+              </button>
+              <button onClick={() => { setAddMode(false); setPassword(""); }} className="btn-secondary py-1.5 px-3 text-xs flex-1">Bekor</button>
+            </div>
+          </div>
+        )}
+
+        {isLoading ? (
+          <div className="space-y-2">
+            {[1, 2].map((i) => <div key={i} className="h-14 rounded-xl bg-[var(--bg-hover)] animate-pulse" />)}
+          </div>
+        ) : (terminals as any[]).length === 0 ? (
+          <div className="text-center py-6 text-sm text-[var(--text-muted)]">
+            <Cpu className="w-7 h-7 mx-auto mb-2 opacity-30" />
+            Hali terminal qo&apos;shilmagan
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {(terminals as any[]).map((t: any) => (
+              <div key={t.id} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[var(--bg-hover)] border border-[var(--border)]">
+                <div className={`p-1.5 rounded-lg ${t.isActive ? "bg-emerald-500/15" : "bg-[var(--bg-card)]"}`}>
+                  {t.onlineStatus === "online"
+                    ? <Wifi className="w-4 h-4 text-emerald-400" />
+                    : <WifiOff className="w-4 h-4 text-[var(--text-muted)]" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-[var(--text-primary)]">{t.name}</p>
+                  <p className="text-xs font-mono text-[var(--text-muted)] truncate">{t.devIndex}</p>
+                </div>
+                <button
+                  onClick={() => toggleMut.mutate({ id: t.id, isActive: !t.isActive })}
+                  disabled={toggleMut.isPending}
+                  className={`text-xs px-2 py-1 rounded-lg border ${t.isActive ? "border-emerald-500/25 text-emerald-400 bg-emerald-500/10" : "border-[var(--border)] text-[var(--text-muted)]"}`}
+                  title={t.isActive ? "Faol — o'chirish uchun bosing" : "Nofaol — yoqish uchun bosing"}
+                >
+                  {t.isActive ? "Faol" : "Nofaol"}
+                </button>
+                <button
+                  onClick={() => confirm(`"${t.name}" terminalini o'chirasizmi?`) && deleteMut.mutate(t.id)}
+                  disabled={deleteMut.isPending}
+                  className="btn-ghost p-1.5 text-red-400 hover:bg-red-500/10"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {syncResult && (
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-hover)] p-4 space-y-3">
+            <p className="text-xs font-semibold text-[var(--text-primary)]">Oxirgi sync natijasi</p>
+            <div className="grid grid-cols-4 gap-2 text-center">
+              {[
+                { label: "Jami", val: syncResult.total, cls: "bg-[var(--bg-card)]", color: "text-[var(--text-primary)]" },
+                { label: "Yangi", val: syncResult.created, cls: "bg-emerald-500/10", color: "text-emerald-400" },
+                { label: "Skip", val: syncResult.skipped, cls: "bg-sky-500/10", color: "text-sky-400" },
+                { label: "Xato", val: syncResult.failed, cls: "bg-red-500/10", color: "text-red-400" },
+              ].map(({ label, val, cls, color }) => (
+                <div key={label} className={`rounded-lg ${cls} py-2`}>
+                  <p className={`text-sm font-bold ${color}`}>{val}</p>
+                  <p className="text-[10px] text-[var(--text-muted)]">{label}</p>
+                </div>
+              ))}
+            </div>
+            {syncResult.errors.length > 0 && (
+              <div className="space-y-1 max-h-40 overflow-y-auto pt-1 border-t border-[var(--border)]">
+                {syncResult.errors.map((e, i) => (
+                  <div key={i} className="text-xs px-2 py-1.5 rounded-lg bg-red-500/5 border border-red-500/10">
+                    <span className="font-medium text-[var(--text-primary)]">{e.name || e.employeeNo}</span>
+                    <span className="text-[var(--text-muted)]"> — {e.reason}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
