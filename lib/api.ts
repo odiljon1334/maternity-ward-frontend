@@ -328,10 +328,10 @@ export const hikvisionApi = {
     api.get(`/hikvision/terminals?hospitalId=${hospitalId}`),
   addTerminal: (data: { hospitalId: string; name: string; devIndex: string; password?: string }) =>
     api.post(`/hikvision/terminals`, data),
-  deleteTerminal: (id: string) =>
-    api.delete(`/hikvision/terminals/${id}`),
-  toggleTerminal: (id: string, isActive: boolean) =>
-    api.patch(`/hikvision/terminals/${id}`, { isActive }),
+  deleteTerminal: (id: string, hospitalId: string) =>
+    api.delete(`/hikvision/terminals/${id}?hospitalId=${hospitalId}`),
+  toggleTerminal: (id: string, isActive: boolean, hospitalId: string) =>
+    api.patch(`/hikvision/terminals/${id}`, { isActive, hospitalId }),
   getTerminalsWithStatus: (hospitalId: string) =>
     api.get(`/hikvision/terminals?hospitalId=${hospitalId}`),
   

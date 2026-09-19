@@ -286,7 +286,7 @@ function TerminalModal({ open, onClose, hospital }: {
   });
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) => hikvisionApi.deleteTerminal(id),
+    mutationFn: (id: string) => hikvisionApi.deleteTerminal(id, hospital.id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["terminals", hospital?.id] });
       qc.invalidateQueries({ queryKey: ["all-terminals"] });
