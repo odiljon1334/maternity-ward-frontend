@@ -368,6 +368,28 @@ export const hospitalsApi = {
   resetGps: (id: string) =>
     api.patch(`/hospitals/${id}/gps-reset`).then((r) => r.data.data),
   resetTelegramSubs: (id: string) => api.delete(`/hospitals/${id}/telegram-subs`).then((r) => r.data),
+  listAssistants: (id: string) =>
+    api.get(`/hospitals/${id}/assistants`).then((r) => r.data.data),
+  assignAssistant: (id: string, userId: string) =>
+    api.post(`/hospitals/${id}/assistants`, { userId }).then((r) => r.data.data),
+  unassignAssistant: (id: string, userId: string) =>
+    api.delete(`/hospitals/${id}/assistants/${userId}`).then((r) => r.data),
+};
+
+// ─── Users (Super Admin panel — /panel/users) ────
+export const usersApi = {
+  list: (params?: {
+    search?: string;
+    role?: string;
+    status?: string;
+    page?: number;
+    limit?: number;
+    targetHospitalId?: string;
+  }) => api.get("/users", { params }).then((r) => r.data),
+  updateStatus: (id: string, status: string, params?: { targetHospitalId?: string }) =>
+    api.patch(`/users/${id}/status`, { status }, { params }).then((r) => r.data),
+  updateRole: (id: string, role: string, params?: { targetHospitalId?: string }) =>
+    api.patch(`/users/${id}/role`, { role }, { params }).then((r) => r.data),
 };
 
 // ─── Telegram ───────────────────────────────────

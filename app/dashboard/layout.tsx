@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 import { PushNotificationBanner } from "@/components/pwa/PushNotificationBanner";
+import { EmailVerificationReminder } from "@/components/dashboard/EmailVerificationReminder";
 import { useAuthStore } from "@/stores/auth";
 import { MobileMenuContext } from "@/contexts/mobile-menu";
 
@@ -52,6 +53,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           kelgani uchun baribir orqada qoladi.
         */}
         <main className="relative flex-1 overflow-y-auto min-w-0 pb-16 sm:pb-0">
+          <EmailVerificationReminder />
           {children}
         </main>
         <BottomNav />
