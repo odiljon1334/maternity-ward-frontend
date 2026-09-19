@@ -573,7 +573,21 @@ function TerminalsPanel({ hospitalId }: { hospitalId?: string }) {
 // Push Notifications Panel
 // ─────────────────────────────────────────────
 function PushNotificationsPanel() {
-  const { supported, permission, subscribed, loading, subscribe, unsubscribe } = usePushNotification();
+  const { supported, permission, subscribed, loading, lastError, subscribe, unsubscribe } =
+    usePushNotification();
+
+  const handleToggle = async () => {
+    if (subscribed) {
+      await unsubscribe();
+      return;
+    }
+    const ok = await subscribe();
+    if (ok) {
+      toast.success("Push xabarnomalar yoqildi! 🔔");
+    } else if (lastError) {
+      toast.error(lastError);
+    }
+  };
 
   return (
     <div className="card overflow-hidden">
@@ -607,7 +621,7 @@ function PushNotificationsPanel() {
               </div>
 
               <button
-                onClick={subscribed ? unsubscribe : subscribe}
+                onClick={handleToggle}
                 disabled={loading || permission === "denied"}
                 className={cn(
                   "flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors",

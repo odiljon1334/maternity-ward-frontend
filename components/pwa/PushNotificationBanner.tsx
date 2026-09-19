@@ -8,7 +8,7 @@ import { toast } from "sonner";
 const DISMISSED_KEY = "push_banner_dismissed";
 
 export function PushNotificationBanner() {
-  const { supported, permission, subscribed, loading, subscribe, unsubscribe } =
+  const { supported, permission, subscribed, loading, lastError, subscribe, unsubscribe } =
     usePushNotification();
 
   const [dismissed, setDismissed] = useState(true);
@@ -30,8 +30,8 @@ export function PushNotificationBanner() {
     const ok = await subscribe();
     if (ok) {
       toast.success("Push xabarnomalar yoqildi! 🔔");
-    } else if (permission === "denied") {
-      toast.error("Brauzer push xabarnomalarni bloklagan. Sozlamalardan ruxsat bering.");
+    } else if (lastError) {
+      toast.error(lastError);
     }
   };
 
