@@ -1,15 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { departmentsApi, positionsApi, hikvisionApi } from "@/lib/api";
+import { departmentsApi, positionsApi, hikvisionApi, hospitalsApi, authApi, photoUrl } from "@/lib/api";
 import { Topbar } from "@/components/layout/Topbar";
 import { useAuthStore } from "@/stores/auth";
 import { useForm } from "react-hook-form";
 import {
   Building2, Briefcase, Plus, Edit2, Trash2, X, Check, Bell, BellOff,
-  Cpu, Wifi, WifiOff, RefreshCw,
+  Cpu, Wifi, WifiOff, RefreshCw, ImageUp,
 } from "lucide-react";
 import { usePushNotification } from "@/hooks/usePushNotification";
 import { cn, isSuperLike } from "@/lib/utils";
@@ -246,17 +246,134 @@ export default function SettingsPage() {
     ? (targetHospitalId || user?.hospitalId || undefined)
     : undefined;
 
+  // Brendlash (nom + logotip) — faqat DIRECTOR/ADMIN o'zi sozlaydi
+  // (backend `/hospitals/me`, `/hospitals/me/logo` ham shu ikki rolga ochiq).
+  const canManageBranding = user?.role === "DIRECTOR" || user?.role === "ADMIN";
+
   return (
     <div>
       <Topbar title="Sozlamalar" subtitle="Bo'lim va lavozim boshqaruvi" />
 
       <div className="p-4 lg:p-6 space-y-4 lg:space-y-5">
+        {canManageBranding && <HospitalBrandingPanel />}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-5">
           <DepartmentsPanel targetHospitalId={targetHospitalId} />
           <PositionsPanel targetHospitalId={targetHospitalId} />
         </div>
         {canManageTerminals && <TerminalsPanel hospitalId={terminalsHospitalId} />}
         <PushNotificationsPanel />
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// HOSPITAL BRANDING PANEL (tenant self-service — 2026-09-19,
+// faqat DIRECTOR/ADMIN, faqat o'z shifoxonasi)
+// ─────────────────────────────────────────────
+function HospitalBrandingPanel() {
+  const qc = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [name, setName] = useState("");
+  const [preview, setPreview] = useState<string | null>(null);
+
+  const { data: profile } = useQuery({
+    queryKey: ["auth-profile"],
+    queryFn: () => authApi.profile(),
+  });
+  const hospital = (profile as any)?.hospital;
+
+  useEffect(() => {
+    if (hospital?.name) setName(hospital.name);
+  }, [hospital?.name]);
+
+  const nameMut = useMutation({
+    mutationFn: () => hospitalsApi.updateOwnInfo(name.trim()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["auth-profile"] });
+      toast.success("Shifoxona nomi yangilandi");
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message || "Xatolik"),
+  });
+
+  const logoMut = useMutation({
+    mutationFn: (file: File) => hospitalsApi.updateOwnLogo(file),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["auth-profile"] });
+      toast.success("Logotip yangilandi");
+      setPreview(null);
+    },
+    onError: (e: any) => {
+      toast.error(e?.response?.data?.message || "Xatolik");
+      setPreview(null);
+    },
+  });
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPreview(URL.createObjectURL(file));
+    logoMut.mutate(file);
+    e.target.value = "";
+  };
+
+  const logoSrc = preview || (hospital?.logoUrl ? photoUrl(hospital.logoUrl) : null);
+
+  return (
+    <div className="card overflow-hidden">
+      <div className="px-5 py-4 border-b border-[var(--border)] flex items-center gap-2">
+        <Building2 className="w-4 h-4 text-indigo-400" />
+        <h3 className="font-semibold text-[var(--text-primary)]">Shifoxona ma&apos;lumotlari</h3>
+      </div>
+
+      <div className="p-5 space-y-5">
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 rounded-2xl overflow-hidden bg-[var(--bg-hover)] border border-[var(--border)] flex items-center justify-center flex-shrink-0">
+            {logoSrc ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logoSrc} alt="Logotip" className="w-full h-full object-cover" />
+            ) : (
+              <Building2 className="w-6 h-6 text-[var(--text-muted)] opacity-40" />
+            )}
+          </div>
+          <div>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={logoMut.isPending}
+              className="btn-secondary text-xs py-1.5 px-3 gap-1.5"
+            >
+              <ImageUp className="w-3.5 h-3.5" />
+              {logoMut.isPending ? "Yuklanmoqda..." : "Logotip yuklash"}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+            <p className="text-xs text-[var(--text-muted)] mt-1.5">PNG yoki JPG, tavsiya etilgan hajm — 512x512</p>
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-[var(--text-muted)]">Shifoxona nomi</label>
+          <div className="flex gap-2">
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="input-field flex-1 text-sm"
+              placeholder="Shifoxona nomi"
+            />
+            <button
+              onClick={() => nameMut.mutate()}
+              disabled={!name.trim() || name.trim() === hospital?.name || nameMut.isPending}
+              className="btn-primary text-xs py-1.5 px-4"
+            >
+              {nameMut.isPending ? "Saqlanmoqda..." : "Saqlash"}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

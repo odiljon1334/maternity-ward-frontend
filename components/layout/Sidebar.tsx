@@ -82,6 +82,9 @@ export function Sidebar() {
   });
   
   const emp = (profile as any)?.employee;
+  const hospital = (profile as any)?.hospital;
+  const hospitalLogoUrl = hospital?.logoUrl ? photoUrl(hospital.logoUrl) : undefined;
+  const hospitalName = hospital?.name as string | undefined;
   
   const fullName = emp?.fullName 
     ? emp.fullName 
@@ -126,20 +129,26 @@ export function Sidebar() {
           collapsed ? "lg:w-20" : "lg:w-72"
         )}
       >
-       {/* Logo */}
+       {/* Logo — shifoxonaning o'z brendi bo'lsa shuni, aks holda standart (2026-09-19, tenant branding) */}
        <div className="flex items-center gap-3 px-5 py-5 border-b border-[var(--border)] relative overflow-hidden">
           <div className="absolute -right-6 -top-6 opacity-10 pointer-events-none text-indigo-400">
             <Sparkles className="w-20 h-20" />
           </div>
 
-          <div className="flex-shrink-0 p-2.5 rounded-2xl bg-gradient-to-br from-indigo-600 to-indigo-700 text-white shadow-lg shadow-indigo-500/30 border border-indigo-400/20">
-            <Activity className="w-5 h-5" />
-          </div>
+          {hospitalLogoUrl ? (
+            <div className="flex-shrink-0 w-9 h-9 rounded-2xl overflow-hidden bg-white border border-indigo-400/20 shadow-lg shadow-indigo-500/30 flex items-center justify-center">
+              <img src={hospitalLogoUrl} alt={hospitalName || ""} className="w-full h-full object-cover" />
+            </div>
+          ) : (
+            <div className="flex-shrink-0 p-2.5 rounded-2xl bg-gradient-to-br from-indigo-600 to-indigo-700 text-white shadow-lg shadow-indigo-500/30 border border-indigo-400/20">
+              <Activity className="w-5 h-5" />
+            </div>
+          )}
 
           {!collapsed && (
             <div className="min-w-0">
               <span className="font-black text-white text-sm tracking-tight block truncate">
-                MaternityCare
+                {hospitalName || "MaternityCare"}
               </span>
               <span className="text-[10px] font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-widest block">
                 Enterprise

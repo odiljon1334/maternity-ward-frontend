@@ -374,6 +374,17 @@ export const hospitalsApi = {
     api.post(`/hospitals/${id}/assistants`, { userId }).then((r) => r.data.data),
   unassignAssistant: (id: string, userId: string) =>
     api.delete(`/hospitals/${id}/assistants/${userId}`).then((r) => r.data),
+  // Tenant self-service branding (DIRECTOR/ADMIN — o'z shifoxonasi, hospitalId JWT'dan)
+  updateOwnInfo: (name: string) =>
+    api.patch(`/hospitals/me`, { name }).then((r) => r.data.data),
+  updateOwnLogo: (file: File) => {
+    const form = new FormData();
+    form.append("logo", file);
+    return api.post(`/hospitals/me/logo`, form, {
+      headers: { "Content-Type": "multipart/form-data" },
+      timeout: 60_000,
+    }).then((r) => r.data.data);
+  },
 };
 
 // ─── Users (Super Admin panel — /panel/users) ────
