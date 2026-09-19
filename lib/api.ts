@@ -444,6 +444,9 @@ export const notificationsApi = {
 // ─── Payments ───────────────────────────────────
 export const paymentsApi = {
   overview: () => api.get("/payments/overview").then((r) => r.data.data),
+  // Ko'p oylik qarzdorlik hisoboti (FAZA 5, 1-bosqich)
+  debtors: (months?: number) =>
+    api.get("/payments/debtors", { params: { months } }).then((r) => r.data.data),
   list: (params?: { hospitalId?: string; period?: string; limit?: number }) =>
     api.get("/payments", { params }).then((r) => r.data.data),
   create: (data: {

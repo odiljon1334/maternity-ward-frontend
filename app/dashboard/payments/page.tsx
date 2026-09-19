@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { paymentsApi, hospitalsApi } from "@/lib/api";
@@ -8,7 +8,7 @@ import { useAuthStore } from "@/stores/auth";
 import { useForm } from "react-hook-form";
 import {
   CreditCard, Plus, Building2, CheckCircle2, Clock, AlertCircle,
-  X, Edit2, TrendingUp, Wallet,
+  X, Edit2, TrendingUp, Wallet, ChevronDown, ChevronUp, History,
 } from "lucide-react";
 import { cn, isSuperLike } from "@/lib/utils";
 
@@ -161,6 +161,127 @@ function EditPaymentModal({ open, onClose, payment }: { open: boolean; onClose: 
   );
 }
 
+// ── Ko'p oylik qarzdorlik hisoboti (FAZA 5, 1-bosqich, 2026-09-19) ──
+type DebtorMonth = {
+  period: string; expectedAmount: number; paidAmount: number;
+  remainingAmount: number; status: "PAID" | "PENDING" | "OVERDUE";
+};
+type DebtorItem = {
+  id: string; name: string; code: string; employeeCount: number;
+  expectedAmountPerMonth: number; consecutiveUnpaidMonths: number;
+  totalDebt: number; lastPaymentAt: string | null; monthly: DebtorMonth[];
+};
+
+function MonthDot({ status }: { status: DebtorMonth["status"] }) {
+  const cls =
+    status === "PAID" ? "bg-emerald-500" :
+    status === "OVERDUE" ? "bg-red-500" : "bg-amber-500";
+  return <span className={cn("inline-block w-2.5 h-2.5 rounded-full", cls)} title={status} />;
+}
+
+function DebtorsReportPanel() {
+  const [months, setMonths] = useState(6);
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  const { data: debtors = [], isLoading } = useQuery<DebtorItem[]>({
+    queryKey: ["payments-debtors", months],
+    queryFn: () => paymentsApi.debtors(months),
+  });
+
+  const withDebt = debtors.filter((d) => d.consecutiveUnpaidMonths > 0);
+  const totalDebtSum = debtors.reduce((s, d) => s + d.totalDebt, 0);
+
+  return (
+    <div className="card overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
+        <div className="flex items-center gap-2">
+          <History className="w-4 h-4 text-red-400" />
+          <h2 className="text-sm font-semibold text-[var(--text-primary)]">Ko&apos;p oylik qarzdorlik hisoboti</h2>
+          {totalDebtSum > 0 && (
+            <span className="badge-gray text-red-400">{formatAmount(totalDebtSum)} qarz</span>
+          )}
+        </div>
+        <select
+          className="input-field text-xs py-1 w-36"
+          value={months}
+          onChange={(e) => setMonths(Number(e.target.value))}
+        >
+          <option value={3}>Oxirgi 3 oy</option>
+          <option value={6}>Oxirgi 6 oy</option>
+          <option value={12}>Oxirgi 12 oy</option>
+        </select>
+      </div>
+
+      {isLoading ? (
+        <div className="p-5 space-y-2">
+          {[1, 2].map((i) => <div key={i} className="h-12 rounded-xl bg-[var(--bg-hover)] animate-pulse" />)}
+        </div>
+      ) : withDebt.length === 0 ? (
+        <div className="text-center py-8 text-sm text-[var(--text-muted)]">
+          <CheckCircle2 className="w-7 h-7 mx-auto mb-2 text-emerald-400 opacity-60" />
+          Hech qanday shifoxonada qarzdorlik yo&apos;q
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[var(--border)]">
+                {["Shifoxona", "Xodimlar", "Oylik summa", "Uzluksiz to'lamagan", "Jami qarz", "Oxirgi to'lov", ""].map((h) => (
+                  <th key={h} className="text-left px-4 py-3 text-xs text-[var(--text-muted)] font-medium">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {withDebt.map((d) => (
+                <React.Fragment key={d.id}>
+                  <tr className="border-b border-[var(--border)] hover:bg-[var(--bg-hover)] transition-colors">
+                    <td className="px-4 py-3 font-medium text-[var(--text-primary)]">{d.name}</td>
+                    <td className="px-4 py-3 text-[var(--text-muted)]">{d.employeeCount} ta</td>
+                    <td className="px-4 py-3 text-[var(--text-muted)]">{formatAmount(d.expectedAmountPerMonth)}</td>
+                    <td className="px-4 py-3">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/15 text-red-400 border border-red-500/25">
+                        {d.consecutiveUnpaidMonths} oy
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 font-semibold text-red-400">{formatAmount(d.totalDebt)}</td>
+                    <td className="px-4 py-3 text-xs text-[var(--text-muted)]">
+                      {d.lastPaymentAt ? new Date(d.lastPaymentAt).toLocaleDateString("uz-UZ") : "Hech qachon"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => setExpanded(expanded === d.id ? null : d.id)}
+                        className="btn-ghost p-1.5"
+                        title="Oylar bo'yicha tafsilot"
+                      >
+                        {expanded === d.id ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                      </button>
+                    </td>
+                  </tr>
+                  {expanded === d.id && (
+                    <tr className="border-b border-[var(--border)] bg-[var(--bg-hover)]">
+                      <td colSpan={7} className="px-4 py-3">
+                        <div className="flex flex-wrap gap-3">
+                          {d.monthly.map((m) => (
+                            <div key={m.period} className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border)]">
+                              <MonthDot status={m.status} />
+                              <span className="text-[var(--text-primary)]">{periodLabel(m.period)}</span>
+                              <span className="text-[var(--text-muted)]">— {formatAmount(m.paidAmount)}/{formatAmount(m.expectedAmount)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main Page ────────────────────────────────────
 export default function PaymentsPage() {
   const { user } = useAuthStore();
@@ -291,6 +412,9 @@ export default function PaymentsPage() {
             </div>
           )}
         </div>
+
+        {/* Ko'p oylik qarzdorlik hisoboti */}
+        <DebtorsReportPanel />
 
         {/* Payment History */}
         <div className="card">
