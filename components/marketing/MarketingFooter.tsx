@@ -99,11 +99,11 @@ export function MarketingFooter() {
             <h4 className="text-white font-semibold text-sm">Aloqa &amp; Yordam</h4>
             <div className="space-y-2.5">
               <a
-                href="tel:+998712000024"
+                href="tel:+998955775454"
                 className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors"
               >
                 <Phone className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                <span>+998 (71) 200-00-24</span>
+                <span>+998 95 577 54 54</span>
               </a>
               <a
                 href="https://t.me/staffpluspro_support"
