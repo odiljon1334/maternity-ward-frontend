@@ -931,6 +931,18 @@ const savePositionGps = useCallback(async () => {
                     muted
                   />
 
+                  {/* Kamera ochilishi bilan ko'rinadigan jonli skaner. Bu
+                      serverdagi match hali boshlanmagan paytda ham xodimga
+                      yuzini qayerga to'g'rilashini aniq ko'rsatadi. */}
+                  <div className="face-camera-vignette absolute inset-0 pointer-events-none" />
+                  <div className="face-camera-scan-line absolute inset-x-[15%] top-[14%] h-px rounded-full pointer-events-none" />
+                  <div className="face-camera-status absolute inset-x-0 top-5 flex justify-center pointer-events-none">
+                    <span className="flex items-center gap-1.5 rounded-full border border-emerald-300/35 bg-slate-950/45 px-3 py-1.5 text-[10px] font-extrabold tracking-wide text-emerald-100 backdrop-blur-sm">
+                      <ScanFace className="h-3.5 w-3.5 text-emerald-300" />
+                      YUZNI SKANERLASH
+                    </span>
+                  </div>
+
                   {/* Yuz skanerlash ramkasi (Apple Face ID uslubida) — check-in'da
                       yuz tekshiruvi (Qaror 4) ishlashini vizual ravishda ko'rsatadi */}
                   <svg

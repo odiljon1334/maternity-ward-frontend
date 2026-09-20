@@ -34,18 +34,11 @@ export function photoThumbUrl(url: string | null | undefined): string | undefine
 export const api = axios.create({
   baseURL: BASE_URL,
   timeout: 15000,
+  // Sessiya HttpOnly cookie'da; JavaScript tokenni o'qimaydi va yubormaydi.
+  withCredentials: true,
   headers: {
     "Content-Type": "application/json",
   },
-});
-
-// Request interceptor — JWT token qo'shish
-api.interceptors.request.use((config) => {
-  if (typeof window !== "undefined") {
-    const token = localStorage.getItem("access_token");
-    if (token) config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
 });
 
 // Response interceptor — 401 → login
@@ -53,10 +46,15 @@ api.interceptors.response.use(
   (res) => res,
   (error) => {
     if (error.response?.status === 401 && typeof window !== "undefined") {
-      localStorage.removeItem("access_token");
       localStorage.removeItem("user");
       localStorage.removeItem("auth-storage");
-      document.cookie = "auth_token=; path=/; max-age=0";
+      // HttpOnly cookie'ni browser JavaScript o'chira olmaydi.
+      // Serverdagi public logout endpoint uni xavfsiz tozalaydi.
+      void fetch(`${BASE_URL}/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+        keepalive: true,
+      });
       window.location.href = "/login";
     }
     return Promise.reject(error);
@@ -67,11 +65,16 @@ api.interceptors.response.use(
 export const authApi = {
   login: (data: { username: string; password: string }) =>
     api.post("/auth/login", data).then((r) => r.data.data),
+  migrateLegacySession: (token: string) =>
+    api.post("/auth/browser-session", undefined, {
+      headers: { Authorization: `Bearer ${token}` },
+    }).then((r) => r.data.data),
   profile: () => api.get("/auth/profile").then((r) => r.data.data),
   register: (data: { username: string; password: string; role?: string }) =>
     api.post("/auth/register", data).then((r) => r.data.data),
   changePassword: (data: { currentPassword: string; newPassword: string }) =>
     api.put("/auth/change-password", data).then((r) => r.data.data),
+  logout: () => api.post("/auth/logout").then((r) => r.data.data),
 
   // ─── Email tasdiqlash ───
   updateEmail: (data: { email: string }) =>

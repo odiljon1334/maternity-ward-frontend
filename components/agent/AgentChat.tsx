@@ -92,11 +92,6 @@ const clearChat = () => {
       { role: "user", content: text },
     ];
 
-    const getToken = () => {
-      const match = document.cookie.match(/auth_token=([^;]+)/);
-      return match ? match[1] : localStorage.getItem("access_token") ?? "";
-    };
-
     // Assistant placeholder
     const aId = (Date.now() + 1).toString();
     setMessages((p) => [
@@ -109,8 +104,8 @@ const clearChat = () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${getToken()}`,
         },
+        credentials: "include",
         body: JSON.stringify({
           messages: historyRef.current,
         }),

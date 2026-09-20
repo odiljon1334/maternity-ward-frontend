@@ -14,11 +14,10 @@ interface User {
 }
 
 interface AuthStore {
-  token: string | null;
   user: User | null;
   // SUPER_ADMIN uchun tanlab olingan kasalxona
   selectedHospital: { id: string; name: string; code: string } | null;
-  setAuth: (token: string, user: User) => void;
+  setAuth: (user: User) => void;
   logout: () => void;
   isAuthenticated: () => boolean;
   setSelectedHospital: (h: { id: string; name: string; code: string } | null) => void;
@@ -26,40 +25,34 @@ interface AuthStore {
   updateEmployeeGps: (lat: number, lng: number) => void;
 }
 
-/** Next.js middleware uchun cookie saqlash yordamchisi */
-function setAuthCookie(token: string) {
-  if (typeof document === "undefined") return;
-  const maxAge = 14 * 24 * 60 * 60; // 14 kun
-  document.cookie = `auth_token=${token}; path=/; max-age=${maxAge}; SameSite=Lax`;
-}
-
 function clearAuthCookie() {
   if (typeof document === "undefined") return;
+  // 2026-09-21gacha ishlatilgan JavaScript cookie'ni migrationdan keyin o'chiramiz.
   document.cookie = "auth_token=; path=/; max-age=0";
 }
 
 export const useAuthStore = create<AuthStore>()(
   persist(
     (set, get) => ({
-      token: null,
       user: null,
       selectedHospital: null,
-      setAuth: (token, user) => {
-        set({ token, user });
-        setAuthCookie(token);
-      },
+      setAuth: (user) => set({ user }),
       logout: () => {
-        set({ token: null, user: null, selectedHospital: null });
+        set({ user: null, selectedHospital: null });
         if (typeof window !== "undefined") {
-          localStorage.removeItem("access_token");
           localStorage.removeItem("user");
+          void fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001/api/v1"}/auth/logout`, {
+            method: "POST",
+            credentials: "include",
+            keepalive: true,
+          });
           import('../providers').then(({ globalQueryClient }) => {
             globalQueryClient?.clear();
           });
         }
         clearAuthCookie();
       },
-      isAuthenticated: () => !!get().token,
+      isAuthenticated: () => !!get().user,
       setSelectedHospital: (h) => set({ selectedHospital: h }),
       updateHospitalGps: (lat: number, lng: number) => {
         const user = get().user;
@@ -87,17 +80,30 @@ export const useAuthStore = create<AuthStore>()(
     {
       name: "auth-storage",
       partialize: (state: AuthStore) => ({
-        token: state.token,
         user: state.user,
         selectedHospital: state.selectedHospital,
       }),
-      onRehydrateStorage: () => (state: AuthStore | undefined) => {
-        if (state?.token && typeof window !== "undefined") {
-          localStorage.setItem("access_token", state.token);
-          setAuthCookie(state.token);
+      version: 2,
+      migrate: (persisted: unknown) => {
+        const old = persisted as { user?: User | null; selectedHospital?: AuthStore["selectedHospital"] };
+        return { user: old.user ?? null, selectedHospital: old.selectedHospital ?? null };
+      },
+      onRehydrateStorage: () => () => {
+        if (typeof window === "undefined") return;
+        const legacyToken = localStorage.getItem("access_token");
+        if (legacyToken) {
+          void fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001/api/v1"}/auth/browser-session`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${legacyToken}` },
+            credentials: "include",
+          }).finally(() => {
+            localStorage.removeItem("access_token");
+            clearAuthCookie();
+          });
+        } else {
+          clearAuthCookie();
         }
       },
     }
   )
 );
-

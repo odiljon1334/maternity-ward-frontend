@@ -73,8 +73,8 @@ export default function RegisterPage() {
 
   useEffect(() => {
     const check = () => {
-      const { token, user } = useAuthStore.getState();
-      if (!token || user?.role !== "SUPER_ADMIN") {
+      const { user } = useAuthStore.getState();
+      if (user?.role !== "SUPER_ADMIN") {
         router.replace("/login");
       } else {
         setReady(true);

@@ -145,7 +145,7 @@ function formatTime(value: string | null) {
 // ─────────────────────────────────────────────
 
 export default function LiveMapPage() {
-  const { user, token, selectedHospital } = useAuthStore();
+  const { user, selectedHospital } = useAuthStore();
 
   const selectedHospitalId =
     selectedHospital?.id ?? null;
@@ -184,8 +184,6 @@ export default function LiveMapPage() {
   // ─────────────────────────────────────────
 
   useEffect(() => {
-    if (!token) return;
-
     if (!API_ORIGIN) {
       console.error(
         "❌ API_ORIGIN is not defined"
@@ -200,6 +198,7 @@ export default function LiveMapPage() {
           "polling",
           "websocket",
         ],
+        withCredentials: true,
       }
     );
 
@@ -218,9 +217,7 @@ export default function LiveMapPage() {
 
       setConnected(true);
 
-      socket.emit("join:admin", {
-        token,
-      });
+      socket.emit("join:admin", {});
     });
 
     socket.on(
@@ -312,15 +309,13 @@ export default function LiveMapPage() {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [token]);
+  }, []);
 
   // ─────────────────────────────────────────
   // REST INITIAL LOAD + REFRESH
   // ─────────────────────────────────────────
 
   useEffect(() => {
-    if (!token) return;
-
     const isGlobalRole =
       user?.role === "SUPER_ADMIN" ||
       user?.role === "MINISTRY" ||
@@ -343,12 +338,7 @@ export default function LiveMapPage() {
           `${process.env.NEXT_PUBLIC_API_URL}/location/live` +
           `?hospitalId=${hospitalId}`;
 
-        const response =
-          await fetch(url, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
+        const response = await fetch(url, { credentials: "include" });
 
         if (!response.ok) {
           throw new Error(
@@ -421,7 +411,6 @@ export default function LiveMapPage() {
       clearInterval(interval);
     };
   }, [
-    token,
     user,
     selectedHospitalId,
   ]);

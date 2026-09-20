@@ -8,12 +8,14 @@ const LEAVE_LABELS: Record<string, string> = {
   UNPAID:    "Haqsiz ta'til",
 };
 
-const apiFetch = async (path: string, token: string, options?: RequestInit) => {
+type AuthHeaders = Record<string, string>;
+
+const apiFetch = async (path: string, authHeaders: AuthHeaders, options?: RequestInit) => {
   const res = await fetch(`${BASE}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
+      ...authHeaders,
       ...options?.headers,
     },
   });
@@ -36,7 +38,7 @@ function calcDurationH(start: string, end: string): number {
   return Math.round(mins / 60);
 }
 
-export const toolHandlers: Record<string, (input: any, token: string) => Promise<any>> = {
+export const toolHandlers: Record<string, (input: any, authHeaders: AuthHeaders) => Promise<any>> = {
 
   // ── Xodimlar ────────────────────────────────────────────────────────────────
   get_employees: ({ search, departmentId, page, limit }, token) => {

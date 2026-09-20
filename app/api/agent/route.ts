@@ -34,10 +34,13 @@ const agentTools = tools.filter((tool) => READ_ONLY_TOOLS.has(tool.name));
 
 export async function POST(req: Request) {
   const authorization = req.headers.get("authorization");
-  const token = authorization?.startsWith("Bearer ")
-    ? authorization.slice("Bearer ".length)
-    : "";
-  if (!token) return Response.json({ error: "Autentifikatsiya talab qilinadi" }, { status: 401 });
+  const cookie = req.headers.get("cookie");
+  const authHeaders: Record<string, string> | null = authorization?.startsWith("Bearer ")
+    ? { Authorization: authorization }
+    : cookie
+      ? { Cookie: cookie }
+      : null;
+  if (!authHeaders) return Response.json({ error: "Autentifikatsiya talab qilinadi" }, { status: 401 });
 
   const clientId = req.headers.get("x-real-ip") || req.headers.get("x-forwarded-for")?.split(",").pop()?.trim() || "unknown";
   const now = Date.now();
@@ -52,7 +55,7 @@ export async function POST(req: Request) {
   // Tokenni backend orqali tekshiramiz; client body'dan keladigan token yoki
   // role ma'lumotlariga hech qachon ishonilmaydi.
   const profile = await fetch(`${API_BASE}/auth/profile`, {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: authHeaders,
     cache: "no-store",
   });
   if (!profile.ok) return Response.json({ error: "Session yaroqsiz yoki muddati tugagan" }, { status: 401 });
@@ -98,7 +101,7 @@ export async function POST(req: Request) {
         console.log("▶ Agent boshlandi");
         const history: Anthropic.MessageParam[] = [...messages];
           console.log("Agent so'rov keldi, messages:", history.length);
-          console.log("Token bor:", !!token);
+          console.log("Sessiya bor:", !!authHeaders);
 
         // Agentic loop
         while (true) {
@@ -176,7 +179,7 @@ export async function POST(req: Request) {
               let result: unknown;
               try {
                 const handler = READ_ONLY_TOOLS.has(tu.name) ? toolHandlers[tu.name] : undefined;
-                result = handler ? await handler(tu.input, token) : { error: "Handler topilmadi" };
+                result = handler ? await handler(tu.input, authHeaders) : { error: "Handler topilmadi" };
               } catch (error: unknown) {
                 result = {
                   error: error instanceof Error ? error.message : "Noma'lum xatolik",

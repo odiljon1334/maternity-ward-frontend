@@ -233,6 +233,31 @@ html.dark .nav-item:hover {
   animation: face-verify-check 420ms 90ms cubic-bezier(.2, .9, .25, 1.2) both;
 }
 
+/* Kameraning o'zidagi jonli indikator. SVG nuqtalardagi individual delay
+   Apple Face ID'ga o'xshash "yugurib" chiqadigan yo'l hosil qiladi. */
+.faceid-chase-dot {
+  fill: rgb(110 231 183);
+  opacity: .2;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: faceid-chase-dot 2.8s ease-in-out infinite;
+  filter: drop-shadow(0 0 3px rgba(110, 231, 183, .95));
+}
+
+.face-camera-vignette {
+  background:
+    radial-gradient(ellipse at center, transparent 38%, rgba(2, 6, 23, .12) 65%, rgba(2, 6, 23, .62) 100%),
+    linear-gradient(180deg, rgba(16, 185, 129, .1), transparent 35%, rgba(16, 185, 129, .08));
+  animation: face-camera-glow 2.8s ease-in-out infinite;
+}
+
+.face-camera-scan-line {
+  z-index: 2;
+  background: linear-gradient(90deg, transparent, rgba(110, 231, 183, .95) 20%, #d1fae5 50%, rgba(110, 231, 183, .95) 80%, transparent);
+  box-shadow: 0 0 8px rgba(110, 231, 183, .9), 0 0 24px rgba(52, 211, 153, .65);
+  animation: face-camera-scan 2.8s cubic-bezier(.45, 0, .55, 1) infinite;
+}
+
 @keyframes face-verify-card-in {
   from { opacity: 0; transform: translateY(12px) scale(.97); }
   to { opacity: 1; transform: translateY(0) scale(1); }
@@ -258,12 +283,33 @@ html.dark .nav-item:hover {
   to { opacity: 1; transform: scale(1) rotate(0); }
 }
 
+@keyframes faceid-chase-dot {
+  0%, 100% { opacity: .16; transform: scale(.7); }
+  15% { opacity: 1; transform: scale(1.45); }
+  32% { opacity: .38; transform: scale(.92); }
+}
+
+@keyframes face-camera-glow {
+  0%, 100% { opacity: .56; }
+  50% { opacity: 1; }
+}
+
+@keyframes face-camera-scan {
+  0%, 8% { opacity: 0; transform: translateY(0); }
+  16% { opacity: 1; }
+  52% { opacity: 1; transform: translateY(218px); }
+  63%, 100% { opacity: 0; transform: translateY(218px); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .face-verification-card,
   .face-verify-orbit,
   .face-verify-sweep,
   .face-verify-success,
-  .face-verify-check { animation: none; }
+  .face-verify-check,
+  .faceid-chase-dot,
+  .face-camera-vignette,
+  .face-camera-scan-line { animation: none; }
 }
 
 /* Table row */

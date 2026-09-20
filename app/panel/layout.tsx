@@ -28,7 +28,6 @@ const ALLOWED_ROLES = ["SUPER_ADMIN"];
 
 export default function PanelLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const token = useAuthStore((s) => s.token);
   const user = useAuthStore((s) => s.user);
   const [hydrated, setHydrated] = useState(false);
 
@@ -40,16 +39,16 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     if (!hydrated) return;
-    if (!token) {
+    if (!user) {
       router.replace("/login");
       return;
     }
     if (user && !ALLOWED_ROLES.includes(user.role)) {
       router.replace("/dashboard");
     }
-  }, [hydrated, token, user, router]);
+  }, [hydrated, user, router]);
 
-  const authorized = !!token && (!user || ALLOWED_ROLES.includes(user.role));
+  const authorized = !!user && ALLOWED_ROLES.includes(user.role);
   if (!hydrated || !authorized) return null;
 
   return <PanelShell>{children}</PanelShell>;

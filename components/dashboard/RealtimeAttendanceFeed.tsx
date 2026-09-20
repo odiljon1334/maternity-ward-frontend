@@ -131,18 +131,17 @@ export default function RealtimeAttendanceFeed({
   }, []);
 
   useEffect(() => {
-    const token =
-      typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
-    if (!token || !API_ORIGIN) return;
+    if (!API_ORIGIN) return;
 
     const socket = io(`${API_ORIGIN}/live-location`, {
       transports: ["polling", "websocket"],
+      withCredentials: true,
     });
     socketRef.current = socket;
 
     socket.on("connect", () => {
       setConnected(true);
-      socket.emit("join:admin", { token });
+      socket.emit("join:admin", {});
     });
     socket.on("disconnect", () => setConnected(false));
     socket.on("connect_error", () => setConnected(false));

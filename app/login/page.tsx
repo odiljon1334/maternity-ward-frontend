@@ -1,6 +1,5 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -22,7 +21,6 @@ const features = [
 ];
 
 export default function LoginPage() {
-  const router = useRouter();
   const { setAuth } = useAuthStore();
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -33,8 +31,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const res = await authApi.login(data);
-      setAuth(res.accessToken, res.user);
-      localStorage.setItem("access_token", res.accessToken);
+      setAuth(res.user);
       toast.success("Xush kelibsiz!");
       window.location.href = "/dashboard";
     } catch (err: any) {

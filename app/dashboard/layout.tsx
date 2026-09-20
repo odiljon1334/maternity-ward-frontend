@@ -11,7 +11,7 @@ import { MobileMenuContext } from "@/contexts/mobile-menu";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router   = useRouter();
-  const token    = useAuthStore((s) => s.token);
+  const user     = useAuthStore((s) => s.user);
   const [hydrated, setHydrated]     = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -22,10 +22,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, []);
 
   useEffect(() => {
-    if (hydrated && !token) router.replace("/login");
-  }, [hydrated, token, router]);
+    if (hydrated && !user) router.replace("/login");
+  }, [hydrated, user, router]);
 
-  if (!hydrated || !token) return null;
+  if (!hydrated || !user) return null;
 
   return (
     <MobileMenuContext.Provider value={{

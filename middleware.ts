@@ -7,8 +7,9 @@ const PUBLIC_PATHS = ["/", "/tariflar", "/video-qollanma", "/login", "/register"
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Cookie dan auth_token ni tekshiramiz (auth store tomonidan o'rnatiladi)
-  const token = request.cookies.get("auth_token")?.value;
+  // HttpOnly session cookie. auth_token faqat oldingi UI uchun bir marta
+  // o'tish davrida qabul qilinadi; u client yuklangach o'chiriladi.
+  const token = request.cookies.get("access_token")?.value || request.cookies.get("auth_token")?.value;
 
   // Root ("/"): tizimga kirgan haqiqiy foydalanuvchi marketing sahifasini
   // emas, to'g'ridan-to'g'ri dashboard'ni ko'rishi kerak. Eski havola/bookmark
