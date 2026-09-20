@@ -70,7 +70,7 @@ export function IntegrationsSection({ onOpenTrial }: IntegrationsSectionProps) {
             1C va O&apos;zbekiston Biznes Ekotizimi Bilan Integratsiya
           </h2>
           <p className="mt-3 text-sm sm:text-base text-slate-600 dark:text-slate-400">
-            StaffPulse mavjud buxgalteriya va kadrlar dasturlaringiz o&apos;rnini bosishga majburlamaydi, aksincha ularni davomat ma&apos;lumotlari bilan to&apos;liq boyitadi.
+            StaffPlusPRO mavjud buxgalteriya va kadrlar dasturlaringiz o&apos;rnini bosishga majburlamaydi, aksincha ularni davomat ma&apos;lumotlari bilan to&apos;liq boyitadi.
           </p>
         </div>
 

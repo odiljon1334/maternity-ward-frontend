@@ -24,7 +24,7 @@ const INDUSTRIES = [
     tag: "Tibbiyot va 24/7 navbatchilik",
     headline: "24/7 Shifokor va Hamshiralar Smenalari Nazorati",
     description:
-      "Tibbiy muassasalarda navbatchilikni boshqarish murakkab: kunduzgi, tungi va 24 soatlik smenalar. StaffPulse avtomatlashtirilgan rotatsiya va shifoxona bo'limlari (Reanimatsiya, Terapiya, Tug'ruqxona) bo'yicha mustaqil nazoratni ta'minlaydi.",
+      "Tibbiy muassasalarda navbatchilikni boshqarish murakkab: kunduzgi, tungi va 24 soatlik smenalar. StaffPlusPRO avtomatlashtirilgan rotatsiya va shifoxona bo'limlari (Reanimatsiya, Terapiya, Tug'ruqxona) bo'yicha mustaqil nazoratni ta'minlaydi.",
     painPoint: "Qo'lda tabel yurgizishda navbatchilik almashishlari yo'qolib qolishi",
     solution: "1 tugma bilan bir oylik 24/7 grafik va T-13 tabelni avto-generatsiya qilish",
     features: [
@@ -62,7 +62,7 @@ const INDUSTRIES = [
     tag: "Moslashuvchan & Gibrid ish",
     headline: "Moslashuvchan Grafikli Ofislar va Masofaviy Jamoalar",
     description:
-      "Zamonaviy IT jamoalar va xizmat ko'rsatish ofislarida qat'iy 9:00 dan 18:00 gacha emas, balki haftalik 40 soatlik moslashuvchan (flexible) grafiklar va gibrid ish tartibi zarur. StaffPulse har bir soatni aniq hisoblaydi.",
+      "Zamonaviy IT jamoalar va xizmat ko'rsatish ofislarida qat'iy 9:00 dan 18:00 gacha emas, balki haftalik 40 soatlik moslashuvchan (flexible) grafiklar va gibrid ish tartibi zarur. StaffPlusPRO har bir soatni aniq hisoblaydi.",
     painPoint: "Dasturchi va ofis xodimlarining aniq ishlagan soatlarini hisoblay olmaslik",
     solution: "Smartfon GPS check-in + ofis Wi-Fi / IP geofencing orqali qulay belgilanish",
     features: [
@@ -81,7 +81,7 @@ const INDUSTRIES = [
     tag: "Ko'p filialli tarmoqlar",
     headline: "Bir Nechta Filiallar, Kafe va Do'konlar Ekotizimi",
     description:
-      "Tarmoqli korxonalarda (supermarketlar, fast-fud, kiyim do'konlari) xodimlar doim filiallar o'rtasida almashib turadi. StaffPulse barcha nuqtalarni yagona bulutli ekranga birlashtiradi.",
+      "Tarmoqli korxonalarda (supermarketlar, fast-fud, kiyim do'konlari) xodimlar doim filiallar o'rtasida almashib turadi. StaffPlusPRO barcha nuqtalarni yagona bulutli ekranga birlashtiradi.",
     painPoint: "Bosh ofisdan turib har bir filaldagi oshpaz, sotuvchi va kuryerni nazorat qila olmaslik",
     solution: "Yagona platformada barcha filiallar jonli videokuzatuv va davomat oqimi",
     features: [
@@ -170,7 +170,7 @@ export function IndustrySolutionsSection({
 
                 <div className="p-4 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-900/40">
                   <div className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">
-                    StaffPulse yechimi:
+                    StaffPlusPRO yechimi:
                   </div>
                   <div className="text-xs text-slate-700 dark:text-slate-300 font-medium">
                     {current.solution}

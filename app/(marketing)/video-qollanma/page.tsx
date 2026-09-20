@@ -29,7 +29,7 @@ export default function VideoQollanmaPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 text-xs font-bold uppercase tracking-wider border border-blue-200 dark:border-blue-800">
             <Video className="w-4 h-4" />
-            <span>StaffPulse Video Akademiya</span>
+            <span>StaffPlusPRO Video Akademiya</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 dark:text-white tracking-tight">
@@ -40,7 +40,7 @@ export default function VideoQollanmaPage() {
           </h1>
 
           <p className="text-base sm:text-lg text-slate-600 dark:text-slate-300 max-w-3xl mx-auto leading-relaxed">
-            StaffPulse tizimidan to&apos;liq va samarali foydalanishni 5 ta qulay darslik orqali o&apos;rganing. Xodim qo&apos;shish, Face ID rasm yuklash, har bir kunga alohida smena grafiklari, oylik maosh va Excel/PDF eksport bo&apos;yicha bosqichma-bosqich yo&apos;riqnoma.
+            StaffPlusPRO tizimidan to&apos;liq va samarali foydalanishni 5 ta qulay darslik orqali o&apos;rganing. Xodim qo&apos;shish, Face ID rasm yuklash, har bir kunga alohida smena grafiklari, oylik maosh va Excel/PDF eksport bo&apos;yicha bosqichma-bosqich yo&apos;riqnoma.
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">

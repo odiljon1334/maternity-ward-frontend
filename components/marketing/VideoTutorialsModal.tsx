@@ -68,7 +68,7 @@ export const TUTORIAL_LESSONS: VideoTutorialItem[] = [
     ],
     downloadAction: {
       label: "Xodimlarni ommaviy yuklash uchun Excel shablon",
-      filename: "Xodimlar_import_shablon_StaffPulse.xlsx",
+      filename: "Xodimlar_import_shablon_StaffPlusPRO.xlsx",
       type: "excel",
     },
     mockVideoSteps: [
@@ -126,7 +126,7 @@ export const TUTORIAL_LESSONS: VideoTutorialItem[] = [
     ],
     downloadAction: {
       label: "Ish haqi hisob-kitob vedomosti namunasi (Excel)",
-      filename: "Ish_haqi_vedomost_StaffPulse.xlsx",
+      filename: "Ish_haqi_vedomost_StaffPlusPRO.xlsx",
       type: "excel",
     },
     mockVideoSteps: [
@@ -179,7 +179,7 @@ export const TUTORIAL_LESSONS: VideoTutorialItem[] = [
       "Joylashuvni aniqlash: Kirish eshigi yoki turniketga 1 ta (kirish/chiqish birgalikda) yoki 2 ta (alohida kirish va alohida chiqish) Face ID apparati o'rnatiladi.",
       "Tarmoqqa ulash: Qurilma LAN kabeli (Ethernet) yoki Wi-Fi orqali mahalliy internet tarmog'iga ulanadi.",
       "Dasturga to'lov qilingan holda: Bizning servis muhandislarimiz joyiga chiqib qurilmani devorga montaj qiladi, turniket relesiga ulaydi va serverga sozlab beradi — buning uchun XIZMAT HAQQI OLINMAYDI (0 so'm)!",
-      "Mavjud apparatlar: Agar sizda avvaldan Hikvision, Dahua yoki ZKTeco qurilmalari bo'lsa, ularning IP manzilini kiritib 15 daqiqada StaffPulse tizimiga bepul ulab beramiz.",
+      "Mavjud apparatlar: Agar sizda avvaldan Hikvision, Dahua yoki ZKTeco qurilmalari bo'lsa, ularning IP manzilini kiritib 15 daqiqada StaffPlusPRO tizimiga bepul ulab beramiz.",
       "Test qilish: Xodim yuzini ko'rsatishi bilan 0.3 soniyada eshik ochiladi va davomat real vaqt rejimida dasturga tushadi.",
     ],
     keyNotes: [
@@ -188,13 +188,13 @@ export const TUTORIAL_LESSONS: VideoTutorialItem[] = [
     ],
     downloadAction: {
       label: "Face ID terminalini sozlash bo'yicha to'liq qo'llanma (PDF)",
-      filename: "FaceID_Terminal_Sozlash_Qollanma_StaffPulse.pdf",
+      filename: "FaceID_Terminal_Sozlash_Qollanma_StaffPlusPRO.pdf",
       type: "pdf",
     },
     mockVideoSteps: [
       { time: "00:25", label: "Terminal joyini tanlash", detail: "Turniket va eshik yoniga to'g'ri o'rnatish balandligi" },
       { time: "01:50", label: "Kabel va internet ulanishi", detail: "Ethernet LAN va statik IP sozlash" },
-      { time: "03:40", label: "StaffPulse bulutiga ulash", detail: "Qurilma API kaliti va sinxronizatsiya" },
+      { time: "03:40", label: "StaffPlusPRO bulutiga ulash", detail: "Qurilma API kaliti va sinxronizatsiya" },
       { time: "05:15", label: "Test o'tish va eshik ochilishi", detail: "0.3 soniyada davomat qayd etilishi" },
     ],
   },
@@ -243,7 +243,7 @@ export function VideoTutorialsModal({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
-                  StaffPulse Video Qo&apos;llanmalar &amp; Yo&apos;riqnomalar
+                  StaffPlusPRO Video Qo&apos;llanmalar &amp; Yo&apos;riqnomalar
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
                   5 ta Asosiy Dars
@@ -554,12 +554,12 @@ export function VideoTutorialsModal({
               <p className="text-[11px] text-slate-500">
                 Savollaringiz bormi? Telegram orqali mutaxassisimiz bepul bog&apos;lanib ekranni ko&apos;rib sozlab beradi:{" "}
                 <a
-                  href="https://t.me/staffpulse_support"
+                  href="https://t.me/staffpluspro_support"
                   target="_blank"
                   rel="noreferrer"
                   className="text-blue-600 font-bold underline"
                 >
-                  @staffpulse_support
+                  @staffpluspro_support
                 </a>
               </p>
             </div>

@@ -68,7 +68,7 @@ export function TabletKioskShowcase({ onOpenTrial }: TabletKioskShowcaseProps) {
             </h2>
 
             <p className="text-base text-slate-300 leading-relaxed">
-              Devoringizga bitta oddiy planshetni o&apos;rnatib qo&apos;ying va StaffPulse Kiosk rejimini oching.
+              Devoringizga bitta oddiy planshetni o&apos;rnatib qo&apos;ying va StaffPlusPRO Kiosk rejimini oching.
               Xodimlar kirishda unga qaraydi, tizim 0.3 soniyada taniydi, o&apos;zbekcha ovoz chiqaradi va
               tabelni avtomatik to&apos;ldiradi.
             </p>
@@ -137,7 +137,7 @@ export function TabletKioskShowcase({ onOpenTrial }: TabletKioskShowcaseProps) {
                       <ScanFace className="w-4 h-4" />
                     </div>
                     <div>
-                      <div className="text-xs font-black text-white">StaffPulse Kiosk</div>
+                      <div className="text-xs font-black text-white">StaffPlusPRO Kiosk</div>
                       <div className="text-[9px] text-emerald-400 font-mono flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
                         TERMINAL ONLINE

@@ -37,7 +37,7 @@ const CASE_STUDIES = [
     solution:
       "Qabulxona va sanitariya o'tkazgich punktlariga Face ID planshet terminallari o'rnatildi. Shifokor va doyalarning tungi navbatchilikka kirish va chiqish vaqtlari avtomatlashdi. Kechikish yoki kelmaslik yuz berganda bosh vrachning Telegramiga 1 daqiqada signal boradi.",
     quote:
-      "Tug'ruqxonada har bir daqiqa inson hayoti uchun qimmatli. StaffPulse orqali barcha bo'limlardagi navbatchiliklar va smena intizomi 100% shaffof bo'ldi. Oylik tabelni yopish esa 3 kundan 5 daqiqaga qisqardi.",
+      "Tug'ruqxonada har bir daqiqa inson hayoti uchun qimmatli. StaffPlusPRO orqali barcha bo'limlardagi navbatchiliklar va smena intizomi 100% shaffof bo'ldi. Oylik tabelni yopish esa 3 kundan 5 daqiqaga qisqardi.",
     author: "Gulchehra Olimova",
     authorRole: "Bosh Shifokor & Tibbiyot Fanlari Nomzodi",
     roi: "19x",
@@ -107,7 +107,7 @@ export function CaseStudiesSection({ onOpenTrial }: CaseStudiesSectionProps) {
             O&apos;zbekistonda Muvaffaqiyatli Keyslar
           </div>
           <h2 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight">
-            Bizneslar StaffPulse bilan qanday qilib{" "}
+            Bizneslar StaffPlusPRO bilan qanday qilib{" "}
             <span className="text-blue-600 dark:text-blue-400">millionlab so&apos;m tejamoqda?</span>
           </h2>
           <p className="mt-4 text-base text-slate-600 dark:text-slate-300 leading-relaxed">
@@ -167,7 +167,7 @@ export function CaseStudiesSection({ onOpenTrial }: CaseStudiesSectionProps) {
               <div className="p-4 rounded-2xl bg-red-50/60 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50">
                 <div className="text-xs font-bold text-red-700 dark:text-red-400 uppercase tracking-wide flex items-center gap-1.5 mb-1">
                   <span className="w-2 h-2 rounded-full bg-red-500" />
-                  StaffPulse&apos;gacha bo&apos;lgan muammo:
+                  StaffPlusPRO&apos;gacha bo&apos;lgan muammo:
                 </div>
                 <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
                   {currentCase.problem}
@@ -178,7 +178,7 @@ export function CaseStudiesSection({ onOpenTrial }: CaseStudiesSectionProps) {
               <div className="p-4 rounded-2xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/50">
                 <div className="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wide flex items-center gap-1.5 mb-1">
                   <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                  StaffPulse orqali yechim:
+                  StaffPlusPRO orqali yechim:
                 </div>
                 <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
                   {currentCase.solution}

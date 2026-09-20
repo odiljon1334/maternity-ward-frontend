@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { TrackingScripts } from "@/components/marketing/TrackingScripts";
 
 export const metadata: Metadata = {
-  title: "StaffPulse — Universal Xodimlar Davomati, Face ID & Smart Kadrlar Tizimi",
+  title: "StaffPlusPRO — Universal Xodimlar Davomati, Face ID & Smart Kadrlar Tizimi",
   description:
     "Har qanday korxona, ofis, ishlab chiqarish va klinikalar (MaternityCare) uchun Face ID davomat tizimi. O'z logotipingiz bilan White-Label, 24/7 smenalar, avtomatlashtirilgan T-13 tabel va Telegram bot.",
   keywords: [
@@ -13,11 +13,11 @@ export const metadata: Metadata = {
     "tabel dasturi",
     "tibbiyot davomati",
     "MaternityCare",
-    "StaffPulse",
+    "StaffPlusPRO",
     "biometrik terminal",
   ],
   openGraph: {
-    title: "StaffPulse — Korxonalar va Klinikalar Uchun Face ID Davomat Ekotizimi",
+    title: "StaffPlusPRO — Korxonalar va Klinikalar Uchun Face ID Davomat Ekotizimi",
     description:
       "Universal Face ID terminallar, White-Label brending, 24/7 smenalar, oylik tabel va ish haqi avtomatizatsiyasi. 14 kun bepul sinab ko'ring!",
     type: "website",

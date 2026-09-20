@@ -15,7 +15,7 @@ export function MarketingFooter() {
                 <Activity className="w-5 h-5" />
               </div>
               <span className="font-extrabold text-lg text-white tracking-tight">
-                StaffPulse <span className="text-blue-400">PRO</span>
+                StaffPlus <span className="text-blue-400">PRO</span>
               </span>
             </Link>
             <p className="text-xs text-slate-400 leading-relaxed max-w-sm">
@@ -106,13 +106,13 @@ export function MarketingFooter() {
                 <span>+998 (71) 200-00-24</span>
               </a>
               <a
-                href="https://t.me/staffpulse_support"
+                href="https://t.me/staffpluspro_support"
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors"
               >
                 <Send className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                <span>Telegram: @staffpulse_support</span>
+                <span>Telegram: @staffpluspro_support</span>
               </a>
               <div className="flex items-start gap-2 text-slate-400 text-[11px] pt-1">
                 <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0 mt-0.5" />
@@ -124,7 +124,7 @@ export function MarketingFooter() {
 
         {/* Bottom Bar */}
         <div className="mt-12 pt-8 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-4 text-slate-500 text-xs">
-          <p>© {new Date().getFullYear()} StaffPulse. Barcha huquqlar himoyalangan.</p>
+          <p>© {new Date().getFullYear()} StaffPlusPRO. Barcha huquqlar himoyalangan.</p>
           <div className="flex items-center gap-6 text-[11px] text-slate-400">
             <Link href="/tariflar" className="hover:text-slate-200 transition-colors">Tariflar</Link>
             <Link href="/video-qollanma" className="hover:text-slate-200 transition-colors">Qo&apos;llanmalar</Link>

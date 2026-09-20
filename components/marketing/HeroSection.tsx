@@ -29,7 +29,7 @@ export function HeroSection({ onOpenDemo, onOpenTrial, onOpenTutorials }: HeroSe
     clinic: {
       name: "Toshkent Viloyat Tug'ruqxonasi",
       sub: "MaternityCare Moduli &bull; 24/7 Navbatchilik",
-      domain: "tugruqxona.staffpulse.uz",
+      domain: "tugruqxona.staffpluspro.uz",
       badge: "MaternityCare Edition",
       stat: "148 nafar shifokor va hamshira",
       terminalText: "1-2 ta Face ID terminal onlayn",
@@ -37,7 +37,7 @@ export function HeroSection({ onOpenDemo, onOpenTrial, onOpenTutorials }: HeroSe
     factory: {
       name: "Artel Texnopark 2-Sex",
       sub: "Sanoat Moduli &bull; 3 Smenali Ishlab Chiqarish",
-      domain: "artel-plant.staffpulse.uz",
+      domain: "artel-plant.staffpluspro.uz",
       badge: "Industry Edition",
       stat: "1 240 nafar ishchi va usta",
       terminalText: "2 ta Face ID turniket onlayn",
@@ -45,7 +45,7 @@ export function HeroSection({ onOpenDemo, onOpenTrial, onOpenTutorials }: HeroSe
     office: {
       name: "Orient FinTech Group",
       sub: "Korporativ Modul &bull; Har kungi turli grafik",
-      domain: "orient.staffpulse.uz",
+      domain: "orient.staffpluspro.uz",
       badge: "Corporate Edition",
       stat: "85 nafar mutaxassis",
       terminalText: "1 ta Face ID terminal onlayn",
@@ -356,7 +356,7 @@ export function HeroSection({ onOpenDemo, onOpenTrial, onOpenTutorials }: HeroSe
                   </div>
 
                   <div className="pt-2 text-[10px] text-slate-500 flex items-center justify-between">
-                    <span>StaffPulse Core</span>
+                    <span>StaffPlusPRO Core</span>
                     <span className="text-emerald-600 font-semibold">24/7 Avtomat</span>
                   </div>
                 </div>

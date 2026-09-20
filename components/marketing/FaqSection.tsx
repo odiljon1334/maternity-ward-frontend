@@ -13,7 +13,7 @@ export function FaqSection({ onOpenTrial }: FaqSectionProps) {
   const faqs = [
     {
       q: "Har bir korxona o'z logosi va nomini qo'ya oladimi (White-Label)?",
-      a: "Albatta! StaffPulse har bir korxonaga o'z brendi ostida ishlash imkonini beradi. Siz o'z logotipingiz va korxona nomingizni yuklaysiz. Xodimlarning shaxsiy kabinetida, boshqaruv panelida va Telegram botida aynan sizning brendingiz chiqadi. Tug'ruqxona va klinikalar uchun esa maxsus 'MaternityCare' tibbiy moduli avtomatik faollashadi.",
+      a: "Albatta! StaffPlusPRO har bir korxonaga o'z brendi ostida ishlash imkonini beradi. Siz o'z logotipingiz va korxona nomingizni yuklaysiz. Xodimlarning shaxsiy kabinetida, boshqaruv panelida va Telegram botida aynan sizning brendingiz chiqadi. Tug'ruqxona va klinikalar uchun esa maxsus 'MaternityCare' tibbiy moduli avtomatik faollashadi.",
     },
     {
       q: "Face ID terminal o'rnatish majburiymi va xizmat shartlari qanday?",

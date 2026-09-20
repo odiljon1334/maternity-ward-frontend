@@ -50,7 +50,7 @@ export function RoiCalculatorSection({
   // Total monthly company loss without biometrics/automation:
   const totalMonthlyLoss = monthlyTardinessLoss + manualHrAdminLoss;
 
-  // Estimated StaffPulse cost per month:
+  // Estimated StaffPlusPRO cost per month:
   // Base 12,000 UZS per active employee, with discounts for scale
   const staffPulseCost = Math.round(
     employees <= 20
@@ -89,7 +89,7 @@ export function RoiCalculatorSection({
             <span>Iqtisodiy Samaradorlik &amp; Tejamkorlik</span>
           </div>
           <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white">
-            StaffPulse tizimi korxonangizga qancha pul tejab beradi?
+            StaffPlusPRO tizimi korxonangizga qancha pul tejab beradi?
           </h2>
           <p className="mt-3.5 text-sm sm:text-base text-slate-300 leading-relaxed">
             Kechikishlar, o&apos;zaro biometriyasiz kartochka urishlar (buddy-punching) va kadrlar hisobidagi qo&apos;lda qilingan xatoliklar qancha zarar keltirishini real hisoblab ko&apos;ring.
@@ -252,7 +252,7 @@ export function RoiCalculatorSection({
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-700">
-                  <div className="text-[11px] text-slate-400">StaffPulse oylik to&apos;lovi:</div>
+                  <div className="text-[11px] text-slate-400">StaffPlusPRO oylik to&apos;lovi:</div>
                   <div className="text-base sm:text-lg font-bold text-white mt-0.5" suppressHydrationWarning>
                     {formatUZS(staffPulseCost)}
                   </div>

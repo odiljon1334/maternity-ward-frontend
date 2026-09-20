@@ -26,7 +26,7 @@ export function InteractiveTelegramBot({
     {
       id: "1",
       sender: "bot",
-      text: "👋 Assalomu alaykum, Hurmatli Rahbar!\n\nStaffPulse AI Telegram Boti sizga tashkilotingizdagi davomat, smenalar va intizom haqida real vaqtda hisobot beradi.\n\n👇 Quyidagi tugmalardan birini bosing va bot qanday ishlashini sinab ko'ring:",
+      text: "👋 Assalomu alaykum, Hurmatli Rahbar!\n\nStaffPlusPRO AI Telegram Boti sizga tashkilotingizdagi davomat, smenalar va intizom haqida real vaqtda hisobot beradi.\n\n👇 Quyidagi tugmalardan birini bosing va bot qanday ishlashini sinab ko'ring:",
       time: "09:00",
       buttons: [
         "📊 Bugungi Davomat",
@@ -70,9 +70,9 @@ export function InteractiveTelegramBot({
       } else if (cmd.includes("Ertangi Smena")) {
         botResponse = `📅 ERTANGI SMENA REJASI (2026-09-20):\n\n🌅 1-Smena (08:00 - 16:00): 45 nafar tasdiqlangan\n🌇 2-Smena (16:00 - 00:00): 32 nafar tasdiqlangan\n🌙 Tungi Navbatchilik (00:00 - 08:00): 12 nafar\n\n🔄 Smena almashinuvi so'rovi: 1 ta (Qabul qilingan).`;
       } else if (cmd.includes("T-13 Oylik Tabel")) {
-        botResponse = `📄 RASMIY T-13 TABEL TAYYOR!\n\n📁 Fayl: StaffPulse_Tabel_Sentabr_2026.xlsx\n💾 Hajmi: 342 KB\n💼 1C:Enterprise (ЗУП) uchun to'liq moslashtirilgan.\n\n👇 Buxgalteriya tizimiga to'g'ridan-to'g'ri integratsiya qilish mumkin.`;
+        botResponse = `📄 RASMIY T-13 TABEL TAYYOR!\n\n📁 Fayl: StaffPlusPRO_Tabel_Sentabr_2026.xlsx\n💾 Hajmi: 342 KB\n💼 1C:Enterprise (ЗУП) uchun to'liq moslashtirilgan.\n\n👇 Buxgalteriya tizimiga to'g'ridan-to'g'ri integratsiya qilish mumkin.`;
       } else {
-        botResponse = `✅ Buyruq muvaffaqiyatli qabul qilindi. StaffPulse tizimi korxonangizdagi har bir daqiqani nazorat qiladi.`;
+        botResponse = `✅ Buyruq muvaffaqiyatli qabul qilindi. StaffPlusPRO tizimi korxonangizdagi har bir daqiqani nazorat qiladi.`;
       }
 
       const botMsg: Message = {
@@ -99,7 +99,7 @@ export function InteractiveTelegramBot({
       {
         id: "1",
         sender: "bot",
-        text: "👋 Assalomu alaykum, Hurmatli Rahbar!\n\nStaffPulse AI Telegram Boti sizga tashkilotingizdagi davomat, smenalar va intizom haqida real vaqtda hisobot beradi.\n\n👇 Quyidagi tugmalardan birini bosing va bot qanday ishlashini sinab ko'ring:",
+        text: "👋 Assalomu alaykum, Hurmatli Rahbar!\n\nStaffPlusPRO AI Telegram Boti sizga tashkilotingizdagi davomat, smenalar va intizom haqida real vaqtda hisobot beradi.\n\n👇 Quyidagi tugmalardan birini bosing va bot qanday ishlashini sinab ko'ring:",
         time: "09:00",
         buttons: [
           "📊 Bugungi Davomat",
@@ -126,7 +126,7 @@ export function InteractiveTelegramBot({
           <div>
             <div className="flex items-center gap-1.5">
               <span className="font-bold text-white text-sm">
-                StaffPulse Director Bot
+                StaffPlusPRO Director Bot
               </span>
               <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-blue-500/20 text-blue-300">
                 AI BOT

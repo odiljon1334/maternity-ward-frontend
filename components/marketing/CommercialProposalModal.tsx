@@ -152,7 +152,7 @@ export function CommercialProposalModal({
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-2xl font-black tracking-tight text-blue-600">
-                  StaffPulse
+                  StaffPlus
                 </span>
                 <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 uppercase">
                   PRO
@@ -161,7 +161,7 @@ export function CommercialProposalModal({
               <p className="text-[11px] text-slate-500 mt-1">
                 Universal Davomat, Face ID va Smart HR Boshqaruv Ekotizimi
               </p>
-              <p className="text-[10px] text-slate-400">Toshkent sh., O&apos;zbekiston | staffpulse.uz</p>
+              <p className="text-[10px] text-slate-400">Toshkent sh., O&apos;zbekiston | staffpluspro.uz</p>
             </div>
 
             <div className="text-right">
@@ -218,7 +218,7 @@ export function CommercialProposalModal({
                   <tr className="bg-slate-100 border-b border-slate-300 font-bold text-slate-800">
                     <th className="p-3">Ko&apos;rsatkich</th>
                     <th className="p-3 text-right">Hozirgi yo&apos;qotish</th>
-                    <th className="p-3 text-right">StaffPulse bilan</th>
+                    <th className="p-3 text-right">StaffPlusPRO bilan</th>
                     <th className="p-3 text-right text-emerald-700">Oylik Tejamkorlik</th>
                   </tr>
                 </thead>
@@ -292,7 +292,7 @@ export function CommercialProposalModal({
           {/* Signatures Footer */}
           <div className="pt-8 border-t border-slate-300 grid grid-cols-2 gap-8 text-xs">
             <div>
-              <div className="font-bold text-slate-900">Ijrochi: &quot;StaffPulse PRO&quot;</div>
+              <div className="font-bold text-slate-900">Ijrochi: &quot;StaffPlusPRO&quot;</div>
               <div className="text-slate-500 mt-1">Bosh Direktor: Rustamov A.M.</div>
               <div className="text-slate-500">M.O&apos;. ____________________</div>
             </div>

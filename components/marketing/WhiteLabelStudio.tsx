@@ -147,7 +147,7 @@ export function WhiteLabelStudio() {
           </h2>
 
           <p className="text-slate-400 text-base sm:text-lg leading-relaxed">
-            StaffPulse yagona qolipga tiqilmaydi. Tizim nomi, logotipi va mobil interfeysi aynan <strong>sizning korxonangiz nomida</strong> namoyon bo&apos;ladi. Tug&apos;ruqxona va klinikalar uchun esa maxsus <strong>MaternityCare</strong> vertikal moduli mavjud.
+            StaffPlusPRO yagona qolipga tiqilmaydi. Tizim nomi, logotipi va mobil interfeysi aynan <strong>sizning korxonangiz nomida</strong> namoyon bo&apos;ladi. Tug&apos;ruqxona va klinikalar uchun esa maxsus <strong>MaternityCare</strong> vertikal moduli mavjud.
           </p>
         </div>
 
@@ -345,7 +345,7 @@ export function WhiteLabelStudio() {
                         <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80" />
                       </div>
                       <span className="font-mono text-[11px] text-slate-400 pl-2">
-                        {customName.toLowerCase().replace(/[^a-z0-9]/g, "") || "korxona"}.staffpulse.uz
+                        {customName.toLowerCase().replace(/[^a-z0-9]/g, "") || "korxona"}.staffpluspro.uz
                       </span>
                     </div>
                     <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 text-[10px] font-bold">
@@ -474,7 +474,7 @@ export function WhiteLabelStudio() {
                       ⚠️ Kechikkanlar: Saidov E. (14 daqiqa), Qodirov J. (8 daqiqa)
                     </div>
                     <p className="text-[10px] text-slate-400">
-                      Tizim: StaffPulse Enterprise &bull; {selectedPreset.moduleBadge}
+                      Tizim: StaffPlusPRO Enterprise &bull; {selectedPreset.moduleBadge}
                     </p>
                   </div>
                 </div>

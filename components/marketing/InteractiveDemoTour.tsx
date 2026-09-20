@@ -96,14 +96,14 @@ export function InteractiveDemoTour({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-slate-900 dark:text-white text-base sm:text-lg">
-                  StaffPulse &bull; Interaktiv Sandbox Demo
+                  StaffPlusPRO &bull; Interaktiv Sandbox Demo
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300">
                   Ro&apos;yxatsiz Sinab Ko&apos;rish
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                StaffPulse imkoniyatlarini 1 daqiqada jonli interfeys orqali sinab ko&apos;ring
+                StaffPlusPRO imkoniyatlarini 1 daqiqada jonli interfeys orqali sinab ko&apos;ring
               </p>
             </div>
           </div>

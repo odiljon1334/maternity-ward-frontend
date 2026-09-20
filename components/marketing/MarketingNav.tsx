@@ -87,7 +87,7 @@ export function MarketingNav({ onOpenDemo, onOpenTrial, onOpenTutorials }: Marke
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="font-extrabold text-base sm:text-xl tracking-tight text-slate-900 dark:text-white whitespace-nowrap">
-                  StaffPulse
+                  StaffPlus
                 </span>
                 <span className="px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 shrink-0">
                   PRO
@@ -363,7 +363,7 @@ export function MarketingNav({ onOpenDemo, onOpenTrial, onOpenTutorials }: Marke
                   <div>
                     <div className="flex items-center gap-1.5">
                       <span className="font-extrabold text-base text-slate-900 dark:text-white">
-                        StaffPulse
+                        StaffPlus
                       </span>
                       <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
                         PRO
@@ -575,7 +575,7 @@ export function MarketingNav({ onOpenDemo, onOpenTrial, onOpenTutorials }: Marke
 
               <div className="pt-2 text-center">
                 <a
-                  href="https://t.me/StaffPulseSupportBot"
+                  href="https://t.me/StaffPlusPROSupportBot"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 text-[11px] text-slate-500 hover:text-blue-500 transition-colors"

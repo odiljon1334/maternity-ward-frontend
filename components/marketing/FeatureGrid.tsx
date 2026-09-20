@@ -75,7 +75,7 @@ export function FeatureGrid() {
             Klinikalar, zavodlar va korxonalar uchun to&apos;liq ekotizim
           </h2>
           <p className="text-base text-slate-600 dark:text-slate-300">
-            Oddiy cheklangan dasturlar murakkab smenalarni hisoblay olmaydi. StaffPulse har bir sohaning o&apos;ziga xos mehnat qoidalariga moslashadi.
+            Oddiy cheklangan dasturlar murakkab smenalarni hisoblay olmaydi. StaffPlusPRO har bir sohaning o&apos;ziga xos mehnat qoidalariga moslashadi.
           </p>
         </div>
 
