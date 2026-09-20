@@ -1,14 +1,18 @@
 // StaffPulse marketing sahifasi — "O'zbekiston bozoriga mos integratsiyalar"
 // bo'limi content'i (StaffPulse-Reja.md, 1-to'plam, 2-band).
 //
-// MUHIM: 2026-09-19 holatiga ko'ra bu integratsiyalarning HECH BIRI hali
-// real ishlab chiqilmagan (backend'da tekshirildi — hech qanday 1C/
-// Mehnat.uz/Payme/Click/Uzum Business kodi yo'q). Shuning uchun bu yerda
-// hammasi ochiq-oydin "Rejalashtirilgan" deb belgilanadi — real mijozga
-// ko'rsatiladigan sahifada bu holat o'zgarguncha "mavjud" deb ko'rsatilmasligi
-// KERAK (soxta da'vo bo'lmasligi uchun).
+// MUHIM (2026-09-20 holatiga ko'ra):
+// - "planned" — hali real ishlab chiqilmagan, lekin kelajakda API integratsiyasi
+//   sifatida qilish REJALASHTIRILGAN yo'nalishlar (1C, to'lov tizimlari).
+//   Backend'da tekshirildi — hech qanday kod yo'q, shuning uchun "mavjud" deb
+//   ko'rsatilmaydi (soxta da'vo bo'lmasligi uchun).
+// - "compatible" — Odiljonning aniq qarori (2026-09-20): Mehnat.uz (YAMMT) bilan
+//   API integratsiyasi QILINMAYDI. Buning o'rniga tizimning o'z ma'lumot
+//   tuzilishi (kadrlar hisobi, shtat jadvali, ta'tillar, buyruqlar arxivi)
+//   YAMMT talablariga mos keladigan qilib ko'rib chiqiladi/moslashtiriladi —
+//   bu integratsiya emas, struktura moslik degani.
 
-export type IntegrationStatus = "planned";
+export type IntegrationStatus = "planned" | "compatible";
 
 export type IntegrationItem = {
   key: string;
@@ -27,8 +31,8 @@ export const INTEGRATIONS: IntegrationItem[] = [
   {
     key: "mehnat-uz",
     name: "Mehnat.uz (YAMMT)",
-    description: "Kadrlar hisobini O'zbekiston mehnat vazirligi talablariga moslashtirish.",
-    status: "planned",
+    description: "Yagona Milliy Mehnat Tizimi talablariga mos kadrlar hisobi, shtat jadvali, qonuniy ta'tillar va buyruqlar arxivi tizim bilan hamnafas yuritiladi.",
+    status: "compatible",
   },
   {
     key: "payments",
@@ -40,4 +44,5 @@ export const INTEGRATIONS: IntegrationItem[] = [
 
 export const INTEGRATION_STATUS_LABELS: Record<IntegrationStatus, string> = {
   planned: "Rejalashtirilgan",
+  compatible: "Talablarga mos",
 };
