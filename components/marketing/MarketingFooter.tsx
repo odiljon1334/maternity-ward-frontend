@@ -106,13 +106,13 @@ export function MarketingFooter() {
                 <span>+998 95 577 54 54</span>
               </a>
               <a
-                href="https://t.me/staffpluspro_support"
+                href="https://t.me/StaffPlusPRO_Support_bot"
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors"
               >
                 <Send className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                <span>Telegram: @staffpluspro_support</span>
+                <span>Telegram: @StaffPlusPRO_Support_bot</span>
               </a>
               <div className="flex items-start gap-2 text-slate-400 text-[11px] pt-1">
                 <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0 mt-0.5" />

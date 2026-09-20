@@ -554,12 +554,12 @@ export function VideoTutorialsModal({
               <p className="text-[11px] text-slate-500">
                 Savollaringiz bormi? Telegram orqali mutaxassisimiz bepul bog&apos;lanib ekranni ko&apos;rib sozlab beradi:{" "}
                 <a
-                  href="https://t.me/staffpluspro_support"
+                  href="https://t.me/StaffPlusPRO_Support_bot"
                   target="_blank"
                   rel="noreferrer"
                   className="text-blue-600 font-bold underline"
                 >
-                  @staffpluspro_support
+                  @StaffPlusPRO_Support_bot
                 </a>
               </p>
             </div>

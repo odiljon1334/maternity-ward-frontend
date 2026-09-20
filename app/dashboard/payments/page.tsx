@@ -14,7 +14,11 @@ import { cn, isSuperLike } from "@/lib/utils";
 
 // ── Utils ────────────────────────────────────────
 function formatAmount(n: number) {
-  return n.toLocaleString("uz-UZ") + " so'm";
+  // Intl/toLocaleString ishlatilmaydi — server/client ICU farqi hydration
+  // xatosiga olib keladi (lib/utils.ts formatMoney'dagi izohga qarang).
+  const sign = n < 0 ? "-" : "";
+  const abs = Math.round(Math.abs(n)).toString();
+  return sign + abs.replace(/\B(?=(\d{3})+(?!\d))/g, " ") + " so'm";
 }
 
 function periodLabel(period: string) {

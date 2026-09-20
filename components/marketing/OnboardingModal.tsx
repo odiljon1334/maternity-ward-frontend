@@ -386,7 +386,7 @@ export function OnboardingModal({
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row gap-2 pt-2">
                 <a
-                  href="https://t.me/clinicuk_support"
+                  href="https://t.me/StaffPlusPRO_Support_bot"
                   target="_blank"
                   rel="noreferrer"
                   className="flex-1 py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm shadow-lg shadow-blue-600/25 flex items-center justify-center gap-2 transition-all cursor-pointer"

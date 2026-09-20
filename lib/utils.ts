@@ -19,10 +19,23 @@ export function formatNumber(amount: number | string | null | undefined): string
   return parts.join(".");
 }
 
+/**
+ * Minglik guruhlash — qo'lda, Intl/toLocaleString'ga bog'liq EMAS.
+ * Sabab: "uz-UZ" locale'ni server (Node ICU) va brauzer (client ICU)
+ * har xil formatlashi mumkin (probel vs vergul) -> React hydration xatosi
+ * ("Text content does not match server-rendered HTML"). Qo'lda regex
+ * har doim, har qanday muhitda bir xil natija beradi.
+ */
+function groupThousands(n: number): string {
+  const sign = n < 0 ? "-" : "";
+  const abs = Math.round(Math.abs(n)).toString();
+  return sign + abs.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}
+
 export function formatMoney(amount: number | string | null | undefined): string {
   const n = Number(amount);
   if (amount === null || amount === undefined || isNaN(n)) return "0 so'm";
-  return n.toLocaleString("uz-UZ") + " so'm";
+  return groupThousands(n) + " so'm";
 }
 
 export function formatMinutes(min: number): string {

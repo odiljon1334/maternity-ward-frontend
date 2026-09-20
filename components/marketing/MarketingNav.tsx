@@ -575,7 +575,7 @@ export function MarketingNav({ onOpenDemo, onOpenTrial, onOpenTutorials }: Marke
 
               <div className="pt-2 text-center">
                 <a
-                  href="https://t.me/StaffPlusPROSupportBot"
+                  href="https://t.me/StaffPlusPRO_Support_bot"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 text-[11px] text-slate-500 hover:text-blue-500 transition-colors"
