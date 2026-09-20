@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { formatNumber } from "@/lib/utils";
+import { getStaffPricing } from "@/lib/pricing";
 import {
   Check,
   ArrowRight,
@@ -26,46 +27,28 @@ export function PricingCalculator({ onSelectPlan, onOpenProposal }: PricingCalcu
   const [isAnnual, setIsAnnual] = useState(true);
   const [sliderStaff, setSliderStaff] = useState(45);
 
-  // Logic based on market research in Uzbekistan (Clockster, Billz, Workly, Jowi)
+  // Yagona narx manbai: lib/pricing.ts (2026-09-20'da Odiljon tasdiqlagan bosqichlar)
   const getCalculation = (staff: number, annual: boolean) => {
-    if (staff <= 15) {
-      const monthly = 190000;
-      const annualTotal = 1900000; // 2 months free
-      return {
-        total: annual ? annualTotal : monthly,
-        perStaff: annual ? Math.round(annualTotal / staff) : Math.round(monthly / staff),
-        savings: monthly * 12 - annualTotal,
-      };
-    } else if (staff <= 100) {
-      const monthlyPerStaff = 14000;
-      const annualPerStaff = 120000; // ~10,000 / month
-      const monthly = staff * monthlyPerStaff;
-      const annualTotal = staff * annualPerStaff;
-      return {
-        total: annual ? annualTotal : monthly,
-        perStaff: annual ? annualPerStaff : monthlyPerStaff,
-        savings: monthly * 12 - annualTotal,
-      };
-    } else {
-      const monthlyPerStaff = 10000;
-      const annualPerStaff = 90000; // 7,500 / month
-      const monthly = staff * monthlyPerStaff;
-      const annualTotal = staff * annualPerStaff;
-      return {
-        total: annual ? annualTotal : monthly,
-        perStaff: annual ? annualPerStaff : monthlyPerStaff,
-        savings: monthly * 12 - annualTotal,
-      };
+    const pricing = getStaffPricing(staff);
+    if (pricing.negotiated) {
+      return { total: null as number | null, perStaff: null as number | null, savings: 0, negotiated: true };
     }
+    const monthly = pricing.monthlyTotal as number;
+    const total = annual ? (pricing.annualTotal as number) : monthly;
+    const perStaff = pricing.isFlat
+      ? Math.round(total / Math.max(1, staff))
+      : annual
+        ? (pricing.perEmployeeAnnual as number)
+        : (pricing.perEmployeeMonthly as number);
+    return { total, perStaff, savings: monthly * 2, negotiated: false };
   };
 
   const currentCalc = getCalculation(sliderStaff, isAnnual);
   const currentTotal = currentCalc.total;
   const savingsAmount = currentCalc.savings;
 
-  // Recommended tier based on count
-  const recommendedTier =
-    sliderStaff <= 15 ? "start" : sliderStaff <= 100 ? "biznes" : "korporativ";
+  // Tavsiya etilgan tarif — bir xil manbadan (lib/pricing.ts)
+  const recommendedTier = getStaffPricing(sliderStaff).plan;
 
   const isFreeTerminalEligible = sliderStaff >= 1000;
 
@@ -146,12 +129,18 @@ export function PricingCalculator({ onSelectPlan, onOpenProposal }: PricingCalcu
                 Hisoblangan qiymat ({isAnnual ? "Yillik" : "Oylik"}):
               </span>
               <div className="text-2xl font-black text-slate-900 dark:text-white" suppressHydrationWarning>
-                {formatNumber(currentTotal)}{" "}
-                <span className="text-sm font-normal text-slate-500">
-                  so&apos;m/{isAnnual ? "yil" : "oy"}
-                </span>
+                {currentTotal == null ? (
+                  "Kelishiladi"
+                ) : (
+                  <>
+                    {formatNumber(currentTotal)}{" "}
+                    <span className="text-sm font-normal text-slate-500">
+                      so&apos;m/{isAnnual ? "yil" : "oy"}
+                    </span>
+                  </>
+                )}
               </div>
-              {isAnnual && (
+              {isAnnual && currentTotal != null && (
                 <p className="text-[11px] text-emerald-600 font-semibold" suppressHydrationWarning>
                   Oylikka nisbatan {formatNumber(savingsAmount)} so&apos;m tejaladi
                 </p>
@@ -171,9 +160,9 @@ export function PricingCalculator({ onSelectPlan, onOpenProposal }: PricingCalcu
               className="w-full h-2.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-600"
             />
             <div className="flex justify-between text-[11px] font-mono text-slate-400">
-              <span>5 (Start)</span>
-              <span>100 (Biznes)</span>
-              <span>500 (Katta)</span>
+              <span>14 (Start)</span>
+              <span>199 (Biznes)</span>
+              <span>500 (Korporativ)</span>
               <span className="font-bold text-emerald-600">1000+ (Terminallar Bepul)</span>
             </div>
           </div>
@@ -193,12 +182,12 @@ export function PricingCalculator({ onSelectPlan, onOpenProposal }: PricingCalcu
                 </p>
               </div>
             </div>
-          ) : sliderStaff >= 15 && sliderStaff <= 100 ? (
+          ) : sliderStaff >= 15 && sliderStaff <= 199 ? (
             <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs">
               <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
                 <Wrench className="w-4 h-4 text-amber-500 shrink-0" />
                 <span>
-                  <strong>15–100 xodim:</strong> Terminal apparati va kabeli xaridi korxonadan, dasturiy ulanish va sozlash xizmati to&apos;liq kiritilgan.
+                  <strong>15–199 xodim:</strong> Terminal apparati va kabeli xaridi korxonadan, dasturiy ulanish va sozlash xizmati to&apos;liq kiritilgan.
                 </span>
               </div>
               <span className="font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider shrink-0">
@@ -227,7 +216,7 @@ export function PricingCalculator({ onSelectPlan, onOpenProposal }: PricingCalcu
                     salary: 4500000,
                     lostMinutes: 18,
                     monthlyLoss: Math.round(sliderStaff * 18 * 22 * (4500000 / (22 * 480)) + sliderStaff * 4500000 * 0.025),
-                    savings: Math.max(0, Math.round(sliderStaff * 18 * 22 * (4500000 / (22 * 480)) + sliderStaff * 4500000 * 0.025) - (sliderStaff <= 15 ? 190000 : sliderStaff * 10000)),
+                    savings: Math.max(0, Math.round(sliderStaff * 18 * 22 * (4500000 / (22 * 480)) + sliderStaff * 4500000 * 0.025) - (getStaffPricing(sliderStaff).monthlyTotal ?? 0)),
                   })
                 }
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800 transition-colors cursor-pointer"
@@ -252,21 +241,26 @@ export function PricingCalculator({ onSelectPlan, onOpenProposal }: PricingCalcu
                   Start
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed min-h-[36px]">
-                  Kichik ofis, dorixona, stomatologiya va xususiy do&apos;konlar (1–15 xodim)
+                  Kichik ofis, dorixona, stomatologiya va xususiy do&apos;konlar (1–14 xodim)
                 </p>
               </div>
 
               <div className="pt-2">
                 <div className="flex items-baseline gap-1">
+                  {!isAnnual && (
+                    <span className="text-sm text-slate-400 line-through font-medium">
+                      699 000
+                    </span>
+                  )}
                   <span className="text-3xl font-black text-slate-900 dark:text-white">
-                    {isAnnual ? "1 900 000" : "190 000"}
+                    {isAnnual ? "5 990 000" : "599 000"}
                   </span>
                   <span className="text-xs text-slate-500 font-medium">
                     so&apos;m / paket / {isAnnual ? "yil" : "oy"}
                   </span>
                 </div>
-                <span className="text-[11px] text-slate-400 block mt-0.5">
-                  {isAnnual ? "Oyiga ~158 000 so'm (2 oy tejaladi)" : "15 nafargacha xodim uchun qulay fikslangan narx"}
+                <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold block mt-0.5">
+                  {isAnnual ? "Oyiga ~499 000 so'm (2 oy bepul)" : "14 nafargacha xodim uchun chegirmali fikslangan narx"}
                 </span>
               </div>
 
@@ -299,7 +293,7 @@ export function PricingCalculator({ onSelectPlan, onOpenProposal }: PricingCalcu
             </div>
 
             <button
-              onClick={() => onSelectPlan("start", Math.min(sliderStaff, 15), isAnnual)}
+              onClick={() => onSelectPlan("start", Math.min(sliderStaff, 14), isAnnual)}
               className="mt-8 w-full py-3 px-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 font-bold text-xs text-slate-800 dark:text-slate-200 transition-colors cursor-pointer"
             >
               Start bilan boshlash (14 kun sinov)
@@ -323,21 +317,21 @@ export function PricingCalculator({ onSelectPlan, onOpenProposal }: PricingCalcu
                   Biznes
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed min-h-[36px]">
-                  Tug&apos;ruqxonalar, poliklinikalar, ishlab chiqarish sexlari va korxonalar (16–100 xodim)
+                  Tug&apos;ruqxonalar, poliklinikalar, ishlab chiqarish sexlari va korxonalar (15–199 xodim)
                 </p>
               </div>
 
               <div className="pt-2">
                 <div className="flex items-baseline gap-1">
                   <span className="text-3xl font-black text-slate-900 dark:text-white">
-                    {isAnnual ? "120 000" : "14 000"}
+                    {isAnnual ? "150 000" : "15 000"}
                   </span>
                   <span className="text-xs text-slate-500 font-medium">
                     so&apos;m / xodim / {isAnnual ? "yil" : "oy"}
                   </span>
                 </div>
                 <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold block mt-0.5">
-                  {isAnnual ? "Yillik to'lovda oyiga atigi 10 000 so'm / xodim" : "Sozlash va dasturiy ulanish xizmati paketga kiritilgan"}
+                  {isAnnual ? "Yillik to'lovda oyiga atigi 12 500 so'm / xodim" : "Sozlash va dasturiy ulanish xizmati paketga kiritilgan"}
                 </span>
               </div>
 
@@ -374,7 +368,7 @@ export function PricingCalculator({ onSelectPlan, onOpenProposal }: PricingCalcu
             </div>
 
             <button
-              onClick={() => onSelectPlan("biznes", Math.max(16, sliderStaff), isAnnual)}
+              onClick={() => onSelectPlan("biznes", Math.max(15, sliderStaff), isAnnual)}
               className="mt-8 w-full py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-lg shadow-blue-600/25 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
             >
               <span>Biznes bilan boshlash (14 kun sinov)</span>
@@ -393,19 +387,22 @@ export function PricingCalculator({ onSelectPlan, onOpenProposal }: PricingCalcu
                   Korporativ / Enterprise
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed min-h-[36px]">
-                  Yirik zavodlar, viloyat shifoxonalari va ko&apos;p filialli tarmoqlar (100+ va 1000+ xodim)
+                  Yirik zavodlar, viloyat shifoxonalari va ko&apos;p filialli tarmoqlar (200–500 xodim, 500+ individual)
                 </p>
               </div>
 
               <div className="pt-2">
                 <div className="flex items-baseline gap-1">
                   <span className="text-3xl font-black text-slate-900 dark:text-white">
-                    {isAnnual ? "90 000" : "10 000"}
+                    {isAnnual ? "120 000" : "12 000"}
                   </span>
                   <span className="text-xs text-slate-500 font-medium">
                     so&apos;m / xodim / {isAnnual ? "yil" : "oy"}
                   </span>
                 </div>
+                <span className="text-[11px] text-slate-400 block mt-0.5">
+                  500 dan ortiq xodim uchun individual narx kelishiladi
+                </span>
                 <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold block mt-0.5">
                   1000+ xodim: Terminallar va to&apos;liq montaj paket tarkibiga kiritilgan!
                 </span>
@@ -448,7 +445,7 @@ export function PricingCalculator({ onSelectPlan, onOpenProposal }: PricingCalcu
             </div>
 
             <button
-              onClick={() => onSelectPlan("korporativ", Math.max(100, sliderStaff), isAnnual)}
+              onClick={() => onSelectPlan("korporativ", Math.max(200, sliderStaff), isAnnual)}
               className="mt-8 w-full py-3 px-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 font-bold text-xs text-slate-800 dark:text-slate-200 transition-colors cursor-pointer"
             >
               Korporativ reja bilan boshlash

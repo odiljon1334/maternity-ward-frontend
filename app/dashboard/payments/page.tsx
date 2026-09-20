@@ -94,7 +94,7 @@ function AddPaymentModal({ open, onClose, hospitals, preHospitalId, preAmount }:
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Summa (so'm) *</label>
-              <input {...register("amount", { required: true, valueAsNumber: true, min: 1 })} type="number" className="input-field" placeholder="20000" />
+              <input {...register("amount", { required: true, valueAsNumber: true, min: 1 })} type="number" className="input-field" placeholder="599000" />
             </div>
             <div>
               <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">Turi</label>

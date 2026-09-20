@@ -37,7 +37,7 @@ export function FaqSection({ onOpenTrial }: FaqSectionProps) {
     },
     {
       q: "Narxlar qanday to'lanadi va hisob-faktura taqdim etiladimi?",
-      a: "Xodim soniga qarab hisoblanadi: oyiga 12 000 so'm/xodim yoki yiliga 100 000 so'm/xodim (~30% tejamkorlik). To'lovni Click, Payme yoki davlat hamda xususiy tashkilotlar uchun Didox elektron hisob-fakturasi (shartnoma) orqali amalga oshirish mumkin.",
+      a: "Xodim soniga qarab bosqichli hisoblanadi: 1–14 xodim — oyiga FIKS 599 000 so'm (chegirma); 15–199 xodim — 15 000 so'm/xodim/oy; 200–500 xodim — 12 000 so'm/xodim/oy; 500+ xodim — individual kelishuv. Yillik to'lovda 2 oy BEPUL. To'lovni Click, Payme yoki davlat hamda xususiy tashkilotlar uchun Didox elektron hisob-fakturasi (shartnoma) orqali amalga oshirish mumkin.",
     },
   ];
 

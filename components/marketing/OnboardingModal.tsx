@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatNumber } from "@/lib/utils";
+import { getStaffPricing } from "@/lib/pricing";
 import { getStoredUtmParams, trackMarketingEvent } from "@/lib/tracking";
 import { leadsApi } from "@/lib/api";
 
@@ -68,9 +69,10 @@ export function OnboardingModal({
 
   if (!isOpen) return null;
 
-  // Price calculations
-  const perEmployeeRate = formData.billingCycle === "annual" ? 100000 : 12000;
-  const calculatedTotal = formData.staffCount * perEmployeeRate;
+  // Price calculations — yagona manba: lib/pricing.ts
+  const pricing = getStaffPricing(formData.staffCount);
+  const calculatedTotal =
+    formData.billingCycle === "annual" ? pricing.annualTotal : pricing.monthlyTotal;
 
   const handleSubmitStep1 = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -375,7 +377,9 @@ export function OnboardingModal({
                     Taxminiy to&apos;lov ({formData.billingCycle === "annual" ? "yillik" : "oylik"}):
                   </span>
                   <span className="font-bold text-slate-900 dark:text-white" suppressHydrationWarning>
-                    {formatNumber(calculatedTotal)} so&apos;m
+                    {pricing.negotiated || calculatedTotal == null
+                      ? "Kelishiladi"
+                      : `${formatNumber(calculatedTotal)} so'm`}
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400">

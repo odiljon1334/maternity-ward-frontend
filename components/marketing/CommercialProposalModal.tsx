@@ -2,6 +2,7 @@
 
 import React, { useState, useRef } from "react";
 import { formatMoney } from "@/lib/utils";
+import { getStaffPricing } from "@/lib/pricing";
 import {
   X,
   Printer,
@@ -45,21 +46,19 @@ export function CommercialProposalModal({
     initialData?.monthlyLoss ||
     Math.round(employeeCount * 18 * 22 * (4500000 / (22 * 480)) + employeeCount * 4500000 * 0.025);
 
+  // Yagona narx manbai: lib/pricing.ts. 500+ xodim uchun narx individual
+  // kelishiladi — taklifnoma hisob-kitobi uchun Korporativ stavka bo'yicha
+  // taxminiy son ishlatiladi.
+  const estimatedMonthlyCost = (() => {
+    const pricing = getStaffPricing(employeeCount);
+    return pricing.negotiated
+      ? Math.round(employeeCount * 12000)
+      : Math.round(pricing.monthlyTotal ?? 0);
+  })();
+
   const estimatedSavings =
     initialData?.savings ||
-    Math.max(
-      0,
-      estimatedLoss -
-        (employeeCount <= 20
-          ? 290000
-          : employeeCount <= 50
-          ? 590000
-          : employeeCount <= 100
-          ? 990000
-          : employeeCount <= 300
-          ? 1890000
-          : employeeCount * 7500)
-    );
+    Math.max(0, estimatedLoss - estimatedMonthlyCost);
 
   const formatUZS = (val: number) => {
     return formatMoney(val);

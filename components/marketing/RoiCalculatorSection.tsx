@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { formatMoney } from "@/lib/utils";
+import { getStaffPricing } from "@/lib/pricing";
 import {
   Clock,
   Coins,
@@ -50,19 +51,13 @@ export function RoiCalculatorSection({
   // Total monthly company loss without biometrics/automation:
   const totalMonthlyLoss = monthlyTardinessLoss + manualHrAdminLoss;
 
-  // Estimated StaffPlusPRO cost per month:
-  // Base 12,000 UZS per active employee, with discounts for scale
-  const staffPulseCost = Math.round(
-    employees <= 20
-      ? 290000
-      : employees <= 50
-      ? 590000
-      : employees <= 100
-      ? 990000
-      : employees <= 300
-      ? 1890000
-      : employees * 7500
-  );
+  // Estimated StaffPlusPRO cost per month — yagona narx manbai (lib/pricing.ts)
+  const staffPulsePricing = getStaffPricing(employees);
+  // 500+ xodim uchun narx individual kelishiladi — kalkulyator ko'rsatish uchun
+  // eng oxirgi (Korporativ) stavka bo'yicha taxminiy son ishlatadi.
+  const staffPulseCost = staffPulsePricing.negotiated
+    ? Math.round(employees * 12000)
+    : Math.round(staffPulsePricing.monthlyTotal ?? 0);
 
   // Net monthly savings:
   const netMonthlySavings = Math.max(0, totalMonthlyLoss - staffPulseCost);

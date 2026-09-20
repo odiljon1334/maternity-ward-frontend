@@ -36,9 +36,9 @@ export default function PricingPage() {
   const COMPARISON_ROWS = [
     {
       feature: "Xodimlar soni doirasi",
-      start: "1 – 15 xodim",
-      biznes: "16 – 100 xodim",
-      korporativ: "100+ va 1000+ (cheksiz)",
+      start: "1 – 14 xodim",
+      biznes: "15 – 199 xodim",
+      korporativ: "200 – 500 xodim (500+ individual)",
     },
     {
       feature: "O'z logotipingiz & korxona nomi (White-Label)",
@@ -153,7 +153,7 @@ export default function PricingPage() {
           </h1>
 
           <p className="text-base sm:text-lg text-slate-600 dark:text-slate-300 max-w-2xl mx-auto">
-            12 000 so&apos;m/xodim/oy yoki yiliga 100 000 so&apos;m. Xodimlaringiz soniga qarab hisoblang va 14 kun bepul sinab ko&apos;ring.
+            1&ndash;14 xodim uchun oyiga 599 000 so&apos;m (chegirma), 15 xodimdan boshlab &mdash; atigi 15 000&ndash;12 000 so&apos;m/xodim/oy. Xodimlaringiz soniga qarab hisoblang va 14 kun bepul sinab ko&apos;ring.
           </p>
         </div>
 
