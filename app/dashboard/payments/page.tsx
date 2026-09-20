@@ -313,7 +313,7 @@ export default function PaymentsPage() {
 
   return (
     <div>
-      <Topbar title="To'lovlar boshqaruvi" subtitle="Kasalxonalar obuna to'lovlari" />
+      <Topbar title="To'lovlar boshqaruvi" subtitle="Muassasalar obuna to'lovlari" />
 
       <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
         {/* Summary Cards */}
@@ -340,7 +340,7 @@ export default function PaymentsPage() {
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-              Kasalxonalar holati — {overview[0] ? periodLabel(overview[0].period) : ""}
+              Muassasalar holati — {overview[0] ? periodLabel(overview[0].period) : ""}
             </h2>
             <button
               onClick={() => setAddModal({ open: true })}

@@ -760,7 +760,7 @@ const EmpRow = memo(function EmpRow({
  *
  * Rasm bazaga saqlanadi va terminalga FONDA yuboriladi — foydalanuvchi
  * terminalni kutmaydi. Terminal o'chiq bo'lsa rasm baribir saqlanadi va
- * keyinroq Kasalxonalar sahifasidagi "Sync" tugmasi bilan yuboriladi.
+ * keyinroq Muassasalar sahifasidagi "Sync" tugmasi bilan yuboriladi.
  */
 function showPhotoResult(_updatedEmp: any, toastId: string | number) {
   toast.success("Rasm saqlandi", { id: toastId });

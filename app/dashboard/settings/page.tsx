@@ -238,12 +238,13 @@ export default function SettingsPage() {
     ? (selectedHospital?.id || undefined)
     : undefined;
 
-  // Terminallar paneli: DIRECTOR/ADMIN — o'z shifoxonasi (user.hospitalId),
-  // SUPER_ADMIN/ASSISTANT_ADMIN — faqat shifoxona tanlangan bo'lsa.
-  // DEPARTMENT_HEAD'ga ko'rsatilmaydi (backend ham TERMINAL_ROLES'da yo'q).
-  const canManageTerminals = user?.role !== "DEPARTMENT_HEAD";
+  // Terminallar paneli: faqat DIRECTOR/ADMIN — o'z muassasasi (user.hospitalId).
+  // SUPER_ADMIN/ASSISTANT_ADMIN uchun bu yerda ko'rsatilmaydi — ular
+  // terminallarni "Muassasalar" bo'limidan (har bir kartochka ichida)
+  // to'g'ri kontekst bilan boshqaradi, shu yerda dublikat va chalkash edi.
+  const canManageTerminals = user?.role === "DIRECTOR" || user?.role === "ADMIN";
   const terminalsHospitalId = canManageTerminals
-    ? (targetHospitalId || user?.hospitalId || undefined)
+    ? (user?.hospitalId || undefined)
     : undefined;
 
   // Brendlash (nom + logotip) — faqat DIRECTOR/ADMIN o'zi sozlaydi

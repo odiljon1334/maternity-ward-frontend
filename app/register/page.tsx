@@ -30,7 +30,7 @@ const ROLE_CONFIG: Record<Role, {
     icon:        <ShieldCheck className="w-5 h-5" />,
     color:       "indigo",
     permissions: [
-      { label: "Kasalxonalarni boshqarish",    ok: true  },
+      { label: "Muassasalarni boshqarish",    ok: true  },
       { label: "Xodimlarni boshqarish",        ok: true  },
       { label: "Grafik va davomatni ko'rish",  ok: true  },
       { label: "To'lov qo'shish",              ok: true  },

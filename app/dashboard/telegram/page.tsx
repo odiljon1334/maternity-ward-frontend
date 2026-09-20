@@ -152,7 +152,7 @@ export default function TelegramPage() {
           {!isLoading && hospitals.length === 0 && (
             <div className="card p-12 text-center">
               <Send className="w-10 h-10 text-[var(--text-muted)] opacity-30 mx-auto mb-3" />
-              <p className="text-[var(--text-muted)] text-sm">Kasalxonalar topilmadi</p>
+              <p className="text-[var(--text-muted)] text-sm">Muassasalar topilmadi</p>
             </div>
           )}
         </div>

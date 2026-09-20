@@ -36,7 +36,7 @@ function HospitalModal({ open, onClose, hospital }: {
       hospital ? hospitalsApi.update(hospital.id, data) : hospitalsApi.create(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["hospitals"] });
-      toast.success(hospital ? "Yangilandi" : "Kasalxona qo'shildi");
+      toast.success(hospital ? "Yangilandi" : "Muassasa qo'shildi");
       onClose();
     },
     onError: (e: any) => toast.error(e?.response?.data?.message || "Xatolik"),
@@ -49,7 +49,7 @@ function HospitalModal({ open, onClose, hospital }: {
       <div className="relative card w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)] sticky top-0 bg-[var(--bg-card)] z-10">
           <h2 className="font-semibold text-[var(--text-primary)]">
-            {hospital ? "Kasalxonani tahrirlash" : "Yangi kasalxona"}
+            {hospital ? "Muassasani tahrirlash" : "Yangi muassasa"}
           </h2>
           <button onClick={onClose} className="btn-ghost p-1.5"><X className="w-4 h-4" /></button>
         </div>
@@ -296,7 +296,7 @@ function TerminalModal({ open, onClose, hospital }: {
   });
 
   const handleSync = async () => {
-    if (!confirm(`"${hospital?.name}" kasalxonasidagi barcha xodimlarni terminallarga yuklaysizmi?`)) return;
+    if (!confirm(`"${hospital?.name}" muassasasidagi barcha xodimlarni terminallarga yuklaysizmi?`)) return;
     setSyncing(true);
     setSyncResult(null);
     try {
@@ -476,7 +476,7 @@ export default function HospitalsPage() {
     mutationFn: (id: string) => hospitalsApi.delete(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["hospitals"] });
-      toast.success("Kasalxona o'chirildi");
+      toast.success("Muassasa o'chirildi");
     },
     onError: (e: any) => toast.error(e?.response?.data?.message || "O'chirishda xatolik"),
   });
@@ -486,7 +486,7 @@ export default function HospitalsPage() {
       block ? hospitalsApi.block(id) : hospitalsApi.unblock(id),
     onSuccess: (_, { block }) => {
       qc.invalidateQueries({ queryKey: ["hospitals"] });
-      toast.success(block ? "Kasalxona bloklandi" : "Blok olib tashlandi");
+      toast.success(block ? "Muassasa bloklandi" : "Blok olib tashlandi");
     },
     onError: (e: any) => toast.error(e?.response?.data?.message || "Xatolik"),
   });
@@ -502,7 +502,7 @@ export default function HospitalsPage() {
   }, [setSelectedHospital, startTransition]);
 
   const handleResetTelegram = useCallback(async (h: any) => {
-    if (!confirm(`"${h.name}" kasalxonasining Telegram obunalarini o'chirasizmi?`)) return;
+    if (!confirm(`"${h.name}" muassasasining Telegram obunalarini o'chirasizmi?`)) return;
     try {
       const res = await hospitalsApi.resetTelegramSubs(h.id);
       toast.success(res?.message || "Telegram obunalar o'chirildi");
@@ -532,15 +532,15 @@ export default function HospitalsPage() {
 
   return (
     <div>
-      <Topbar title="Kasalxonalar" subtitle="Barcha tug'ruq xonalar boshqaruvi" />
+      <Topbar title="Muassasalar" subtitle="Barcha mijoz muassasalarini boshqarish" />
 
       <div className="p-4 lg:p-6 space-y-4 lg:space-y-5">
         <div className="flex items-center justify-between">
           <p className="text-sm text-[var(--text-muted)]">
-            Jami <span className="font-semibold text-[var(--text-primary)]">{(hospitals as any[]).length}</span> ta kasalxona
+            Jami <span className="font-semibold text-[var(--text-primary)]">{(hospitals as any[]).length}</span> ta muassasa
           </p>
           <button onClick={() => { setEditHosp(null); setModalOpen(true); }} className="btn-primary">
-            <Plus className="w-4 h-4" /> Yangi kasalxona
+            <Plus className="w-4 h-4" /> Yangi muassasa
           </button>
         </div>
 
@@ -697,7 +697,7 @@ export default function HospitalsPage() {
                       onClick={() => blockMutation.mutate({ id: h.id, block: !h.isBlocked })}
                       disabled={blockMutation.isPending}
                       className={`btn-ghost text-xs px-3 justify-center ${h.isBlocked ? "text-emerald-400 hover:bg-emerald-500/10" : "text-amber-400 hover:bg-amber-500/10"}`}
-                      title={h.isBlocked ? "Blokni ochish" : "Kasalxonani bloklash"}
+                      title={h.isBlocked ? "Blokni ochish" : "Muassasani bloklash"}
                     >
                       {h.isBlocked ? <ShieldCheck className="w-3.5 h-3.5" /> : <ShieldOff className="w-3.5 h-3.5" />}
                     </button>
@@ -725,9 +725,9 @@ export default function HospitalsPage() {
         {!isLoading && (hospitals as any[]).length === 0 && (
           <div className="card p-12 text-center">
             <Building2 className="w-10 h-10 text-[var(--text-muted)] mx-auto mb-3 opacity-50" />
-            <p className="text-sm text-[var(--text-muted)]">Hali kasalxona qo&apos;shilmagan</p>
+            <p className="text-sm text-[var(--text-muted)]">Hali muassasa qo&apos;shilmagan</p>
             <button onClick={() => { setEditHosp(null); setModalOpen(true); }} className="btn-primary mt-4 mx-auto">
-              <Plus className="w-4 h-4" /> Birinchi kasalxonani qo&apos;shing
+              <Plus className="w-4 h-4" /> Birinchi muassasani qo&apos;shing
             </button>
           </div>
         )}
