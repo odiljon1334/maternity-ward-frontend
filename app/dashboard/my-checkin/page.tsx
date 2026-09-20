@@ -9,6 +9,7 @@ import { locationApi } from "@/lib/api";
 import {
   Camera, MapPin, CheckCircle2, XCircle, Loader2,
   RefreshCw, AlertTriangle, Clock, LogIn, LogOut, Building2, Sparkles, User,
+  ScanFace, Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { attendanceApi, photoUrl } from "@/lib/api";
@@ -31,6 +32,94 @@ const STATUS_MAP: Record<string, { label: string; cls: string }> = {
 function fmt(date?: string | Date | null) {
   if (!date) return "—";
   return dayjs(date).format("HH:mm");
+}
+
+// ─── Face verification feedback ──────────────────────────────────────────────
+type FaceVerificationState = "idle" | "verifying" | "success" | "error";
+
+function FaceVerificationOverlay({
+  state,
+  errorMessage,
+  onRetry,
+  onRetake,
+}: {
+  state: FaceVerificationState;
+  errorMessage: string | null;
+  onRetry: () => void;
+  onRetake: () => void;
+}) {
+  if (state === "idle") return null;
+
+  const isVerifying = state === "verifying";
+  const isSuccess = state === "success";
+
+  return (
+    <div
+      className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/80 px-5 backdrop-blur-md"
+      role="dialog"
+      aria-modal="true"
+      aria-live="assertive"
+      aria-label="Yuz tekshiruvi holati"
+    >
+      <div className="face-verification-card w-full max-w-sm overflow-hidden rounded-[2rem] border border-white/10 bg-[#0d172a] px-7 pb-7 pt-9 text-center shadow-2xl">
+        <div
+          className={cn(
+            "relative mx-auto mb-6 flex h-36 w-36 items-center justify-center rounded-[2.25rem] border",
+            isVerifying && "border-emerald-400/70 bg-emerald-400/10",
+            isSuccess && "face-verify-success border-emerald-300 bg-emerald-400/15",
+            state === "error" && "border-rose-400/70 bg-rose-400/10",
+          )}
+        >
+          {isVerifying && (
+            <>
+              <span className="face-verify-orbit absolute inset-3 rounded-[1.65rem] border-2 border-dashed border-emerald-300/80" />
+              <span className="face-verify-sweep absolute inset-x-5 top-5 h-0.5 rounded-full bg-emerald-300 shadow-[0_0_18px_rgba(110,231,183,1)]" />
+              <ScanFace className="h-14 w-14 text-emerald-300" strokeWidth={1.6} />
+            </>
+          )}
+          {isSuccess && (
+            <span className="face-verify-check flex h-20 w-20 items-center justify-center rounded-full bg-emerald-400 text-slate-950 shadow-[0_0_35px_rgba(52,211,153,0.7)]">
+              <Check className="h-12 w-12" strokeWidth={3} />
+            </span>
+          )}
+          {state === "error" && <XCircle className="h-16 w-16 text-rose-300" strokeWidth={1.6} />}
+        </div>
+
+        <h2 className="text-xl font-black tracking-tight text-white">
+          {isVerifying && "Yuz mosligi tekshirilmoqda"}
+          {isSuccess && "Tasdiqlandi"}
+          {state === "error" && "Tekshiruv yakunlanmadi"}
+        </h2>
+        <p className="mx-auto mt-2 max-w-xs text-sm font-medium leading-6 text-slate-300">
+          {isVerifying && "Biroz kuting, xavfsizlik uchun selfingiz profil rasmingiz bilan solishtirilmoqda."}
+          {isSuccess && "Check-in muvaffaqiyatli qayd etildi."}
+          {state === "error" && (errorMessage ?? "Yuzni tekshirib bo'lmadi. Qayta urinib ko'ring.")}
+        </p>
+
+        {isVerifying && (
+          <div className="mt-6 flex items-center justify-center gap-2 text-xs font-bold text-emerald-300">
+            <Loader2 className="h-4 w-4 animate-spin" /> Xavfsiz tekshiruv davom etmoqda
+          </div>
+        )}
+        {state === "error" && (
+          <div className="mt-6 grid grid-cols-2 gap-3">
+            <button
+              onClick={onRetry}
+              className="rounded-2xl bg-emerald-500 px-3 py-3 text-sm font-extrabold text-slate-950 transition hover:bg-emerald-400"
+            >
+              Qayta urinish
+            </button>
+            <button
+              onClick={onRetake}
+              className="rounded-2xl border border-white/15 bg-white/5 px-3 py-3 text-sm font-extrabold text-white transition hover:bg-white/10"
+            >
+              Yangi selfie
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 // ─── Camera capture hook ───────────────────────────────────────────────────────
@@ -420,6 +509,13 @@ export default function MyCheckinPage() {
   const empName = user?.employee?.fullName ?? user?.username ?? "Xodim";
 
   const [showEarlyWarning, setShowEarlyWarning] = useState(false);
+  const [faceVerification, setFaceVerification] = useState<FaceVerificationState>("idle");
+  const [faceVerificationError, setFaceVerificationError] = useState<string | null>(null);
+  const faceSuccessTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (faceSuccessTimerRef.current) clearTimeout(faceSuccessTimerRef.current);
+  }, []);
 
   // MUHIM: employee.gpsLat/gpsLng ni tekshiramiz (position emas!) — chunki
   // savePositionGps() aslida backend'dagi POST /attendance/set-employee-gps
@@ -461,11 +557,27 @@ export default function MyCheckinPage() {
         gpsAccuracy: gps.coords?.accuracy,
         selfie:      cam.capturedFile,
       }),
+    onMutate: () => {
+      setFaceVerificationError(null);
+      setFaceVerification("verifying");
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["my-attendance-today"] });
       qc.invalidateQueries({ queryKey: ["my-attendance"] });
-      cam.reset();
       setShowEarlyWarning(false);
+      setFaceVerification("success");
+      navigator.vibrate?.(45);
+      faceSuccessTimerRef.current = setTimeout(() => {
+        cam.reset();
+        setFaceVerification("idle");
+      }, 850);
+    },
+    onError: (error: any) => {
+      setFaceVerificationError(
+        error?.response?.data?.message
+          ?? "Yuz tekshiruvini yakunlab bo'lmadi. Internetni tekshirib, qayta urinib ko'ring.",
+      );
+      setFaceVerification("error");
     },
   });
 
@@ -528,6 +640,19 @@ const savePositionGps = useCallback(async () => {
 
   return (
     <div className="min-h-screen bg-[var(--bg-main)] pb-16">
+      <FaceVerificationOverlay
+        state={faceVerification}
+        errorMessage={faceVerificationError}
+        onRetry={() => {
+          mutation.reset();
+          mutation.mutate();
+        }}
+        onRetake={() => {
+          mutation.reset();
+          cam.reset();
+          setFaceVerification("idle");
+        }}
+      />
       {/* Ta'til sahifasidagi kabi yagona Topbar */}
       <Topbar
         title="Bugungi holat"
@@ -587,7 +712,7 @@ const savePositionGps = useCallback(async () => {
                         <p className="text-rose-300/80">
                           Hozir joylashuv Wi-Fi/antenna orqali taxminan aniqlanmoqda.
                           Deraza yoniga yoki ochiq havoga chiqing va bir necha soniya kuting —
-                          aniqlik ±{GPS_MAX_SAVE_ACCURACY_M}m dan yaxshi bo'lishi kerak.
+                          aniqlik ±{GPS_MAX_SAVE_ACCURACY_M}m dan yaxshi bo&apos;lishi kerak.
                         </p>
                       </div>
                     )}

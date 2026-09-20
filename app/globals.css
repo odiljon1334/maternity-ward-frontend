@@ -212,6 +212,60 @@ html.dark .nav-item:hover {
   color: #fff;
 }
 
+/* ── Mobil self-check-in: Face ID uslubidagi holat animatsiyasi ── */
+.face-verification-card {
+  animation: face-verify-card-in 180ms ease-out both;
+}
+
+.face-verify-orbit {
+  animation: face-verify-orbit 2.2s linear infinite;
+}
+
+.face-verify-sweep {
+  animation: face-verify-sweep 1.45s ease-in-out infinite;
+}
+
+.face-verify-success {
+  animation: face-verify-success 520ms cubic-bezier(.2, .9, .25, 1.2) both;
+}
+
+.face-verify-check {
+  animation: face-verify-check 420ms 90ms cubic-bezier(.2, .9, .25, 1.2) both;
+}
+
+@keyframes face-verify-card-in {
+  from { opacity: 0; transform: translateY(12px) scale(.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes face-verify-orbit {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes face-verify-sweep {
+  0%, 100% { opacity: .25; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(86px); }
+}
+
+@keyframes face-verify-success {
+  0% { box-shadow: 0 0 0 0 rgba(52, 211, 153, .65); transform: scale(.88); }
+  70% { box-shadow: 0 0 0 22px rgba(52, 211, 153, 0); transform: scale(1.03); }
+  100% { box-shadow: 0 0 0 28px rgba(52, 211, 153, 0); transform: scale(1); }
+}
+
+@keyframes face-verify-check {
+  from { opacity: 0; transform: scale(.25) rotate(-18deg); }
+  to { opacity: 1; transform: scale(1) rotate(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .face-verification-card,
+  .face-verify-orbit,
+  .face-verify-sweep,
+  .face-verify-success,
+  .face-verify-check { animation: none; }
+}
+
 /* Table row */
 html.dark .table-row-hover:hover {
   background-color: rgba(255, 255, 255, 0.04);
