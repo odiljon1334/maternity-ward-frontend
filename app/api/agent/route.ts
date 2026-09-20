@@ -4,11 +4,85 @@ import { toolHandlers } from "@/app/lib/agent/tool-handlers";
 import { SYSTEM_PROMPT } from "@/app/lib/agent/system-prompt";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001/api/v1";
+const MAX_MESSAGES = 12;
+const MAX_MESSAGE_CHARS = 4_000;
+const MAX_REQUESTS_PER_MINUTE = 12;
+const requestWindows = new Map<string, number[]>();
 
-type AnyBlock = any;
+// Agent hozircha faqat o'qish/preview amallarini bajaradi. Jadval yoki shift
+// kabi o'zgartirishlar UI'dagi tasdiqlangan oqim orqali qilinadi; modelga
+// bunday huquq berish prompt-injection uchun keraksiz xavf tug'diradi.
+const READ_ONLY_TOOLS = new Set([
+  "get_employees",
+  "get_employee",
+  "get_attendance_daily",
+  "get_attendance_employee",
+  "get_schedule_monthly",
+  "get_schedule_employee",
+  "get_shifts",
+  "get_payroll_list",
+  "get_payroll_employee",
+  "preview_payroll",
+  "get_dashboard_overview",
+  "get_dashboard_analytics",
+  "get_leave_requests",
+  "get_employees_on_leave",
+  "get_departments",
+]);
+const agentTools = tools.filter((tool) => READ_ONLY_TOOLS.has(tool.name));
 
 export async function POST(req: Request) {
-  const { messages, token } = await req.json();
+  const authorization = req.headers.get("authorization");
+  const token = authorization?.startsWith("Bearer ")
+    ? authorization.slice("Bearer ".length)
+    : "";
+  if (!token) return Response.json({ error: "Autentifikatsiya talab qilinadi" }, { status: 401 });
+
+  const clientId = req.headers.get("x-real-ip") || req.headers.get("x-forwarded-for")?.split(",").pop()?.trim() || "unknown";
+  const now = Date.now();
+  const recent = (requestWindows.get(clientId) || []).filter((at) => now - at < 60_000);
+  if (recent.length >= MAX_REQUESTS_PER_MINUTE) {
+    return Response.json({ error: "AI agent uchun so'rov limiti tugadi. Bir daqiqadan keyin urinib ko'ring." }, { status: 429 });
+  }
+  recent.push(now);
+  if (requestWindows.size > 10_000) requestWindows.clear();
+  requestWindows.set(clientId, recent);
+
+  // Tokenni backend orqali tekshiramiz; client body'dan keladigan token yoki
+  // role ma'lumotlariga hech qachon ishonilmaydi.
+  const profile = await fetch(`${API_BASE}/auth/profile`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  if (!profile.ok) return Response.json({ error: "Session yaroqsiz yoki muddati tugagan" }, { status: 401 });
+
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return Response.json({ error: "Noto'g'ri so'rov formati" }, { status: 400 });
+  }
+  const rawMessages = (body as { messages?: unknown }).messages;
+  if (!Array.isArray(rawMessages) || rawMessages.length === 0 || rawMessages.length > MAX_MESSAGES) {
+    return Response.json({ error: "Xabarlar soni ruxsat etilgan chegaradan tashqarida" }, { status: 400 });
+  }
+  const messages: { role: "user" | "assistant"; content: string }[] = [];
+  for (const message of rawMessages) {
+    if (
+      !message ||
+      typeof message !== "object" ||
+      !["user", "assistant"].includes((message as { role?: unknown }).role as string) ||
+      typeof (message as { content?: unknown }).content !== "string" ||
+      (message as { content: string }).content.length > MAX_MESSAGE_CHARS
+    ) {
+      return Response.json({ error: "Xabar formati yoki hajmi noto'g'ri" }, { status: 400 });
+    }
+    messages.push({
+      role: (message as { role: "user" | "assistant" }).role,
+      content: (message as { content: string }).content,
+    });
+  }
 
   const encoder = new TextEncoder();
   let closed = false;
@@ -22,7 +96,7 @@ export async function POST(req: Request) {
 
       try {
         console.log("▶ Agent boshlandi");
-        let history = [...messages];
+        const history: Anthropic.MessageParam[] = [...messages];
           console.log("Agent so'rov keldi, messages:", history.length);
           console.log("Token bor:", !!token);
 
@@ -33,12 +107,12 @@ export async function POST(req: Request) {
             model: "claude-sonnet-4-6",
             max_tokens: 4096,
             system: SYSTEM_PROMPT,
-            tools,
+            tools: agentTools,
             messages: history,
             stream: true,
           });
 
-          let assistantContent: Anthropic.ContentBlock[] = [];
+          const assistantContent: Anthropic.ContentBlock[] = [];
           let currentTool: { id: string; name: string } | null = null;
           let inputBuffer = "";
           let stopReason = "";
@@ -69,12 +143,12 @@ export async function POST(req: Request) {
             }
 
             if (event.type === "content_block_stop" && currentTool) {
-              const toolBlock: AnyBlock = {
+              const toolBlock = {
                 type: "tool_use",
                 id: currentTool.id,
                 name: currentTool.name,
                 input: JSON.parse(inputBuffer || "{}"),
-              };
+              } as Anthropic.ToolUseBlock;
               assistantContent.push(toolBlock);
               currentTool = null;
             }
@@ -84,7 +158,7 @@ export async function POST(req: Request) {
             }
           }
 
-          history.push({ role: "assistant", content: assistantContent });
+          history.push({ role: "assistant", content: assistantContent } as Anthropic.MessageParam);
 
           // Tool use yo'q — tugadik
           if (stopReason !== "tool_use") {
@@ -99,12 +173,14 @@ export async function POST(req: Request) {
 
           const toolResults = await Promise.all(
             toolUseBlocks.map(async (tu) => {
-              let result: any;
+              let result: unknown;
               try {
-                const handler = toolHandlers[tu.name];
+                const handler = READ_ONLY_TOOLS.has(tu.name) ? toolHandlers[tu.name] : undefined;
                 result = handler ? await handler(tu.input, token) : { error: "Handler topilmadi" };
-              } catch (e: any) {
-                result = { error: e.message };
+              } catch (error: unknown) {
+                result = {
+                  error: error instanceof Error ? error.message : "Noma'lum xatolik",
+                };
               }
               send({ type: "tool_result", toolName: tu.name, result });
               return {
@@ -115,10 +191,13 @@ export async function POST(req: Request) {
             })
           );
 
-          history.push({ role: "user", content: toolResults });
+          history.push({ role: "user", content: toolResults } as Anthropic.MessageParam);
         }
-      } catch (e: any) {
-        send({ type: "error", message: e.message });
+      } catch (error: unknown) {
+        send({
+          type: "error",
+          message: error instanceof Error ? error.message : "AI xizmati xatosi",
+        });
       } finally {
         closed = true;
         controller.close();

@@ -10,7 +10,7 @@ interface Message {
   id: string;
   role: MessageRole;
   content: string;
-  toolResults?: { toolName: string; result: any }[];
+  toolResults?: { toolName: string; result: unknown }[];
   time: string;
 }
 
@@ -107,17 +107,24 @@ const clearChat = () => {
     try {
       const res = await fetch("/api/agent", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getToken()}`,
+        },
         body: JSON.stringify({
           messages: historyRef.current,
-          token: getToken(),
         }),
     });
 
-      const reader = res.body!.getReader();
+      if (!res.ok || !res.body) {
+        const error = await res.json().catch(() => null);
+        throw new Error(error?.error || "AI xizmatiga ulanib bo'lmadi");
+      }
+
+      const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let fullText = "";
-      let toolResults: { toolName: string; result: any }[] = [];
+      let toolResults: { toolName: string; result: unknown }[] = [];
 
       while (true) {
         const { done, value } = await reader.read();
@@ -148,7 +155,7 @@ const clearChat = () => {
 
       // History ga qo'shamiz
       historyRef.current = [...historyRef.current, { role: "assistant", content: fullText }];
-    } catch (e) {
+    } catch {
       setMessages((p) =>
         p.map((m) =>
           m.id === aId ? { ...m, content: "Xatolik yuz berdi. Qayta urinib ko'ring." } : m
