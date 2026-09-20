@@ -161,7 +161,7 @@ export function CommercialProposalModal({
               <p className="text-[11px] text-slate-500 mt-1">
                 Universal Davomat, Face ID va Smart HR Boshqaruv Ekotizimi
               </p>
-              <p className="text-[10px] text-slate-400">Toshkent sh., O&apos;zbekiston | staffpluspro.uz</p>
+              <p className="text-[10px] text-slate-400">Andijon sh., O&apos;zbekiston | staffpluspro.uz</p>
             </div>
 
             <div className="text-right">
@@ -293,7 +293,8 @@ export function CommercialProposalModal({
           <div className="pt-8 border-t border-slate-300 grid grid-cols-2 gap-8 text-xs">
             <div>
               <div className="font-bold text-slate-900">Ijrochi: &quot;StaffPlusPRO&quot;</div>
-              <div className="text-slate-500 mt-1">Bosh Direktor: Rustamov A.M.</div>
+              <div className="text-slate-500 mt-1">Direktor: Akramov Odiljon Rasuljon o&apos;g&apos;li</div>
+              <div className="text-slate-500">Tel: +998 95 577 54 54</div>
               <div className="text-slate-500">M.O&apos;. ____________________</div>
             </div>
             <div>

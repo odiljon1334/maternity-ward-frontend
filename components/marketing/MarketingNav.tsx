@@ -301,7 +301,7 @@ export function MarketingNav({ onOpenDemo, onOpenTrial, onOpenTutorials }: Marke
             {/* Demo Button */}
             <button
               onClick={onOpenDemo}
-              className="px-3 py-2 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800/90 dark:hover:bg-slate-700/80 border border-slate-300/80 dark:border-slate-700 shadow-xs flex items-center gap-1.5 transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98] whitespace-nowrap shrink-0"
+              className="hidden sm:flex px-3 py-2 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800/90 dark:hover:bg-slate-700/80 border border-slate-300/80 dark:border-slate-700 shadow-xs items-center gap-1.5 transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98] whitespace-nowrap shrink-0"
               title="Jonli interaktiv demo tizimini ko'rish"
             >
               <span className="relative flex h-2 w-2 shrink-0">
