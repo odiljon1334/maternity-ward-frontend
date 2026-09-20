@@ -9,7 +9,7 @@ import {
   DollarSign, FileBarChart2, Settings, LogOut,
   Activity, ChevronLeft, ChevronRight, Building2, Bell,
   CreditCard, UserPlus, Shield, Send, Eye, X, Video, 
-  ScanFace, UserCircle, Palmtree, BarChart2, Wallet, Bot, Archive,
+  ScanFace, UserCircle, Palmtree, BarChart2, Wallet, Bot, Archive, UserCog,
   Sparkles,
   MapPin
 } from "lucide-react";
@@ -41,6 +41,7 @@ const mainNavItems: NavItem[] = [
   { href: "/dashboard/schedules",         label: "Grafik",             icon: CalendarDays,   exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/attendance",        label: "Davomat",            icon: ClipboardList,  exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/employees/archive", label: "Xodimlar arxivi",    icon: Archive,        exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
+  { href: "/dashboard/admin/users",       label: "Hodimlar hisoblari", icon: UserCog,       exact: false, roles: ["ADMIN", "DIRECTOR"] },
   { 
   href: "/dashboard/live-map", 
   label: "Live Xarita", 
