@@ -1,7 +1,11 @@
-import { Clock, CheckCircle2 } from "lucide-react";
+import { Clock, CheckCircle2, BadgeCheck } from "lucide-react";
 import { INTEGRATIONS, INTEGRATION_STATUS_LABELS, type IntegrationStatus } from "@/lib/marketing/integrations";
 
 const STATUS_STYLES: Record<IntegrationStatus, { badge: string; Icon: typeof Clock }> = {
+  available: {
+    badge: "border-indigo-500/30 bg-indigo-500/10 text-indigo-500",
+    Icon: BadgeCheck,
+  },
   planned: {
     badge: "border-amber-500/30 bg-amber-500/10 text-amber-500",
     Icon: Clock,

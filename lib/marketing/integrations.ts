@@ -2,17 +2,18 @@
 // bo'limi content'i (StaffPulse-Reja.md, 1-to'plam, 2-band).
 //
 // MUHIM (2026-09-20 holatiga ko'ra):
-// - "planned" — hali real ishlab chiqilmagan, lekin kelajakda API integratsiyasi
-//   sifatida qilish REJALASHTIRILGAN yo'nalishlar (1C, to'lov tizimlari).
-//   Backend'da tekshirildi — hech qanday kod yo'q, shuning uchun "mavjud" deb
-//   ko'rsatilmaydi (soxta da'vo bo'lmasligi uchun).
-// - "compatible" — Odiljonning aniq qarori (2026-09-20): Mehnat.uz (YAMMT) bilan
-//   API integratsiyasi QILINMAYDI. Buning o'rniga tizimning o'z ma'lumot
-//   tuzilishi (kadrlar hisobi, shtat jadvali, ta'tillar, buyruqlar arxivi)
-//   YAMMT talablariga mos keladigan qilib ko'rib chiqiladi/moslashtiriladi —
-//   bu integratsiya emas, struktura moslik degani.
+// - "available" — REAL ishlaydigan xususiyat, backend'da tekshirilgan va
+//   test qilingan (1C: T-13 tabel eksporti — /reports/t13/excel, commit
+//   bf00ee7/366a3ac). Faqat shu holatda "mavjud" deb ko'rsatiladi.
+// - "planned" — hali real ishlab chiqilmagan, lekin kelajakda qilish
+//   REJALASHTIRILGAN yo'nalishlar (to'lov tizimlari).
+// - "compatible" — Odiljonning aniq qarori (2026-09-20): Mehnat.uz (YAMMT)
+//   bilan API integratsiyasi QILINMAYDI. Buning o'rniga tizimning o'z
+//   ma'lumot tuzilishi (kadrlar hisobi, shtat jadvali, ta'tillar, buyruqlar
+//   arxivi) YAMMT talablariga mos keladigan qilib ko'rib chiqiladi — bu
+//   integratsiya emas, struktura moslik degani.
 
-export type IntegrationStatus = "planned" | "compatible";
+export type IntegrationStatus = "available" | "planned" | "compatible";
 
 export type IntegrationItem = {
   key: string;
@@ -25,8 +26,8 @@ export const INTEGRATIONS: IntegrationItem[] = [
   {
     key: "1c",
     name: "1C: Buxgalteriya / ZUP",
-    description: "T-13 tabelini bir tugma bilan 1C'ga uzatish — buxgalteriya oylik hisob-kitobni qo'lda qayta kiritmaydi.",
-    status: "planned",
+    description: "T-13 tabelini bir tugma bilan yuklab olish — standart Я/Н/В/ОТ/Б kodlari bilan, 1C:ZUP'ga qo'lda qayta kiritish shart emas.",
+    status: "available",
   },
   {
     key: "mehnat-uz",
@@ -43,6 +44,7 @@ export const INTEGRATIONS: IntegrationItem[] = [
 ];
 
 export const INTEGRATION_STATUS_LABELS: Record<IntegrationStatus, string> = {
+  available: "Tayyor",
   planned: "Rejalashtirilgan",
   compatible: "Talablarga mos",
 };
