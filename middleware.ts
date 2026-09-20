@@ -7,13 +7,20 @@ const PUBLIC_PATHS = ["/", "/tariflar", "/video-qollanma", "/login", "/register"
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Cookie dan auth_token ni tekshiramiz (auth store tomonidan o'rnatiladi)
+  const token = request.cookies.get("auth_token")?.value;
+
+  // Root ("/"): tizimga kirgan haqiqiy foydalanuvchi marketing sahifasini
+  // emas, to'g'ridan-to'g'ri dashboard'ni ko'rishi kerak. Eski havola/bookmark
+  // bilan kirgan kasalxonalar shu orqali uzilishsiz o'tadi.
+  if (pathname === "/" && token) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
   // Public yo'llar — to'siqsiz o'tkazamiz
   if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"))) {
     return NextResponse.next();
   }
-
-  // Cookie dan auth_token ni tekshiramiz (auth store tomonidan o'rnatiladi)
-  const token = request.cookies.get("auth_token")?.value;
 
   if (!token) {
     const loginUrl = new URL("/login", request.url);
