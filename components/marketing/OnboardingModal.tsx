@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   X,
   Building2,
@@ -53,10 +52,8 @@ export function OnboardingModal({
   defaultStaffCount = 25,
   isAnnual = true,
 }: OnboardingModalProps) {
-  const router = useRouter();
   const [step, setStep] = useState<1 | 2>(1);
   const [loading, setLoading] = useState(false);
-  const [activePaymentMethod, setActivePaymentMethod] = useState<"click" | "payme" | "bank">("click");
 
   const [formData, setFormData] = useState({
     hospitalName: "",
@@ -121,16 +118,6 @@ export function OnboardingModal({
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleFinishTrial = () => {
-    trackMarketingEvent("Trial_Started", {
-      ...formData,
-      utm: getStoredUtmParams(),
-    });
-    toast.success("Xush kelibsiz! Tizimga yo'naltirilmoqda...");
-    onClose();
-    router.push("/dashboard");
   };
 
   return (
@@ -362,137 +349,58 @@ export function OnboardingModal({
               </p>
             </form>
           ) : (
-            /* Step 2: Instant Activation & Payment Gateway options */
+            /* Step 2: So'rov qabul qilindi — hisob HALI yaratilmagan, operator qo'lda faollashtiradi */
             <div className="space-y-5">
               <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-center space-y-1.5">
                 <div className="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto">
                   <CheckCircle2 className="w-7 h-7" />
                 </div>
                 <h4 className="font-bold text-emerald-900 dark:text-emerald-200 text-base">
-                  &ldquo;{formData.hospitalName}&rdquo; uchun sinov rejimi ochildi!
+                  &ldquo;{formData.hospitalName}&rdquo; uchun so&apos;rovingiz qabul qilindi!
                 </h4>
                 <p className="text-xs text-emerald-700 dark:text-emerald-300">
-                  Sinov muddati: 14 kun (Bugundan boshlab). Barcha terminallar va funksiyalar 100% cheklovlarsiz ishlaydi.
+                  Operatorlarimiz tez orada {formData.phone} raqami orqali siz bilan bog&apos;lanib, 14 kunlik bepul sinov hisobingizni faollashtiradi.
                 </p>
               </div>
 
-              {/* Payment Gateway Preview (Self-serve checkout) */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h5 className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                    To&apos;lov shlyuzi (Ixtiyoriy — sinovdan so&apos;ng yoki darhol rasmiylashtirish):
-                  </h5>
-                  <span className="text-xs text-slate-500" suppressHydrationWarning>
-                    Summa: {formatNumber(calculatedTotal)} so&apos;m
+              <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 bg-slate-50 dark:bg-slate-800/50 space-y-2">
+                <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                  <span>Tanlangan reja:</span>
+                  <span className="font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wide">
+                    {formData.plan} ({formData.staffCount} xodim)
                   </span>
                 </div>
-
-                {/* Methods */}
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setActivePaymentMethod("click")}
-                    className={`p-3 rounded-xl border text-center transition-all ${
-                      activePaymentMethod === "click"
-                        ? "border-blue-600 bg-blue-50/70 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-bold"
-                        : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-700 dark:text-slate-300"
-                    }`}
-                  >
-                    <span className="block text-sm font-black tracking-wide text-[#0073ff]">CLICK</span>
-                    <span className="text-[10px] text-slate-500">Avto-to&apos;lov</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setActivePaymentMethod("payme")}
-                    className={`p-3 rounded-xl border text-center transition-all ${
-                      activePaymentMethod === "payme"
-                        ? "border-teal-600 bg-teal-50/70 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 font-bold"
-                        : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-700 dark:text-slate-300"
-                    }`}
-                  >
-                    <span className="block text-sm font-black tracking-wide text-[#00c99a]">Payme</span>
-                    <span className="text-[10px] text-slate-500">Ilova orqali</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setActivePaymentMethod("bank")}
-                    className={`p-3 rounded-xl border text-center transition-all ${
-                      activePaymentMethod === "bank"
-                        ? "border-indigo-600 bg-indigo-50/70 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-bold"
-                        : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-700 dark:text-slate-300"
-                    }`}
-                  >
-                    <span className="block text-sm font-semibold">Hisob-raqam</span>
-                    <span className="text-[10px] text-slate-500">Shartnoma / 1C</span>
-                  </button>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-slate-700 dark:text-slate-300">
+                    Taxminiy to&apos;lov ({formData.billingCycle === "annual" ? "yillik" : "oylik"}):
+                  </span>
+                  <span className="font-bold text-slate-900 dark:text-white" suppressHydrationWarning>
+                    {formatNumber(calculatedTotal)} so&apos;m
+                  </span>
                 </div>
-
-                {/* Gateway Detail info */}
-                <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 bg-slate-50 dark:bg-slate-800/40 space-y-2">
-                  {activePaymentMethod === "click" && (
-                    <div className="text-xs space-y-2">
-                      <div className="flex items-center justify-between font-medium text-slate-900 dark:text-white">
-                        <span>Click Merchant ID:</span>
-                        <span className="font-mono bg-white dark:bg-slate-900 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">
-                          24890-CLINICUK
-                        </span>
-                      </div>
-                      <p className="text-slate-500 dark:text-slate-400 text-[11px]">
-                        Click orqali to&apos;lov darhol bazada yangilanadi va chek yuboriladi. Sinov tugashiga 3 kun qolganda to&apos;lash kifoya.
-                      </p>
-                    </div>
-                  )}
-
-                  {activePaymentMethod === "payme" && (
-                    <div className="text-xs space-y-2">
-                      <div className="flex items-center justify-between font-medium text-slate-900 dark:text-white">
-                        <span>Payme ID:</span>
-                        <span className="font-mono bg-white dark:bg-slate-900 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">
-                          payme://clinicuk24/pay
-                        </span>
-                      </div>
-                      <p className="text-slate-500 dark:text-slate-400 text-[11px]">
-                        Payme orqali korporativ karta yoki Uzcard/Humo orqali 1 daqiqada to&apos;lash mumkin.
-                      </p>
-                    </div>
-                  )}
-
-                  {activePaymentMethod === "bank" && (
-                    <div className="text-xs space-y-1.5 text-slate-600 dark:text-slate-400">
-                      <p className="font-medium text-slate-900 dark:text-white">
-                        Yuridik shaxslar uchun to&apos;lov rekvizitlari:
-                      </p>
-                      <div className="font-mono text-[11px] bg-white dark:bg-slate-900 p-2 rounded border border-slate-200 dark:border-slate-700 space-y-0.5">
-                        <p>H/r: 2020 8000 9005 1234 5001</p>
-                        <p>Bank: AT &ldquo;Ipak Yo&apos;li Banki&rdquo; Chilonzor filiali</p>
-                        <p>MFO: 00444 • STIR: 309 876 543</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Sinov davrida (14 kun) hech qanday to&apos;lov talab qilinmaydi — narx faqat taxminiy ma&apos;lumot uchun.
+                </p>
               </div>
 
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={handleFinishTrial}
-                  className="flex-1 py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm shadow-lg shadow-blue-600/25 flex items-center justify-center gap-2 transition-all cursor-pointer"
-                >
-                  Boshqaruv paneliga kirish
-                  <ArrowRight className="w-4 h-4" />
-                </button>
                 <a
                   href="https://t.me/clinicuk_support"
                   target="_blank"
                   rel="noreferrer"
+                  className="flex-1 py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm shadow-lg shadow-blue-600/25 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                >
+                  <Send className="w-4 h-4" />
+                  Menejer bilan Telegram orqali bog&apos;lanish
+                </a>
+                <button
+                  type="button"
+                  onClick={onClose}
                   className="py-3 px-4 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium text-sm flex items-center justify-center gap-2 transition-colors"
                 >
-                  <Send className="w-4 h-4 text-blue-500" />
-                  Menejer bilan Telegram
-                </a>
+                  Yopish
+                </button>
               </div>
             </div>
           )}
