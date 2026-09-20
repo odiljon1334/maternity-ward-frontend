@@ -6,7 +6,7 @@ import { reportsApi, departmentsApi, downloadBlob } from "@/lib/api";
 import { Topbar } from "@/components/layout/Topbar";
 import {
   FileSpreadsheet, Download, CalendarDays,
-  ClipboardList, DollarSign, BarChart3,
+  ClipboardList, DollarSign, BarChart3, FileText,
 } from "lucide-react";
 import dayjs from "dayjs";
 import isoWeek from "dayjs/plugin/isoWeek";
@@ -79,6 +79,14 @@ export default function ReportsPage() {
       description: "Tanlangan hafta uchun davomat xulosasi va kechikish statistikasi.",
       filename: `haftalik-davomat-${weekStart}.xlsx`,
       action: () => reportsApi.weeklyExcel({ weekStart, departmentId: deptFilter || undefined, targetHospitalId }),
+    },
+    {
+      icon: FileText,
+      iconBg: "bg-amber-600",
+      title: "T-13 tabel (1C:ZUP uchun)",
+      description: "Standart T-13 shaklidagi (Я/Н/В/ОТ/Б kodlari bilan) tabel — buxgalteriya 1C:ZUP'ga qo'lda qayta kiritmasdan foydalanishi mumkin.",
+      filename: `T-13-tabel-${year}-${month}.xlsx`,
+      action: () => reportsApi.t13Excel({ month, year, departmentId: deptFilter || undefined, targetHospitalId }),
     },
   ];
 

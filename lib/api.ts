@@ -348,6 +348,9 @@ export const reportsApi = {
     api.get("/reports/payroll/excel", { params, responseType: "blob" }),
   weeklyExcel: (params: { weekStart: string; departmentId?: string; targetHospitalId?: string }) =>
     api.get("/reports/attendance/weekly", { params, responseType: "blob" }),
+  // T-13 tabel (1C:ZUP uchun moslashtirilgan) — StaffPulse rejasi (2026-09-20)
+  t13Excel: (params: { month: number; year: number; departmentId?: string; targetHospitalId?: string }) =>
+    api.get("/reports/t13/excel", { params, responseType: "blob" }),
 };
 
 // ─── Hospitals (SUPER_ADMIN) ─────────────────────
