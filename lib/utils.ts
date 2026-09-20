@@ -10,6 +10,15 @@ export function isSuperLike(role?: string | null): boolean {
   return role === "SUPER_ADMIN" || role === "ASSISTANT_ADMIN";
 }
 
+export function formatNumber(amount: number | string | null | undefined): string {
+  const n = Number(amount);
+  if (amount === null || amount === undefined || isNaN(n)) return "0";
+  // Deterministic space separator — SSR/CSR hydration mismatch bo'lmasligi uchun
+  const parts = Math.round(n).toString().split(".");
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  return parts.join(".");
+}
+
 export function formatMoney(amount: number | string | null | undefined): string {
   const n = Number(amount);
   if (amount === null || amount === undefined || isNaN(n)) return "0 so'm";
