@@ -43,23 +43,23 @@ export function MobileEmployeeShowcase({ onOpenTrial }: MobileEmployeeShowcasePr
   const [cameraActive, setCameraActive] = useState(false);
 
   return (
-    <section id="mobile-app" className="py-20 sm:py-28 bg-slate-950 text-white relative overflow-hidden border-t border-slate-800">
+    <section id="mobile-app" className="py-20 sm:py-28 bg-white text-slate-900 relative overflow-hidden border-t border-slate-100">
       {/* Background Glow */}
       <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-gradient-to-tr from-blue-600/10 via-indigo-600/10 to-teal-500/5 rounded-full blur-3xl pointer-events-none" />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto space-y-4 mb-14">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/20">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-200">
             <Smartphone className="w-3.5 h-3.5" />
             <span>Xodim Mobil Ilovasi (PWA &amp; Telegram)</span>
           </div>
 
-          <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight leading-tight">
+          <h2 className="text-3xl sm:text-5xl font-black text-slate-900 tracking-tight leading-tight">
             Xodimlar uchun qulay va zamonaviy mobil kabinet
           </h2>
 
-          <p className="text-slate-400 text-base sm:text-lg leading-relaxed">
+          <p className="text-slate-600 text-base sm:text-lg leading-relaxed">
             Face ID qurilma o&apos;rnatish shart emas. Har bir xodim o&apos;z smartfonida GPS ish joyi, selfi orqali davomat, shaxsiy ish grafigi, oylik hisobot va ta&apos;til so&apos;rovlarini 1 daqiqada boshqaradi.
           </p>
         </div>
@@ -68,7 +68,7 @@ export function MobileEmployeeShowcase({ onOpenTrial }: MobileEmployeeShowcasePr
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
           {/* Left Column: Feature Highlights & Quick Screen Switcher */}
           <div className="lg:col-span-6 space-y-4">
-            <div className="p-1.5 rounded-2xl bg-slate-900 border border-slate-800 flex flex-wrap gap-1.5 mb-6">
+            <div className="p-1.5 rounded-2xl bg-slate-100 border border-slate-200 flex flex-wrap gap-1.5 mb-6">
               {[
                 { id: "checkin", label: "1. Check-in (GPS & Selfie)", icon: ScanFace },
                 { id: "attendance", label: "2. Mening davomatim", icon: ClipboardList },
@@ -86,7 +86,7 @@ export function MobileEmployeeShowcase({ onOpenTrial }: MobileEmployeeShowcasePr
                       "flex-1 min-w-[130px] py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer",
                       isActive
                         ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20"
-                        : "text-slate-400 hover:text-white hover:bg-slate-800"
+                        : "text-slate-500 hover:text-slate-900 hover:bg-slate-200"
                     )}
                   >
                     <Icon className="w-3.5 h-3.5" />
@@ -97,27 +97,27 @@ export function MobileEmployeeShowcase({ onOpenTrial }: MobileEmployeeShowcasePr
             </div>
 
             {/* Feature Description Card based on Active Screen */}
-            <div className="rounded-3xl p-6 sm:p-8 bg-slate-900/90 border border-slate-800 space-y-4 shadow-xl">
+            <div className="rounded-3xl p-6 sm:p-8 bg-slate-50 border border-slate-200 space-y-4 shadow-xl">
               {activeTab === "checkin" && (
                 <>
-                  <div className="w-10 h-10 rounded-2xl bg-blue-600/20 text-blue-400 flex items-center justify-center font-bold">
+                  <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
                     <ScanFace className="w-5 h-5" />
                   </div>
-                  <h3 className="text-xl font-bold text-white">Smartfon orqali tezkor Check-in</h3>
-                  <p className="text-sm text-slate-400 leading-relaxed">
+                  <h3 className="text-xl font-bold text-slate-900">Smartfon orqali tezkor Check-in</h3>
+                  <p className="text-sm text-slate-600 leading-relaxed">
                     Xodim korxona binosiga yetib kelganda bir marta tugmani bosadi: GPS koordinata ish joyi radiusi ichida ekani tekshiriladi va jonli selfi surati olinadi. 
                   </p>
-                  <ul className="space-y-2 text-xs text-slate-300 pt-2 border-t border-slate-800">
+                  <ul className="space-y-2 text-xs text-slate-600 pt-2 border-t border-slate-200">
                     <li className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <Check className="w-4 h-4 text-emerald-600 shrink-0" />
                       <span>Geofencing: korxonadan tashqarida turib belgilash imkonsiz</span>
                     </li>
                     <li className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <Check className="w-4 h-4 text-emerald-600 shrink-0" />
                       <span>Check-in bosilgach Live Xarita ishga tushadi; Check-out bosilgach kuzatuv 100% to&apos;xtatiladi</span>
                     </li>
                     <li className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <Check className="w-4 h-4 text-emerald-600 shrink-0" />
                       <span>Surat va aniq vaqt bir zumda direktor Telegram botiga yuboriladi</span>
                     </li>
                   </ul>
@@ -126,20 +126,20 @@ export function MobileEmployeeShowcase({ onOpenTrial }: MobileEmployeeShowcasePr
 
               {activeTab === "attendance" && (
                 <>
-                  <div className="w-10 h-10 rounded-2xl bg-emerald-600/20 text-emerald-400 flex items-center justify-center font-bold">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
                     <ClipboardList className="w-5 h-5" />
                   </div>
-                  <h3 className="text-xl font-bold text-white">Oylik Davomat Taqvimi &amp; Foiz</h3>
-                  <p className="text-sm text-slate-400 leading-relaxed">
+                  <h3 className="text-xl font-bold text-slate-900">Oylik Davomat Taqvimi &amp; Foiz</h3>
+                  <p className="text-sm text-slate-600 leading-relaxed">
                     Xodim o&apos;zining butun oylik keldi-ketdi tarixini, kechikish daqiqalarini va davomat foizini to&apos;liq shaffof ko&apos;rib boradi. Kadrlar bo&apos;limi bilan hech qanday tushunmovchilik qolmaydi.
                   </p>
-                  <ul className="space-y-2 text-xs text-slate-300 pt-2 border-t border-slate-800">
+                  <ul className="space-y-2 text-xs text-slate-600 pt-2 border-t border-slate-200">
                     <li className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <Check className="w-4 h-4 text-emerald-600 shrink-0" />
                       <span>Har bir kun bo&apos;yicha aniq status (Keldi, Kechikdi, Dam olish)</span>
                     </li>
                     <li className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <Check className="w-4 h-4 text-emerald-600 shrink-0" />
                       <span>Shaxsiy davomat foizi va hisoblangan soatlar</span>
                     </li>
                   </ul>
@@ -148,20 +148,20 @@ export function MobileEmployeeShowcase({ onOpenTrial }: MobileEmployeeShowcasePr
 
               {activeTab === "schedule" && (
                 <>
-                  <div className="w-10 h-10 rounded-2xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center font-bold">
+                  <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
                     <CalendarDays className="w-5 h-5" />
                   </div>
-                  <h3 className="text-xl font-bold text-white">Shaxsiy Ish Rejasi &amp; Kunlik Smenalar</h3>
-                  <p className="text-sm text-slate-400 leading-relaxed">
+                  <h3 className="text-xl font-bold text-slate-900">Shaxsiy Ish Rejasi &amp; Kunlik Smenalar</h3>
+                  <p className="text-sm text-slate-600 leading-relaxed">
                     Har bir kun uchun turlicha ish vaqtlari (masalan, 08:00–14:00, 08:00–18:00 yoki 20:00–08:00 tungi smenalar) avtomatik kalendarda belgilab beriladi.
                   </p>
-                  <ul className="space-y-2 text-xs text-slate-300 pt-2 border-t border-slate-800">
+                  <ul className="space-y-2 text-xs text-slate-600 pt-2 border-t border-slate-200">
                     <li className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <Check className="w-4 h-4 text-emerald-600 shrink-0" />
                       <span>Ish kunlari, dam olish kunlari va smena vaqtlari aniq ko&apos;rinadi</span>
                     </li>
                     <li className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <Check className="w-4 h-4 text-emerald-600 shrink-0" />
                       <span>Tungi smena ustamalari avtomatik hisoblanadi</span>
                     </li>
                   </ul>
@@ -170,20 +170,20 @@ export function MobileEmployeeShowcase({ onOpenTrial }: MobileEmployeeShowcasePr
 
               {activeTab === "leaves" && (
                 <>
-                  <div className="w-10 h-10 rounded-2xl bg-amber-600/20 text-amber-400 flex items-center justify-center font-bold">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
                     <Palmtree className="w-5 h-5" />
                   </div>
-                  <h3 className="text-xl font-bold text-white">Qog&apos;ozsiz Ta&apos;til &amp; Ruxsat So&apos;rovlari</h3>
-                  <p className="text-sm text-slate-400 leading-relaxed">
+                  <h3 className="text-xl font-bold text-slate-900">Qog&apos;ozsiz Ta&apos;til &amp; Ruxsat So&apos;rovlari</h3>
+                  <p className="text-sm text-slate-600 leading-relaxed">
                     Mehnat ta&apos;tili, ish haqi saqlanmagan ta&apos;til yoki kasallik varaqasini to&apos;g&apos;ridan-to&apos;g&apos;ri ilovadan yuborish. Rahbariyat Telegram orqali 1 soniyada tasdiqlaydi.
                   </p>
-                  <ul className="space-y-2 text-xs text-slate-300 pt-2 border-t border-slate-800">
+                  <ul className="space-y-2 text-xs text-slate-600 pt-2 border-t border-slate-200">
                     <li className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <Check className="w-4 h-4 text-emerald-600 shrink-0" />
                       <span>Arizalar holati: Kutilmoqda, Tasdiqlangan, Rad etilgan</span>
                     </li>
                     <li className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <Check className="w-4 h-4 text-emerald-600 shrink-0" />
                       <span>Avtomatik T-13 tabelga va oylik ish haqiga bog&apos;lanadi</span>
                     </li>
                   </ul>

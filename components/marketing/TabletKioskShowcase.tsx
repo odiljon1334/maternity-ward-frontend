@@ -42,7 +42,7 @@ export function TabletKioskShowcase({ onOpenTrial }: TabletKioskShowcaseProps) {
   ];
 
   return (
-    <section id="kiosk-mode" className="py-20 bg-slate-900 text-white relative overflow-hidden border-y border-slate-800">
+    <section id="kiosk-mode" className="py-20 bg-white text-slate-900 relative overflow-hidden border-y border-slate-100">
       
       {/* Glow effect */}
       <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
@@ -54,20 +54,20 @@ export function TabletKioskShowcase({ onOpenTrial }: TabletKioskShowcaseProps) {
           
           {/* Left info & pitch (6 cols) */}
           <div className="lg:col-span-6 space-y-6">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/20 text-blue-400 text-xs font-black uppercase tracking-wider border border-blue-500/30">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-50 text-blue-700 text-xs font-black uppercase tracking-wider border border-blue-200">
               <Tablet className="w-3.5 h-3.5" />
               YANGI IMKONIYAT: KIOSK REJIMI
             </div>
 
             <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-tight">
               Qimmat uskunaga hojat yo&apos;q:{" "}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">
                 Planshetingizni Face ID
               </span>{" "}
               terminaliga aylantiring!
             </h2>
 
-            <p className="text-base text-slate-300 leading-relaxed">
+            <p className="text-base text-slate-600 leading-relaxed">
               Devoringizga bitta oddiy planshetni o&apos;rnatib qo&apos;ying va StaffPlusPRO Kiosk rejimini oching.
               Xodimlar kirishda unga qaraydi, tizim 0.3 soniyada taniydi, o&apos;zbekcha ovoz chiqaradi va
               tabelni avtomatik to&apos;ldiradi.
@@ -80,13 +80,13 @@ export function TabletKioskShowcase({ onOpenTrial }: TabletKioskShowcaseProps) {
                 return (
                   <div
                     key={idx}
-                    className="p-4 rounded-2xl bg-slate-800/60 border border-slate-700/80 hover:border-slate-600 transition-all"
+                    className="p-4 rounded-2xl bg-slate-50 border border-slate-200 hover:border-slate-300 transition-all"
                   >
-                    <div className="w-8 h-8 rounded-xl bg-blue-600/20 border border-blue-500/30 text-blue-400 flex items-center justify-center mb-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-blue-50 border border-blue-200 text-blue-600 flex items-center justify-center mb-2.5">
                       <Icon className="w-4 h-4" />
                     </div>
-                    <div className="font-bold text-sm text-white">{p.title}</div>
-                    <div className="text-xs text-slate-400 mt-1 leading-relaxed">
+                    <div className="font-bold text-sm text-slate-900">{p.title}</div>
+                    <div className="text-xs text-slate-600 mt-1 leading-relaxed">
                       {p.desc}
                     </div>
                   </div>
@@ -107,7 +107,7 @@ export function TabletKioskShowcase({ onOpenTrial }: TabletKioskShowcaseProps) {
               {onOpenTrial && (
                 <button
                   onClick={onOpenTrial}
-                  className="px-6 py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 font-bold text-sm text-slate-200 border border-slate-700 transition-all cursor-pointer"
+                  className="px-6 py-3.5 rounded-2xl bg-slate-100 hover:bg-slate-200 font-bold text-sm text-slate-700 border border-slate-200 transition-all cursor-pointer"
                 >
                   Bepul Sinab Ko&apos;rish
                 </button>
