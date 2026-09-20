@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner";
 import { formatNumber } from "@/lib/utils";
 import { getStoredUtmParams, trackMarketingEvent } from "@/lib/tracking";
+import { leadsApi } from "@/lib/api";
 
 interface OnboardingModalProps {
   isOpen: boolean;
@@ -74,7 +75,7 @@ export function OnboardingModal({
   const perEmployeeRate = formData.billingCycle === "annual" ? 100000 : 12000;
   const calculatedTotal = formData.staffCount * perEmployeeRate;
 
-  const handleSubmitStep1 = (e: React.FormEvent) => {
+  const handleSubmitStep1 = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.hospitalName.trim()) {
       toast.error("Iltimos, korxona yoki klinika nomini kiriting");
@@ -90,6 +91,7 @@ export function OnboardingModal({
     }
 
     setLoading(true);
+    const utm = getStoredUtmParams();
     trackMarketingEvent("Lead_Submitted", {
       hospitalName: formData.hospitalName,
       staffCount: formData.staffCount,
@@ -97,11 +99,28 @@ export function OnboardingModal({
       billingCycle: formData.billingCycle,
     });
 
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      await leadsApi.trialRequest({
+        hospitalName: formData.hospitalName.trim(),
+        orgType: formData.orgType,
+        directorName: formData.directorName.trim(),
+        phone: formData.phone.trim(),
+        region: formData.region,
+        staffCount: formData.staffCount,
+        plan: formData.plan,
+        billingCycle: formData.billingCycle,
+        utmSource: utm?.utm_source,
+        utmMedium: utm?.utm_medium,
+        utmCampaign: utm?.utm_campaign,
+        pageUrl: typeof window !== "undefined" ? window.location.href : undefined,
+      });
       setStep(2);
-      toast.success("14 kunlik bepul sinov faollashtirildi!");
-    }, 600);
+      toast.success("So'rovingiz qabul qilindi!");
+    } catch {
+      toast.error("So'rovni yuborishda xatolik yuz berdi. Iltimos, birozdan so'ng qayta urinib ko'ring yoki Telegram orqali bog'laning.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleFinishTrial = () => {

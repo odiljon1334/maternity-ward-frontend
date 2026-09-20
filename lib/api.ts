@@ -575,3 +575,34 @@ export function downloadBlob(blob: Blob, filename: string) {
   a.click();
   URL.revokeObjectURL(url);
 }
+
+// ─── Ochiq (public, auth talab qilinmaydigan) so'rovlar ───
+// Alohida instance — asosiy `api`dagi 401 interceptor (login'ga
+// yo'naltirish) anonim marketing tashrifchilariga tegmasligi uchun.
+export const publicApi = axios.create({
+  baseURL: BASE_URL,
+  timeout: 15000,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+export interface TrialRequestPayload {
+  hospitalName: string;
+  orgType?: string;
+  directorName: string;
+  phone: string;
+  region?: string;
+  staffCount?: number;
+  plan?: string;
+  billingCycle?: string;
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+  pageUrl?: string;
+}
+
+export const leadsApi = {
+  trialRequest: (data: TrialRequestPayload) =>
+    publicApi.post("/public/trial-request", data).then((r) => r.data),
+};
