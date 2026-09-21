@@ -340,7 +340,13 @@ export const hikvisionApi = {
   
   // Sync
   syncHospital: (hospitalId: string) =>
-    api.post(`/hikvision/sync/${hospitalId}`).then((r) => r.data.data),
+    api
+      .post(`/hikvision/sync/${hospitalId}`, undefined, {
+        // Xodimlar terminalga ketma-ket person + face sifatida yoziladi.
+        // Katta muassasada bu bir necha daqiqa davom etishi normal.
+        timeout: 15 * 60 * 1000,
+      })
+      .then((r) => r.data.data),
 };
 
 // ─── Reports ────────────────────────────────────
