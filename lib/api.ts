@@ -506,12 +506,18 @@ export const hikconnectApi = {
     streamPath?: string; cameraIndexCode?: string;
     channelNo?: number; deviceSerial?: string;
   }) => api.post("/hikconnect/cameras", data).then((r) => r.data.data),
-  updateCamera: (id: string, data: any) =>
-    api.put(`/hikconnect/cameras/${id}`, data).then((r) => r.data.data),
-  deleteCamera: (id: string) =>
-    api.delete(`/hikconnect/cameras/${id}`).then((r) => r.data.data),
-  liveUrl: (cameraId: string) =>
-    api.get(`/hikconnect/cameras/${cameraId}/live`).then(
+  updateCamera: (id: string, data: any, hospitalId?: string) =>
+    api.put(`/hikconnect/cameras/${id}`, data, {
+      params: hospitalId ? { hospitalId } : undefined,
+    }).then((r) => r.data.data),
+  deleteCamera: (id: string, hospitalId?: string) =>
+    api.delete(`/hikconnect/cameras/${id}`, {
+      params: hospitalId ? { hospitalId } : undefined,
+    }).then((r) => r.data.data),
+  liveUrl: (cameraId: string, hospitalId?: string) =>
+    api.get(`/hikconnect/cameras/${cameraId}/live`, {
+      params: hospitalId ? { hospitalId } : undefined,
+    }).then(
       (r) => r.data.data as { url: string; protocol: string; expireTime: number; source: string }
     ),
   fetchFromHikConnect: (pageIndex?: number, pageSize?: number) =>

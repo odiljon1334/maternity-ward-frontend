@@ -70,11 +70,15 @@ function CameraModal({ open, onClose, camera, hospitals, targetHospitalId, isSup
   });
 
   const updateMut = useMutation({
-    mutationFn: () => hikconnectApi.updateCamera(camera.id, {
-      name: form.name,
-      streamPath: form.streamPath || undefined,
-      deviceSerial: form.deviceSerial || undefined,
-    }),
+    mutationFn: () => hikconnectApi.updateCamera(
+      camera.id,
+      {
+        name: form.name,
+        streamPath: form.streamPath || undefined,
+        deviceSerial: form.deviceSerial || undefined,
+      },
+      camera.hospitalId || targetHospitalId,
+    ),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["cameras"] }); toast.success("Yangilandi"); onClose(); },
     onError: (e: any) => toast.error(e?.response?.data?.message || "Xatolik"),
   });
@@ -150,7 +154,7 @@ function CameraTile({ cam, onExpand, onEdit, onDelete, onToggle, isSuper }: {
   const loadStream = async () => {
     setLoading(true); setError(null);
     try {
-      const result = await hikconnectApi.liveUrl(cam.id);
+      const result = await hikconnectApi.liveUrl(cam.id, cam.hospitalId);
       setLiveUrl(result.url); setPlaying(true);
     } catch (e: any) {
       setError(e?.response?.data?.message || "Stream yuklab bo'lmadi");
@@ -267,8 +271,10 @@ const GRID_OPTIONS = [{ cols: 1 }, { cols: 2 }, { cols: 3 }, { cols: 4 }];
 export default function CamerasPage() {
   const { user, selectedHospital } = useAuthStore();
   const qc = useQueryClient();
-  const isSuper = isSuperLike(user?.role);
-  const targetHospitalId = isSuper ? selectedHospital?.id : undefined;
+  const isPlatformManager = isSuperLike(user?.role);
+  const isSuperAdmin = user?.role === "SUPER_ADMIN";
+  const isAssistantAdmin = user?.role === "ASSISTANT_ADMIN";
+  const targetHospitalId = isPlatformManager ? selectedHospital?.id : undefined;
 
   const [fullscreenCam, setFullscreenCam] = useState<any>(null);
   const [gridCols, setGridCols] = useState(2);
@@ -278,25 +284,28 @@ export default function CamerasPage() {
   const { data: hospitals = [] } = useQuery({
     queryKey: ["hospitals-list"],
     queryFn: () => hospitalsApi.list(),
-    enabled: isSuper,
+    enabled: isPlatformManager,
   });
 
-  const effectiveHospitalId = isSuper ? (filterHospital || targetHospitalId) : undefined;
+  const effectiveHospitalId = isPlatformManager ? (filterHospital || targetHospitalId) : undefined;
 
   const { data: cameras = [], isLoading, refetch, isFetching } = useQuery({
     queryKey: ["cameras", effectiveHospitalId],
     queryFn: () => hikconnectApi.cameras(effectiveHospitalId),
+    enabled: !isAssistantAdmin || !!effectiveHospitalId,
     refetchOnWindowFocus: false,
   });
 
   const toggleMut = useMutation({
-    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) => hikconnectApi.updateCamera(id, { isActive }),
+    mutationFn: ({ id, isActive, hospitalId }: { id: string; isActive: boolean; hospitalId: string }) =>
+      hikconnectApi.updateCamera(id, { isActive }, hospitalId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["cameras"] }),
     onError: (e: any) => toast.error(e?.response?.data?.message || "Xatolik"),
   });
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) => hikconnectApi.deleteCamera(id),
+    mutationFn: ({ id, hospitalId }: { id: string; hospitalId: string }) =>
+      hikconnectApi.deleteCamera(id, hospitalId),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["cameras"] }); toast.success("Kamera o'chirildi"); },
     onError: (e: any) => toast.error(e?.response?.data?.message || "Xatolik"),
   });
@@ -314,9 +323,11 @@ export default function CamerasPage() {
           <div className="flex items-center gap-2 flex-wrap">
             {activeCams.length > 0 && <span className="badge-green">{activeCams.length} faol</span>}
             {camList.length - activeCams.length > 0 && <span className="badge-gray">{camList.length - activeCams.length} nofaol</span>}
-            {isSuper && (
+            {isPlatformManager && (
               <select value={filterHospital} onChange={e => setFilterHospital(e.target.value)} className="input-field text-xs py-1.5 w-48">
-                <option value="">Barcha kasalxonalar</option>
+                <option value="">
+                  {isSuperAdmin ? "Barcha kasalxonalar" : "Muassasani tanlang"}
+                </option>
                 {(hospitals as any[]).map((h: any) => <option key={h.id} value={h.id}>{h.name}</option>)}
               </select>
             )}
@@ -336,7 +347,7 @@ export default function CamerasPage() {
             <button onClick={() => refetch()} disabled={isFetching} className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1.5">
               <RefreshCw className={cn("w-3.5 h-3.5", isFetching && "animate-spin")} /> Yangilash
             </button>
-            {isSuper && (
+            {isPlatformManager && effectiveHospitalId && (
               <button onClick={() => setModal({ open: true })} className="btn-primary py-1.5 px-3 text-xs flex items-center gap-1.5">
                 <Plus className="w-3.5 h-3.5" /> Kamera qo&apos;shish
               </button>
@@ -356,7 +367,7 @@ export default function CamerasPage() {
               <Video className="w-8 h-8 text-gray-500" />
             </div>
             <p className="font-medium text-[var(--text-primary)] mb-1">Kameralar yo&apos;q</p>
-            {isSuper && (
+            {isPlatformManager && effectiveHospitalId && (
               <button onClick={() => setModal({ open: true })} className="btn-primary mt-4 mx-auto">
                 <Plus className="w-4 h-4" /> Kamera qo&apos;shish
               </button>
@@ -368,11 +379,11 @@ export default function CamerasPage() {
               <CameraTile
                 key={cam.id}
                 cam={cam}
-                isSuper={isSuper}
+                isSuper={isPlatformManager}
                 onExpand={setFullscreenCam}
                 onEdit={(c) => setModal({ open: true, camera: c })}
-                onDelete={(id) => deleteMut.mutate(id)}
-                onToggle={(id, isActive) => toggleMut.mutate({ id, isActive })}
+                onDelete={(id) => deleteMut.mutate({ id, hospitalId: cam.hospitalId })}
+                onToggle={(id, isActive) => toggleMut.mutate({ id, isActive, hospitalId: cam.hospitalId })}
               />
             ))}
           </div>
@@ -387,7 +398,7 @@ export default function CamerasPage() {
         camera={modal.camera}
         hospitals={hospitals as any[]}
         targetHospitalId={effectiveHospitalId}
-        isSuper={isSuper}
+        isSuper={isPlatformManager}
       />
     </div>
   );

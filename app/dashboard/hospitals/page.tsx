@@ -420,8 +420,9 @@ function TerminalModal({ open, onClose, hospital }: {
 // ── Main Page ──────────────────────────────────
 export default function HospitalsPage() {
   const qc = useQueryClient();
-  const { setSelectedHospital } = useAuthStore();
+  const { user, setSelectedHospital } = useAuthStore();
   const [, startTransition] = useTransition();
+  const isSuperAdmin = user?.role === "SUPER_ADMIN";
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editHosp, setEditHosp] = useState<any>(null);
@@ -439,6 +440,7 @@ export default function HospitalsPage() {
     queryKey: ["payments-overview"],
     queryFn: () => paymentsApi.overview(),
     staleTime: 60_000,
+    enabled: isSuperAdmin,
   });
 
   const { data: allTerminals = [] } = useQuery({
@@ -453,6 +455,7 @@ export default function HospitalsPage() {
     staleTime: 60_000,          // ← 30s dan 60s ga
     refetchInterval: 60_000,    // ← 30s dan 60s ga — asosiy tuzatish
     refetchIntervalInBackground: false, // ← tab background da refetch yo'q
+    enabled: isSuperAdmin,
   });
 
   // useMemo — har render da qayta hisoblashdan saqlanadi
@@ -539,9 +542,11 @@ export default function HospitalsPage() {
           <p className="text-sm text-[var(--text-muted)]">
             Jami <span className="font-semibold text-[var(--text-primary)]">{(hospitals as any[]).length}</span> ta muassasa
           </p>
-          <button onClick={() => { setEditHosp(null); setModalOpen(true); }} className="btn-primary">
-            <Plus className="w-4 h-4" /> Yangi muassasa
-          </button>
+          {isSuperAdmin && (
+            <button onClick={() => { setEditHosp(null); setModalOpen(true); }} className="btn-primary">
+              <Plus className="w-4 h-4" /> Yangi muassasa
+            </button>
+          )}
         </div>
 
         {isLoading ? (
@@ -661,18 +666,20 @@ export default function HospitalsPage() {
                     <button onClick={() => { setEditHosp(h); setModalOpen(true); }} className="btn-ghost text-xs px-3 justify-center">
                       <Edit2 className="w-3.5 h-3.5" />
                     </button>
-                    <button
-                      onClick={() => setDirModal({
-                        open: true, hospital: h,
-                        director: h.directorId
-                          ? { id: h.directorId, username: h.directorUsername, name: h.directorName, phone: h.directorPhone }
-                          : undefined,
-                      })}
-                      className="btn-ghost text-xs px-3 justify-center"
-                      title={h.directorId ? "Direktori tahrirlash" : "Direktor yaratish"}
-                    >
-                      {h.directorId ? <Edit2 className="w-3.5 h-3.5 text-indigo-400" /> : <UserPlus className="w-3.5 h-3.5" />}
-                    </button>
+                    {isSuperAdmin && (
+                      <button
+                        onClick={() => setDirModal({
+                          open: true, hospital: h,
+                          director: h.directorId
+                            ? { id: h.directorId, username: h.directorUsername, name: h.directorName, phone: h.directorPhone }
+                            : undefined,
+                        })}
+                        className="btn-ghost text-xs px-3 justify-center"
+                        title={h.directorId ? "Direktori tahrirlash" : "Direktor yaratish"}
+                      >
+                        {h.directorId ? <Edit2 className="w-3.5 h-3.5 text-indigo-400" /> : <UserPlus className="w-3.5 h-3.5" />}
+                      </button>
+                    )}
                   </div>
 
                   {/* Actions row 2 */}
@@ -693,28 +700,32 @@ export default function HospitalsPage() {
                     >
                       <Cpu className="w-3.5 h-3.5" />
                     </button>
-                    <button
-                      onClick={() => blockMutation.mutate({ id: h.id, block: !h.isBlocked })}
-                      disabled={blockMutation.isPending}
-                      className={`btn-ghost text-xs px-3 justify-center ${h.isBlocked ? "text-emerald-400 hover:bg-emerald-500/10" : "text-amber-400 hover:bg-amber-500/10"}`}
-                      title={h.isBlocked ? "Blokni ochish" : "Muassasani bloklash"}
-                    >
-                      {h.isBlocked ? <ShieldCheck className="w-3.5 h-3.5" /> : <ShieldOff className="w-3.5 h-3.5" />}
-                    </button>
-                    <button
-                      onClick={() => handleResetTelegram(h)}
-                      className="btn-ghost text-xs px-3 text-sky-400 hover:bg-sky-500/10 justify-center"
-                      title="Telegram obunani reset qilish"
-                    >
-                      <span className="text-base leading-none">✈️</span>
-                    </button>
-                    <button
-                      onClick={() => handleDelete(h)}
-                      disabled={deleteMutation.isPending}
-                      className="btn-ghost text-xs px-3 text-red-400 hover:bg-red-500/10 justify-center"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    {isSuperAdmin && (
+                      <>
+                        <button
+                          onClick={() => blockMutation.mutate({ id: h.id, block: !h.isBlocked })}
+                          disabled={blockMutation.isPending}
+                          className={`btn-ghost text-xs px-3 justify-center ${h.isBlocked ? "text-emerald-400 hover:bg-emerald-500/10" : "text-amber-400 hover:bg-amber-500/10"}`}
+                          title={h.isBlocked ? "Blokni ochish" : "Muassasani bloklash"}
+                        >
+                          {h.isBlocked ? <ShieldCheck className="w-3.5 h-3.5" /> : <ShieldOff className="w-3.5 h-3.5" />}
+                        </button>
+                        <button
+                          onClick={() => handleResetTelegram(h)}
+                          className="btn-ghost text-xs px-3 text-sky-400 hover:bg-sky-500/10 justify-center"
+                          title="Telegram obunani reset qilish"
+                        >
+                          <span className="text-base leading-none">✈️</span>
+                        </button>
+                        <button
+                          onClick={() => handleDelete(h)}
+                          disabled={deleteMutation.isPending}
+                          className="btn-ghost text-xs px-3 text-red-400 hover:bg-red-500/10 justify-center"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               );
@@ -726,9 +737,11 @@ export default function HospitalsPage() {
           <div className="card p-12 text-center">
             <Building2 className="w-10 h-10 text-[var(--text-muted)] mx-auto mb-3 opacity-50" />
             <p className="text-sm text-[var(--text-muted)]">Hali muassasa qo&apos;shilmagan</p>
-            <button onClick={() => { setEditHosp(null); setModalOpen(true); }} className="btn-primary mt-4 mx-auto">
-              <Plus className="w-4 h-4" /> Birinchi muassasani qo&apos;shing
-            </button>
+            {isSuperAdmin && (
+              <button onClick={() => { setEditHosp(null); setModalOpen(true); }} className="btn-primary mt-4 mx-auto">
+                <Plus className="w-4 h-4" /> Birinchi muassasani qo&apos;shing
+              </button>
+            )}
           </div>
         )}
       </div>

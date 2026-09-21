@@ -5,7 +5,7 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-/** SUPER_ADMIN yoki ASSISTANT_ADMIN — har ikkalasi uchun bir xil huquqlar */
+/** Muassasa tanlab ishlaydigan platforma rollari. Bu huquqlar tengligini anglatmaydi. */
 export function isSuperLike(role?: string | null): boolean {
   return role === "SUPER_ADMIN" || role === "ASSISTANT_ADMIN";
 }
