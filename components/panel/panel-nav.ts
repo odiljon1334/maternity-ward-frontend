@@ -7,6 +7,7 @@ import {
   ShieldCheck,
   BarChart3,
   History,
+  Inbox,
 } from "lucide-react";
 
 export interface PanelNavItem {
@@ -27,6 +28,7 @@ export const PANEL_NAV: PanelNavItem[] = [
   { href: "/panel", label: "Umumiy ko'rinish", icon: LayoutDashboard },
   { href: "/panel/hospitals", label: "Shifoxonalar", icon: Building2 },
   { href: "/panel/users", label: "Foydalanuvchilar", icon: Users },
+  { href: "/panel/leads", label: "Yangi so'rovlar", icon: Inbox },
   { href: "/panel/payments", label: "To'lovlar", icon: CreditCard, badge: "soon" },
   { href: "/panel/subscriptions", label: "Daromad tahlili", icon: BarChart3, badge: "soon" },
   { href: "/panel/permissions", label: "Ruxsatlar", icon: ShieldCheck, badge: "soon" },

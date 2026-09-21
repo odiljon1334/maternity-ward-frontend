@@ -428,6 +428,20 @@ export const usersApi = {
 };
 
 // ─── Telegram ───────────────────────────────────
+// Trial leads (faqat Super Admin paneli)
+export const trialLeadsApi = {
+  list: (params?: {
+    search?: string;
+    source?: string;
+    status?: string;
+    page?: number;
+    limit?: number;
+  }) => api.get("/trial-leads", { params }).then((r) => r.data),
+  stats: () => api.get("/trial-leads/stats").then((r) => r.data.data),
+  updateStatus: (id: string, status: string, note?: string) =>
+    api.patch(`/trial-leads/${id}/status`, { status, note }).then((r) => r.data.data),
+};
+
 export const telegramApi = {
   status: () =>
     api.get("/telegram/status").then((r) => r.data.data as { active: boolean; count: number }),
