@@ -12,7 +12,7 @@ import {
   Cpu, Wifi, WifiOff, RefreshCw, ImageUp,
 } from "lucide-react";
 import { usePushNotification } from "@/hooks/usePushNotification";
-import { cn, isSuperLike } from "@/lib/utils";
+import { cn, formatTerminalConnectivity, isSuperLike } from "@/lib/utils";
 
 // ─────────────────────────────────────────────
 // SHARED: Inline Edit Row
@@ -406,6 +406,7 @@ function TerminalsPanel({ hospitalId }: { hospitalId?: string }) {
     }),
     enabled: !!hospitalId,
     staleTime: 30_000,
+    refetchInterval: 60_000,
   });
 
   const addMut = useMutation({
@@ -516,6 +517,9 @@ function TerminalsPanel({ hospitalId }: { hospitalId?: string }) {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-[var(--text-primary)]">{t.name}</p>
                   <p className="text-xs font-mono text-[var(--text-muted)] truncate">{t.devIndex}</p>
+                  <p className={`text-[11px] mt-0.5 ${t.onlineStatus === "online" ? "text-emerald-400" : "text-amber-400"}`}>
+                    {formatTerminalConnectivity(t)}
+                  </p>
                 </div>
                 <button
                   onClick={() => toggleMut.mutate({ id: t.id, isActive: !t.isActive })}

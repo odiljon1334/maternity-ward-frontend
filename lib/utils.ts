@@ -46,6 +46,33 @@ export function formatMinutes(min: number): string {
   return m > 0 ? `${h} soat ${m} daqiqa` : `${h} soat`;
 }
 
+function formatTashkentDateTime(value: string | Date): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  const shifted = new Date(date.getTime() + 5 * 60 * 60 * 1000);
+  const pad = (part: number) => String(part).padStart(2, "0");
+  return `${pad(shifted.getUTCDate())}.${pad(shifted.getUTCMonth() + 1)} ${pad(shifted.getUTCHours())}:${pad(shifted.getUTCMinutes())}`;
+}
+
+export function formatTerminalConnectivity(terminal: {
+  onlineStatus?: string;
+  lastSeenAt?: string | null;
+  offlineSince?: string | null;
+}): string {
+  if (terminal.onlineStatus === "online") {
+    return terminal.lastSeenAt
+      ? `Online · ${formatTashkentDateTime(terminal.lastSeenAt)}`
+      : "Online";
+  }
+  if (terminal.offlineSince) {
+    return `${formatTashkentDateTime(terminal.offlineSince)} dan beri offline`;
+  }
+  if (terminal.lastSeenAt) {
+    return `Oxirgi aloqa: ${formatTashkentDateTime(terminal.lastSeenAt)}`;
+  }
+  return "Aloqa vaqti hali aniqlanmadi";
+}
+
 export function getInitials(name: string | null | undefined): string {
   if (!name) return "?";
   return name

@@ -13,6 +13,7 @@ import {
   UserPlus, Trash2, Archive, Send, ShieldOff, ShieldCheck,
   Cpu, Wifi, WifiOff, RefreshCw,
 } from "lucide-react";
+import { formatTerminalConnectivity } from "@/lib/utils";
 
 // ── Hospital Form Modal ─────────────────────────
 type HospForm = { name: string; code: string; address?: string; phone?: string };
@@ -268,6 +269,7 @@ function TerminalModal({ open, onClose, hospital }: {
     }),
     enabled: open && !!hospital?.id,
     staleTime: 30_000,
+    refetchInterval: open ? 60_000 : false,
   });
 
   const addMut = useMutation({
@@ -354,6 +356,9 @@ function TerminalModal({ open, onClose, hospital }: {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-[var(--text-primary)]">{t.name}</p>
                     <p className="text-xs font-mono text-[var(--text-muted)] truncate">{t.devIndex}</p>
+                    <p className={`text-[11px] mt-0.5 ${t.onlineStatus === 'online' ? 'text-emerald-400' : 'text-amber-400'}`}>
+                      {formatTerminalConnectivity(t)}
+                    </p>
                   </div>
                   <button onClick={() => deleteMut.mutate(t.id)} disabled={deleteMut.isPending} className="btn-ghost p-1.5 text-red-400 hover:bg-red-500/10">
                     <Trash2 className="w-3.5 h-3.5" />
