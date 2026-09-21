@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -21,6 +22,7 @@ const features = [
 ];
 
 export default function LoginPage() {
+  const router = useRouter();
   const { setAuth } = useAuthStore();
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -33,7 +35,10 @@ export default function LoginPage() {
       const res = await authApi.login(data);
       setAuth(res.user);
       toast.success("Xush kelibsiz!");
-      window.location.href = "/dashboard";
+      // Hard reload Zustand sessiyasi browser storage'dan qayta tiklanishidan
+      // oldin dashboard guardini ishga tushirar edi. Client navigation joriy
+      // setAuth holatini saqlaydi va login sahifasiga qayta qaytishni oldini oladi.
+      router.replace("/dashboard");
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Login yoki parol noto'g'ri");
     } finally {
