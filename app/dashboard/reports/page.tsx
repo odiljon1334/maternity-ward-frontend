@@ -68,7 +68,7 @@ export default function ReportsPage() {
       icon: DollarSign,
       iconBg: "bg-emerald-600",
       title: "Oylik maosh hisoboti",
-      description: "Tanlangan oy uchun xodimlar maoshi: asosiy, kesimlar, bonuslar, sof maosh.",
+      description: "Rejadagi, kelgan, kelmagan, kech qolgan va erta ketgan kunlar, ish soati hamda to‘liq oylik hisob-kitob.",
       filename: `maosh-${year}-${month}.xlsx`,
       action: () => reportsApi.payrollExcel({ month, year, departmentId: deptFilter || undefined, targetHospitalId }),
     },
@@ -181,7 +181,7 @@ export default function ReportsPage() {
             <p className="text-xs text-[var(--text-muted)] mt-1 leading-relaxed">
               Barcha hisobotlar Excel (.xlsx) formatida yuklab olinadi. Bo&apos;lim filtri bo&apos;sh qoldirilsa,
               barcha bo&apos;limlar bo&apos;yicha umumiy hisobot hosil bo&apos;ladi.
-              Maosh hisoboti &quot;Hisoblash&quot; tugmasi bosilgandan keyin mavjud bo&apos;ladi.
+              Maosh hisoboti payroll hali yaratilmagan bo&apos;lsa ham tanlangan oy davomatidan joriy hisobni ko&apos;rsatadi.
             </p>
           </div>
         </div>

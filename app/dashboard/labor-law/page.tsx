@@ -3,7 +3,6 @@
 import { Topbar } from "@/components/layout/Topbar";
 import { useAuthStore } from "@/stores/auth";
 import {
-  AlertTriangle,
   BookOpen,
   BriefcaseBusiness,
   Clock3,
@@ -106,18 +105,6 @@ export default function LaborLawPage() {
             </article>
           ))}
         </div>
-
-        <section className="card p-5 sm:p-6 border-l-4 border-amber-500">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-            <div>
-              <h3 className="font-bold">Muhim eslatma</h3>
-              <p className="text-sm text-slate-600 dark:text-slate-300 leading-6 mt-2">
-                Haftasiga 120 daqiqalik “bepul kechikish” Mehnat kodeksida mavjud emas. Kechikish davomat fakti sifatida qayd etiladi; intizomiy jarima esa faqat qonuniy tartib va buyruq asosida qo‘llanadi.
-              </p>
-            </div>
-          </div>
-        </section>
 
         {isManager && (
           <section className="card p-5 sm:p-6">
