@@ -589,8 +589,8 @@ function PushNotificationsPanel() {
     const ok = await subscribe();
     if (ok) {
       toast.success("Push xabarnomalar yoqildi! 🔔");
-    } else if (lastError) {
-      toast.error(lastError);
+    } else {
+      toast.error(lastError || "Push xabarnomani yoqib bo'lmadi. Qayta urinib ko'ring.");
     }
   };
 
@@ -622,6 +622,9 @@ function PushNotificationsPanel() {
                   <p className="text-xs text-red-400 mt-1">
                     ⚠️ Brauzer sozlamalaridan ruxsat bering
                   </p>
+                )}
+                {lastError && permission !== "denied" && (
+                  <p className="text-xs text-red-400 mt-1">{lastError}</p>
                 )}
               </div>
 

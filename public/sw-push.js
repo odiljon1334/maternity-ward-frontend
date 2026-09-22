@@ -40,10 +40,18 @@ self.addEventListener('notificationclick', (event) => {
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       const url = event.notification.data?.url || '/dashboard';
+      const absoluteUrl = new URL(url, self.location.origin).href;
       for (const client of clientList) {
-        if ('focus' in client) return client.focus();
+        if ('focus' in client) {
+          if ('navigate' in client) {
+            return client.navigate(absoluteUrl).then((navigatedClient) =>
+              (navigatedClient || client).focus()
+            );
+          }
+          return client.focus();
+        }
       }
-      if (clients.openWindow) return clients.openWindow(url);
+      if (clients.openWindow) return clients.openWindow(absoluteUrl);
     })
   );
 });

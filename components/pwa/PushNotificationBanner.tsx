@@ -30,8 +30,8 @@ export function PushNotificationBanner() {
     const ok = await subscribe();
     if (ok) {
       toast.success("Push xabarnomalar yoqildi! 🔔");
-    } else if (lastError) {
-      toast.error(lastError);
+    } else {
+      toast.error(lastError || "Push xabarnomani yoqib bo'lmadi. Qayta urinib ko'ring.");
     }
   };
 
@@ -75,6 +75,12 @@ export function PushNotificationBanner() {
               Ta&apos;til tasdiqlanganda, maosh hisoblanganda va muhim
               yangilanishlarda darhol xabar oling.
             </p>
+
+            {lastError && (
+              <p className="mt-3 rounded-xl bg-red-500/10 px-3 py-2 text-xs leading-5 text-red-200">
+                {lastError}
+              </p>
+            )}
 
             {/* Buttons */}
             <div className="mt-8 space-y-3">

@@ -94,7 +94,49 @@ export function usePushNotification() {
     setSupported(ok);
     if (ok) {
       setPermission(Notification.permission as PushPermission);
+      // localStorage faqat tezkor UI cache. Haqiqiy holatni PushManager'dan
+      // olamiz — brauzer obunani o'chirgan/yangilagan bo'lishi mumkin.
       setSubscribed(localStorage.getItem(SUBSCRIBED_KEY) === "true");
+
+      let cancelled = false;
+      void navigator.serviceWorker
+        .getRegistration("/")
+        .then((registration) => registration?.pushManager.getSubscription() ?? null)
+        .then((subscription) => {
+          if (cancelled) return;
+          const active = Boolean(subscription);
+          setSubscribed(active);
+          if (active) localStorage.setItem(SUBSCRIBED_KEY, "true");
+          else localStorage.removeItem(SUBSCRIBED_KEY);
+        })
+        .catch(() => {
+          // Brauzer statusni o'qishga ruxsat bermasa cached qiymat saqlanadi.
+        });
+
+      const handleSubscriptionChange = (event: MessageEvent) => {
+        if (event.data?.type !== "PUSH_SUBSCRIPTION_CHANGED" || !event.data.subscription) return;
+        const subscription = event.data.subscription as PushSubscriptionJSON;
+        void api
+          .post("/push/subscribe", {
+            endpoint: subscription.endpoint,
+            keys: subscription.keys,
+            userAgent: navigator.userAgent,
+          })
+          .then(() => {
+            localStorage.setItem(SUBSCRIBED_KEY, "true");
+            setSubscribed(true);
+          })
+          .catch(() => {
+            localStorage.removeItem(SUBSCRIBED_KEY);
+            setSubscribed(false);
+          });
+      };
+
+      navigator.serviceWorker.addEventListener("message", handleSubscriptionChange);
+      return () => {
+        cancelled = true;
+        navigator.serviceWorker.removeEventListener("message", handleSubscriptionChange);
+      };
     }
   }, []);
 
@@ -173,13 +215,19 @@ export function usePushNotification() {
 
       // 4. Subscribe
       step = "Push obunasini yaratish";
-      const pushSub = await withTimeout(
-        reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapidKey),
-        }),
-        step,
+      const existingSub = await withTimeout(
+        reg.pushManager.getSubscription(),
+        "Mavjud push obunasini tekshirish",
       );
+      const pushSub =
+        existingSub ??
+        (await withTimeout(
+          reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(vapidKey),
+          }),
+          step,
+        ));
 
       // 5. Backendga yuborish
       step = "Obunani serverga saqlash";

@@ -43,27 +43,39 @@ self.addEventListener('notificationclick', function(event) {
   if (event.action === 'dismiss') return;
 
   var targetUrl = (event.notification.data && event.notification.data.url) || '/dashboard';
+  var absoluteTarget = new URL(targetUrl, self.location.origin).href;
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
       for (var i = 0; i < clientList.length; i++) {
         var client = clientList[i];
         if ('focus' in client) {
-          client.focus();
-          return;
+          if ('navigate' in client) {
+            return client.navigate(absoluteTarget).then(function(navigatedClient) {
+              return (navigatedClient || client).focus();
+            });
+          }
+          return client.focus();
         }
       }
       if (clients.openWindow) {
-        return clients.openWindow(targetUrl);
+        return clients.openWindow(absoluteTarget);
       }
     })
   );
 });
 
 self.addEventListener('pushsubscriptionchange', function(event) {
+  var applicationServerKey = event.oldSubscription &&
+    event.oldSubscription.options &&
+    event.oldSubscription.options.applicationServerKey;
+
+  if (!applicationServerKey) return;
+
   event.waitUntil(
     self.registration.pushManager.subscribe({
       userVisibleOnly: true,
+      applicationServerKey: applicationServerKey,
     }).then(function(sub) {
       return self.clients.matchAll().then(function(clientList) {
         clientList.forEach(function(client) {
