@@ -38,7 +38,6 @@ export const PANEL_NAV: PanelNavItem[] = [
     href: "/panel/permissions",
     label: "Ruxsatlar",
     icon: ShieldCheck,
-    badge: "soon",
   },
   { href: "/panel/audit", label: "Audit log", icon: History, badge: "soon" },
 ];
