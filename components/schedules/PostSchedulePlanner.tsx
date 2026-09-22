@@ -3,12 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
-import { Check, Download, FileSpreadsheet, Plus, Save, Send, X } from "lucide-react";
+import { Archive, Check, Clock, Download, FileSpreadsheet, Plus, RotateCcw, Save, Send, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   downloadBlob,
   employeesApi,
   schedulePlanningApi,
+  shiftsApi,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -49,6 +50,20 @@ function buildShiftInterval(date: string, shift: any) {
   return { startsAt: start, endsAt: `${endDate}T${shift.endTime}:00+05:00` };
 }
 
+function calculateShiftHours(startTime: string, endTime: string) {
+  if (!startTime || !endTime) return 0;
+  const [startHour, startMinute] = startTime.split(":").map(Number);
+  const [endHour, endMinute] = endTime.split(":").map(Number);
+  let minutes = endHour * 60 + endMinute - (startHour * 60 + startMinute);
+  if (minutes <= 0) minutes += 24 * 60;
+  return Math.round(minutes / 60);
+}
+
+function formatMinutes(minutes: number) {
+  const hours = minutes / 60;
+  return `${Number.isInteger(hours) ? hours : hours.toFixed(1)} soat`;
+}
+
 export function PostSchedulePlanner({
   targetHospitalId,
   month,
@@ -66,26 +81,35 @@ export function PostSchedulePlanner({
   const [postFormOpen, setPostFormOpen] = useState(false);
   const [postName, setPostName] = useState("");
   const [postCode, setPostCode] = useState("");
+  const [showArchivedPosts, setShowArchivedPosts] = useState(false);
+  const [shiftFormOpen, setShiftFormOpen] = useState(false);
+  const [shiftName, setShiftName] = useState("");
+  const [shiftType, setShiftType] = useState("DAYTIME");
+  const [shiftStartTime, setShiftStartTime] = useState("08:00");
+  const [shiftEndTime, setShiftEndTime] = useState("20:00");
 
   useEffect(() => {
     if (!departmentId && departments.length) setDepartmentId(departments[0].id);
   }, [departmentId, departments]);
 
-  const { data: posts = [] } = useQuery({
-    queryKey: ["schedule-posts", targetHospitalId, departmentId],
+  const { data: posts = [], isLoading: postsLoading } = useQuery({
+    queryKey: ["schedule-posts", targetHospitalId, departmentId, showArchivedPosts],
     queryFn: () => schedulePlanningApi.posts({
       ...(targetHospitalId && { targetHospitalId }),
       ...(departmentId && { departmentId }),
+      ...(showArchivedPosts && { includeArchived: true }),
     }),
     enabled: !!departmentId,
   });
 
   useEffect(() => {
     if (!posts.some((post: any) => post.id === postId)) {
-      setPostId(posts[0]?.id ?? "");
+      setPostId(posts.find((post: any) => post.isActive)?.id ?? posts[0]?.id ?? "");
       setPlanId("");
     }
   }, [posts, postId]);
+
+  const selectedPost = posts.find((post: any) => post.id === postId);
 
   const { data: plans = [] } = useQuery({
     queryKey: ["post-schedule-plans", targetHospitalId, postId, year, month],
@@ -154,6 +178,30 @@ export function PostSchedulePlanner({
     ];
   }, [month, year]);
 
+  const shiftsById = useMemo(
+    () => new Map(shifts.map((shift) => [shift.id, shift])),
+    [shifts],
+  );
+
+  const livePlannedMinutes = useMemo(() => {
+    const monthStart = dayjs(`${year}-${String(month).padStart(2, "0")}-01T00:00:00+05:00`);
+    const monthEnd = monthStart.add(1, "month");
+
+    return Object.entries(cells).reduce((total, [key, value]) => {
+      if (!value || value.startsWith("STATUS:")) return total;
+      const shift = shiftsById.get(value);
+      if (!shift) return total;
+      const separator = key.indexOf(":");
+      const workDate = key.slice(separator + 1);
+      const interval = buildShiftInterval(workDate, shift);
+      const startsAt = dayjs(interval.startsAt);
+      const endsAt = dayjs(interval.endsAt);
+      const overlapStart = startsAt.isAfter(monthStart) ? startsAt : monthStart;
+      const overlapEnd = endsAt.isBefore(monthEnd) ? endsAt : monthEnd;
+      return total + Math.max(0, overlapEnd.diff(overlapStart, "minute"));
+    }, 0);
+  }, [cells, month, shiftsById, year]);
+
   const createPost = useMutation({
     mutationFn: () => schedulePlanningApi.createPost({
       name: postName,
@@ -170,6 +218,49 @@ export function PostSchedulePlanner({
       qc.invalidateQueries({ queryKey: ["schedule-posts"] });
     },
     onError: (error) => toast.error(getErrorMessage(error, "Post yaratilmadi")),
+  });
+
+  const postStatus = useMutation({
+    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
+      schedulePlanningApi.setPostStatus(id, isActive, params),
+    onSuccess: (_, variables) => {
+      toast.success(variables.isActive ? "Post qayta faollashtirildi" : "Post arxivlandi");
+      qc.invalidateQueries({ queryKey: ["schedule-posts"] });
+    },
+    onError: (error) => toast.error(getErrorMessage(error, "Post holati o‘zgarmadi")),
+  });
+
+  const deletePost = useMutation({
+    mutationFn: (id: string) => schedulePlanningApi.deletePost(id, params),
+    onSuccess: () => {
+      toast.success("Post o‘chirildi");
+      setPostId("");
+      setPlanId("");
+      qc.invalidateQueries({ queryKey: ["schedule-posts"] });
+    },
+    onError: (error) => toast.error(getErrorMessage(error, "Post o‘chirilmadi")),
+  });
+
+  const createShift = useMutation({
+    mutationFn: () => {
+      const isOvernight = shiftEndTime <= shiftStartTime;
+      return shiftsApi.create({
+        name: shiftName.trim(),
+        type: shiftType,
+        startTime: shiftStartTime,
+        endTime: shiftEndTime,
+        isOvernight,
+        durationH: calculateShiftHours(shiftStartTime, shiftEndTime),
+        graceMinutes: 0,
+      }, params);
+    },
+    onSuccess: () => {
+      toast.success("Yangi smena yaratildi");
+      setShiftName("");
+      setShiftFormOpen(false);
+      qc.invalidateQueries({ queryKey: ["shifts"] });
+    },
+    onError: (error) => toast.error(getErrorMessage(error, "Smena yaratilmadi")),
   });
 
   const createPlan = useMutation({
@@ -243,10 +334,16 @@ export function PostSchedulePlanner({
   };
 
   const summary = detail?.summary;
+  const targetMinutes = summary?.targetMinutes ?? 0;
+  const displayedPlannedMinutes = isNaN(livePlannedMinutes)
+    ? summary?.plannedMinutes ?? 0
+    : livePlannedMinutes;
+  const displayedRemainingMinutes = Math.max(0, targetMinutes - displayedPlannedMinutes);
+  const displayedExcessMinutes = Math.max(0, displayedPlannedMinutes - targetMinutes);
   const canApprove = ADMIN_ROLES.includes(userRole ?? "");
   const canWrite = [...ADMIN_ROLES, "ASSISTANT_ADMIN"].includes(userRole ?? "");
   const isDraft = detail?.status === "DRAFT";
-  const canCreatePlan = !!postId && canWrite && !plans.some((plan: any) =>
+  const canCreatePlan = !!postId && selectedPost?.isActive && canWrite && !plans.some((plan: any) =>
     ["DRAFT", "SUBMITTED", "APPROVED"].includes(plan.status),
   );
 
@@ -254,18 +351,40 @@ export function PostSchedulePlanner({
     <div className="space-y-4">
       <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-4 shadow-xl">
         <div className="flex flex-wrap items-center gap-2">
-          <select value={departmentId} onChange={(event) => setDepartmentId(event.target.value)} className="h-9 min-w-52 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#1a1d26] px-3 text-xs">
-            {departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
-          </select>
-          <select value={postId} onChange={(event) => setPostId(event.target.value)} className="h-9 min-w-52 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#1a1d26] px-3 text-xs">
-            <option value="">Postni tanlang</option>
-            {posts.map((post: any) => <option key={post.id} value={post.id}>{post.name}</option>)}
-          </select>
-          {canWrite && <button onClick={() => setPostFormOpen((value) => !value)} className="h-9 rounded-xl border border-slate-200 dark:border-white/10 px-3 text-xs font-semibold"><Plus className="inline h-3.5 w-3.5 mr-1" />Post</button>}
+          <label className="space-y-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+            <span className="px-1">Bo‘lim</span>
+            <select value={departmentId} onChange={(event) => setDepartmentId(event.target.value)} className="block h-9 min-w-52 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#1a1d26] px-3 text-xs font-normal normal-case tracking-normal text-slate-900 dark:text-white">
+              {departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
+            </select>
+          </label>
+          <label className="space-y-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+            <span className="px-1">Post</span>
+            <select value={postId} onChange={(event) => setPostId(event.target.value)} className="block h-9 min-w-52 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#1a1d26] px-3 text-xs font-normal normal-case tracking-normal text-slate-900 dark:text-white">
+              <option value="">Postni tanlang</option>
+              {posts.map((post: any) => <option key={post.id} value={post.id}>{post.name}{post.isActive ? "" : " — arxiv"}</option>)}
+            </select>
+          </label>
+          {canWrite && <button onClick={() => setPostFormOpen((value) => !value)} className="mt-4 h-9 rounded-xl border border-slate-200 dark:border-white/10 px-3 text-xs font-semibold"><Plus className="inline h-3.5 w-3.5 mr-1" />Yangi post</button>}
+          {canWrite && <button onClick={() => setShiftFormOpen((value) => !value)} className="mt-4 h-9 rounded-xl border border-slate-200 dark:border-white/10 px-3 text-xs font-semibold"><Clock className="inline h-3.5 w-3.5 mr-1" />Yangi smena</button>}
           {canCreatePlan && <button onClick={() => createPlan.mutate()} disabled={createPlan.isPending} className="h-9 rounded-xl bg-indigo-600 px-4 text-xs font-semibold text-white">{plans.length ? "Yangi versiya" : "Oylik reja yaratish"}</button>}
           {!!plans.length && <select value={planId} onChange={(event) => setPlanId(event.target.value)} className="h-9 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#1a1d26] px-3 text-xs">
             {plans.map((plan: any) => <option key={plan.id} value={plan.id}>v{plan.version} — {plan.status}</option>)}
           </select>}
+          {selectedPost && canWrite && (selectedPost.isActive ? (
+            <button
+              onClick={() => window.confirm("Post arxivlanadi. Eski grafiklar saqlanadi. Davom etasizmi?") && postStatus.mutate({ id: selectedPost.id, isActive: false })}
+              className="mt-4 h-9 rounded-xl border border-amber-500/30 px-3 text-xs font-semibold text-amber-600 dark:text-amber-400"
+            ><Archive className="inline h-3.5 w-3.5 mr-1" />Arxivlash</button>
+          ) : (
+            <button onClick={() => postStatus.mutate({ id: selectedPost.id, isActive: true })} className="mt-4 h-9 rounded-xl border border-emerald-500/30 px-3 text-xs font-semibold text-emerald-600 dark:text-emerald-400"><RotateCcw className="inline h-3.5 w-3.5 mr-1" />Faollashtirish</button>
+          ))}
+          {selectedPost && canWrite && <button
+            onClick={() => window.confirm("Grafik tarixi bo‘lmagan post butunlay o‘chiriladi. Davom etasizmi?") && deletePost.mutate(selectedPost.id)}
+            className="mt-4 h-9 rounded-xl border border-rose-500/30 px-3 text-xs font-semibold text-rose-600 dark:text-rose-400"
+          ><Trash2 className="inline h-3.5 w-3.5 mr-1" />O‘chirish</button>}
+          <button onClick={() => setShowArchivedPosts((value) => !value)} className="mt-4 h-9 rounded-xl px-3 text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5">
+            {showArchivedPosts ? "Arxivni yashirish" : "Arxivlanganlar"}
+          </button>
         </div>
 
         {postFormOpen && <div className="mt-3 flex flex-wrap gap-2 rounded-xl bg-slate-50 dark:bg-white/[0.03] p-3">
@@ -274,15 +393,25 @@ export function PostSchedulePlanner({
           <button onClick={() => createPost.mutate()} disabled={!postName.trim() || !postCode.trim()} className="h-9 rounded-lg bg-indigo-600 px-4 text-xs font-semibold text-white">Yaratish</button>
           <button onClick={() => setPostFormOpen(false)} className="h-9 px-3 text-xs"><X className="h-4 w-4" /></button>
         </div>}
+
+        {shiftFormOpen && <div className="mt-3 flex flex-wrap items-end gap-2 rounded-xl bg-slate-50 dark:bg-white/[0.03] p-3">
+          <label className="space-y-1 text-[10px] font-semibold text-slate-500"><span>Smena nomi</span><input value={shiftName} onChange={(event) => setShiftName(event.target.value)} placeholder="Kunduzgi 12 soat" className="block h-9 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 px-3 text-xs text-slate-900 dark:text-white" /></label>
+          <label className="space-y-1 text-[10px] font-semibold text-slate-500"><span>Turi</span><select value={shiftType} onChange={(event) => setShiftType(event.target.value)} className="block h-9 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 px-3 text-xs text-slate-900 dark:text-white"><option value="DAYTIME">Kunduzgi</option><option value="NIGHTTIME">Tungi</option><option value="CUSTOM">Maxsus</option></select></label>
+          <label className="space-y-1 text-[10px] font-semibold text-slate-500"><span>Boshlanishi</span><input type="time" value={shiftStartTime} onChange={(event) => setShiftStartTime(event.target.value)} className="block h-9 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 px-3 text-xs text-slate-900 dark:text-white" /></label>
+          <label className="space-y-1 text-[10px] font-semibold text-slate-500"><span>Tugashi</span><input type="time" value={shiftEndTime} onChange={(event) => setShiftEndTime(event.target.value)} className="block h-9 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 px-3 text-xs text-slate-900 dark:text-white" /></label>
+          <div className="h-9 rounded-lg bg-indigo-500/10 px-3 py-2 text-xs font-semibold text-indigo-600 dark:text-indigo-300">{calculateShiftHours(shiftStartTime, shiftEndTime)} soat</div>
+          <button onClick={() => createShift.mutate()} disabled={!shiftName.trim() || !shiftStartTime || !shiftEndTime || createShift.isPending} className="h-9 rounded-lg bg-indigo-600 px-4 text-xs font-semibold text-white disabled:opacity-50">Yaratish</button>
+          <button onClick={() => setShiftFormOpen(false)} className="h-9 px-3 text-xs"><X className="h-4 w-4" /></button>
+        </div>}
       </div>
 
       {detail && <>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {[
             ["Holat", detail.status],
-            ["Post normasi", `${(summary?.targetMinutes ?? 0) / 60} soat`],
-            ["Rejalashtirilgan", `${(summary?.plannedMinutes ?? 0) / 60} soat`],
-            ["Qolgan", `${(summary?.remainingMinutes ?? 0) / 60} soat`],
+            ["Post normasi", formatMinutes(targetMinutes)],
+            ["Rejalashtirilgan", formatMinutes(displayedPlannedMinutes)],
+            [displayedExcessMinutes ? "Oshib ketgan" : "Qolgan", formatMinutes(displayedExcessMinutes || displayedRemainingMinutes)],
           ].map(([label, value]) => <div key={label} className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-4"><p className="text-[11px] text-slate-500">{label}</p><p className="mt-1 font-bold">{value}</p></div>)}
         </div>
 
@@ -305,12 +434,22 @@ export function PostSchedulePlanner({
                   <td className="sticky left-0 z-10 border bg-white dark:bg-slate-900 p-2"><p className="font-semibold">{employee.fullName}</p><p className="text-[9px] text-slate-500">{employee.position?.name}</p></td>
                   {days.map((day) => {
                     const key = `${employee.id}:${day.date}`;
-                    return <td key={day.date} className={cn("border p-1", day.carryIn && "bg-amber-50 dark:bg-amber-500/5")}>
-                      <select value={cells[key] ?? ""} disabled={!isDraft || !canWrite} onChange={(event) => setCells((current) => ({ ...current, [key]: event.target.value }))} className="h-8 w-full rounded border-0 bg-transparent text-[10px] focus:ring-1 focus:ring-indigo-500">
+                    const selectedValue = cells[key] ?? "";
+                    const selectedShift = shiftsById.get(selectedValue);
+                    return <td key={day.date} className={cn("border p-1 align-top", day.carryIn && "bg-amber-50 dark:bg-amber-500/5")}>
+                      <select value={selectedValue} disabled={!isDraft || !canWrite} onChange={(event) => setCells((current) => ({ ...current, [key]: event.target.value }))} className="h-7 w-full rounded border-0 bg-transparent text-[10px] focus:ring-1 focus:ring-indigo-500">
                         <option value="">—</option>
                         {shifts.map((shift) => <option key={shift.id} value={shift.id}>{shift.name} {shift.startTime}-{shift.endTime}</option>)}
                         {STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                       </select>
+                      {selectedShift && (
+                        <div
+                          className="mt-0.5 whitespace-nowrap text-center font-mono text-[9px] font-semibold leading-none text-indigo-600 dark:text-indigo-300"
+                          title={`${selectedShift.name}: ${selectedShift.startTime}–${selectedShift.endTime}${selectedShift.isOvernight ? " (ertangi kun)" : ""}`}
+                        >
+                          {selectedShift.startTime}–{selectedShift.endTime}{selectedShift.isOvernight ? <sup className="ml-0.5 text-[7px]">+1</sup> : null}
+                        </div>
+                      )}
                     </td>;
                   })}
                 </tr>)}
@@ -323,6 +462,13 @@ export function PostSchedulePlanner({
         {detail.status === "APPROVED" && <ScheduleChangePanel detail={detail} employees={employees} targetHospitalId={targetHospitalId} userRole={userRole} />}
       </>}
 
+      {!postsLoading && departmentId && !posts.length && <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 bg-white/50 dark:bg-slate-900/40 p-10 text-center">
+        <FileSpreadsheet className="mx-auto h-8 w-8 text-slate-400" />
+        <h3 className="mt-3 font-semibold text-slate-900 dark:text-white">Bu bo‘limda hali post yaratilmagan</h3>
+        <p className="mt-1 text-sm text-slate-500">Avval navbatchilik posti yarating, keyin shu post uchun oylik reja tuzing.</p>
+        {canWrite && <button onClick={() => setPostFormOpen(true)} className="mt-4 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white"><Plus className="mr-1 inline h-4 w-4" />Birinchi postni yaratish</button>}
+      </div>}
+      {selectedPost && !selectedPost.isActive && <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-300">Bu post arxivlangan. Eski grafiklar ko‘rish uchun saqlanadi, yangi oylik reja yaratish uchun postni qayta faollashtiring.</div>}
       {!detailLoading && postId && !plans.length && <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 p-10 text-center text-sm text-slate-500">Bu post uchun {month}/{year} grafigi hali yaratilmagan.</div>}
     </div>
   );

@@ -1,17 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { schedulesApi } from "@/lib/api";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { schedulePlanningApi, schedulesApi } from "@/lib/api";
 import { Topbar } from "@/components/layout/Topbar";
 import { cn } from "@/lib/utils";
 import {
   ChevronLeft, ChevronRight,
   Sun, Moon, Star,
   CalendarDays, Sparkles, Briefcase, Coffee,
+  ArrowLeftRight, CheckCircle2, Send, UserRoundCheck, X,
 } from "lucide-react";
 import dayjs from "dayjs";
 import { useAuthStore } from "@/stores/auth";
+import { toast } from "sonner";
 
 const WEEKDAYS = ["Du", "Se", "Ch", "Pa", "Ju", "Sh", "Ya"];
 
@@ -22,11 +24,13 @@ function CompactScheduleCalendar({
   year,
   month,
   isLoading,
+  onSelectSchedule,
 }: {
   schedules: any[];
   year:      number;
   month:     number;
   isLoading: boolean;
+  onSelectSchedule: (schedule: any) => void;
 }) {
   const startOfMonth   = dayjs(`${year}-${String(month).padStart(2, "0")}-01`);
   const daysInMonth    = startOfMonth.daysInMonth();
@@ -124,17 +128,23 @@ function CompactScheduleCalendar({
             );
           }
 
+          const canRequestChange = isWorkDay && Boolean(schedule?.sourceEntryId);
+
           return (
-            <div
+            <button
+              type="button"
               key={dateStr}
+              disabled={!canRequestChange}
+              onClick={() => canRequestChange && onSelectSchedule(schedule)}
               title={
                 !hasData    ? "Grafik belgilanmagan"
                 : isDayOff  ? "Dam olish kuni"
                 : offLabel  ? (schedule.note || offLabel)
-                : `${isNight ? "Kechki" : "Kunduzgi"} smena: ${startTime ?? "?"} dan ${endTime ?? "?"} gacha${overnight ? " (ertangi kun)" : ""}`
+                : `${isNight ? "Kechki" : "Kunduzgi"} smena: ${startTime ?? "?"} dan ${endTime ?? "?"} gacha${overnight ? " (ertangi kun)" : ""}${canRequestChange ? " — almashish uchun bosing" : ""}`
               }
               className={cn(
                 "aspect-square rounded-2xl p-1 flex flex-col justify-between transition-all border overflow-hidden",
+                canRequestChange && "cursor-pointer hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500/50",
                 isToday
                   ? "bg-indigo-500/20 border-indigo-500/60 ring-2 ring-indigo-500/40 shadow-lg shadow-indigo-500/20"
                   : isWorkDay && isNight
@@ -190,7 +200,7 @@ function CompactScheduleCalendar({
                   </span>
                 )}
               </div>
-            </div>
+            </button>
           );
         })}
       </div>
@@ -202,10 +212,17 @@ function CompactScheduleCalendar({
 
 export default function MySchedulePage() {
   const { user } = useAuthStore();
+  const qc = useQueryClient();
   const now = dayjs();
 
   const [month, setMonth] = useState(now.month() + 1);
   const [year,  setYear]  = useState(now.year());
+  const [selectedSchedule, setSelectedSchedule] = useState<any>(null);
+  const [changeType, setChangeType] = useState("SUBSTITUTION");
+  const [replacementEmployeeId, setReplacementEmployeeId] = useState("");
+  const [counterpartEntryId, setCounterpartEntryId] = useState("");
+  const [absenceEntryType, setAbsenceEntryType] = useState("SICK");
+  const [changeReason, setChangeReason] = useState("");
 
   const monthLabel = dayjs(`${year}-${String(month).padStart(2, "0")}-01`).format("MMMM YYYY");
   const empName    = user?.employee?.fullName ?? user?.username ?? "Xodim";
@@ -229,6 +246,55 @@ export default function MySchedulePage() {
     queryKey: ["my-schedule", month, year],
     queryFn:  () => schedulesApi.my({ month, year }),
     staleTime: 5 * 60_000,
+  });
+
+  const { data: planningConfig } = useQuery({
+    queryKey: ["my-schedule-planning-config"],
+    queryFn: () => schedulePlanningApi.config(),
+  });
+  const { data: changeRequests = [] } = useQuery<any[]>({
+    queryKey: ["my-schedule-change-requests"],
+    queryFn: () => schedulePlanningApi.myChanges(),
+    enabled: planningConfig?.postCoverageEnabled === true,
+  });
+  const { data: changeOptions, isLoading: changeOptionsLoading } = useQuery<any>({
+    queryKey: ["my-schedule-change-options", selectedSchedule?.sourceEntryId],
+    queryFn: () => schedulePlanningApi.myChangeOptions(selectedSchedule.sourceEntryId),
+    enabled: Boolean(selectedSchedule?.sourceEntryId),
+  });
+
+  const closeChangeForm = () => {
+    setSelectedSchedule(null);
+    setReplacementEmployeeId("");
+    setCounterpartEntryId("");
+    setChangeReason("");
+  };
+
+  const createChangeRequest = useMutation({
+    mutationFn: () => schedulePlanningApi.createChange({
+      type: changeType,
+      primaryEntryId: selectedSchedule.sourceEntryId,
+      ...(changeType === "SUBSTITUTION" && { replacementEmployeeId }),
+      ...(changeType === "SWAP" && { counterpartEntryId }),
+      ...(changeType !== "SWAP" && { absenceEntryType }),
+      reason: changeReason.trim(),
+    }),
+    onSuccess: () => {
+      toast.success("Smena o‘zgarishi so‘rovi yuborildi");
+      closeChangeForm();
+      qc.invalidateQueries({ queryKey: ["my-schedule-change-requests"] });
+      qc.invalidateQueries({ queryKey: ["notifications"] });
+    },
+    onError: (error: any) => toast.error(error?.response?.data?.message || "So‘rov yuborilmadi"),
+  });
+
+  const acceptChangeRequest = useMutation({
+    mutationFn: (id: string) => schedulePlanningApi.acceptChange(id),
+    onSuccess: () => {
+      toast.success("Smena o‘zgarishi qabul qilindi va rahbar tasdig‘iga yuborildi");
+      qc.invalidateQueries({ queryKey: ["my-schedule-change-requests"] });
+    },
+    onError: (error: any) => toast.error(error?.response?.data?.message || "So‘rov qabul qilinmadi"),
   });
 
   // Stats — faqat real ma'lumotdan
@@ -315,7 +381,42 @@ export default function MySchedulePage() {
           year={year}
           month={month}
           isLoading={isLoading}
+          onSelectSchedule={setSelectedSchedule}
         />
+
+        {selectedSchedule && (
+          <div className="rounded-3xl border border-indigo-500/20 bg-[var(--bg-card)] p-5 shadow-xl space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="flex items-center gap-2 font-extrabold"><ArrowLeftRight className="h-4 w-4 text-indigo-500" />Smena o‘zgarishi so‘rovi</h3>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">{dayjs(selectedSchedule.date).format("DD.MM.YYYY")} · {selectedSchedule.shift?.startTime}–{selectedSchedule.shift?.endTime}</p>
+              </div>
+              <button onClick={closeChangeForm} className="rounded-lg p-2 text-[var(--text-muted)] hover:bg-[var(--bg-hover)]"><X className="h-4 w-4" /></button>
+            </div>
+
+            {changeOptionsLoading ? <p className="text-sm text-[var(--text-muted)]">Variantlar yuklanmoqda...</p> : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="space-y-1 text-xs font-semibold"><span>O‘zgarish turi</span><select value={changeType} onChange={(event) => setChangeType(event.target.value)} className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-main)] px-3 py-2.5"><option value="SUBSTITUTION">O‘rnimga boshqa xodim ishlaydi</option><option value="SWAP">Smenani o‘zaro almashtirish</option><option value="ABSENCE">Ishga chiqa olmayman</option></select></label>
+                {changeType === "SUBSTITUTION" && <label className="space-y-1 text-xs font-semibold"><span>O‘rnini bosuvchi xodim</span><select value={replacementEmployeeId} onChange={(event) => setReplacementEmployeeId(event.target.value)} className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-main)] px-3 py-2.5"><option value="">Xodimni tanlang</option>{(changeOptions?.replacementEmployees ?? []).map((employee: any) => <option key={employee.id} value={employee.id}>{employee.fullName}{employee.position?.name ? ` — ${employee.position.name}` : ""}</option>)}</select></label>}
+                {changeType === "SWAP" && <label className="space-y-1 text-xs font-semibold"><span>Almashiladigan smena</span><select value={counterpartEntryId} onChange={(event) => setCounterpartEntryId(event.target.value)} className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-main)] px-3 py-2.5"><option value="">Smenani tanlang</option>{(changeOptions?.counterpartEntries ?? []).map((entry: any) => <option key={entry.id} value={entry.id}>{entry.employee.fullName} — {dayjs(entry.workDate).format("DD.MM")} · {entry.shift?.startTime}–{entry.shift?.endTime}</option>)}</select></label>}
+                {changeType !== "SWAP" && <label className="space-y-1 text-xs font-semibold"><span>Sabab turi</span><select value={absenceEntryType} onChange={(event) => setAbsenceEntryType(event.target.value)} className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-main)] px-3 py-2.5"><option value="SICK">Kasallik</option><option value="DAY_OFF">Uzrli kun</option><option value="VACATION">Mehnat ta’tili</option><option value="MATERNITY_LEAVE">Tug‘ruq ta’tili</option><option value="TRAINING">Malaka oshirish</option><option value="OTHER_ABSENCE">Boshqa sabab</option></select></label>}
+                <label className="space-y-1 text-xs font-semibold sm:col-span-2"><span>Izoh</span><textarea value={changeReason} onChange={(event) => setChangeReason(event.target.value)} rows={3} placeholder="Smena o‘zgarishi sababini yozing" className="w-full resize-none rounded-xl border border-[var(--border)] bg-[var(--bg-main)] px-3 py-2.5" /></label>
+              </div>
+            )}
+            <button onClick={() => createChangeRequest.mutate()} disabled={!changeReason.trim() || (changeType === "SUBSTITUTION" && !replacementEmployeeId) || (changeType === "SWAP" && !counterpartEntryId) || createChangeRequest.isPending} className="rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50"><Send className="mr-1.5 inline h-4 w-4" />So‘rov yuborish</button>
+          </div>
+        )}
+
+        {changeRequests.length > 0 && (
+          <div className="rounded-3xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-xl space-y-3">
+            <h3 className="flex items-center gap-2 font-extrabold"><UserRoundCheck className="h-4 w-4 text-indigo-500" />Smena o‘zgarishlari</h3>
+            {changeRequests.map((request: any) => <div key={request.id} className="flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--bg-main)] p-3 text-xs">
+              <div><p className="font-bold">{request.type === "SWAP" ? "Smena almashish" : request.type === "SUBSTITUTION" ? "O‘rnini bosish" : "Ishga chiqmaslik"}</p><p className="text-[var(--text-muted)]">{request.primaryEntry.employee.fullName} · {dayjs(request.primaryEntry.workDate).format("DD.MM.YYYY")} · {request.reason}</p></div>
+              <span className="ml-auto rounded-full bg-indigo-500/10 px-2.5 py-1 font-bold text-indigo-600 dark:text-indigo-300">{request.status}</span>
+              {request.canAccept && <button onClick={() => acceptChangeRequest.mutate(request.id)} className="rounded-xl bg-emerald-600 px-3 py-2 font-bold text-white"><CheckCircle2 className="mr-1 inline h-4 w-4" />Qabul qilish</button>}
+            </div>)}
+          </div>
+        )}
       </div>
     </div>
   );

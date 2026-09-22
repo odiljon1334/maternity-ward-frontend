@@ -257,12 +257,16 @@ export const schedulesApi = {
 export const schedulePlanningApi = {
   config: (params?: { targetHospitalId?: string }) =>
     api.get("/schedule-planning/config", { params }).then((r) => r.data.data),
-  posts: (params?: { targetHospitalId?: string; departmentId?: string }) =>
+  posts: (params?: { targetHospitalId?: string; departmentId?: string; includeArchived?: boolean }) =>
     api.get("/schedule-planning/posts", { params }).then((r) => r.data.data),
   createPost: (
     data: { name: string; code: string; departmentId: string; dailyCoverageMinutes?: number },
     params?: { targetHospitalId?: string },
   ) => api.post("/schedule-planning/posts", data, { params }).then((r) => r.data.data),
+  setPostStatus: (id: string, isActive: boolean, params?: { targetHospitalId?: string }) =>
+    api.patch(`/schedule-planning/posts/${id}/status`, { isActive }, { params }).then((r) => r.data.data),
+  deletePost: (id: string, params?: { targetHospitalId?: string }) =>
+    api.delete(`/schedule-planning/posts/${id}`, { params }).then((r) => r.data.data),
   plans: (params: { targetHospitalId?: string; year: number; month: number; postId?: string }) =>
     api.get("/schedule-planning/plans", { params }).then((r) => r.data.data),
   plan: (id: string, params?: { targetHospitalId?: string }) =>
@@ -283,6 +287,10 @@ export const schedulePlanningApi = {
     api.get(`/schedule-planning/plans/${id}/export`, { params, responseType: "blob" }),
   createChange: (data: any, params?: { targetHospitalId?: string }) =>
     api.post("/schedule-planning/changes", data, { params }).then((r) => r.data.data),
+  myChanges: () =>
+    api.get("/schedule-planning/changes/my").then((r) => r.data.data),
+  myChangeOptions: (entryId: string) =>
+    api.get(`/schedule-planning/changes/options/${entryId}`).then((r) => r.data.data),
   acceptChange: (id: string, params?: { targetHospitalId?: string }) =>
     api.patch(`/schedule-planning/changes/${id}/accept`, {}, { params }).then((r) => r.data.data),
   approveChange: (id: string, params?: { targetHospitalId?: string }) =>

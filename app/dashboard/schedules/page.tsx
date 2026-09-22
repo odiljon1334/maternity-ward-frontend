@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { 
   ChevronLeft, ChevronRight, Zap, X, Edit3, Check, Clock, Sun, Moon, 
   Plus, Edit2, Trash2, Search, Copy, Upload, FileSpreadsheet,
-  Calendar, Users, UserCheck, UserX, Sparkles, AlertCircle
+  Calendar, Users, UserCheck, UserX, Sparkles, AlertCircle, Lock
 } from "lucide-react";
 import dayjs from "dayjs";
 import { useForm } from "react-hook-form";
@@ -331,15 +331,24 @@ const NON_WORKING_BADGE: Record<string, { mark: string; title: string; cls: stri
 function CellBadge({ sch }: { sch?: any }) {
   if (!sch) return <span className="text-slate-300 dark:text-slate-600 text-xs font-light">—</span>;
 
+  const sourceLock = sch.sourcePlanId ? (
+    <span title="Tasdiqlangan post rejasidan" className="absolute -right-1 -top-1 rounded-full bg-indigo-600 p-0.5 text-white shadow-sm">
+      <Lock className="h-2 w-2" />
+    </span>
+  ) : null;
+
   // Dam olish / ta'til / kasallik / bayram
   const nonWorking = NON_WORKING_BADGE[sch.status as string];
   if (nonWorking) {
     return (
-      <span
-        className={cn("text-[11px] font-semibold", nonWorking.cls)}
-        title={sch.note || nonWorking.title}
-      >
-        {nonWorking.mark}
+      <span className="relative inline-flex min-h-6 min-w-6 items-center justify-center">
+        <span
+          className={cn("text-[11px] font-semibold", nonWorking.cls)}
+          title={sch.note || nonWorking.title}
+        >
+          {nonWorking.mark}
+        </span>
+        {sourceLock}
       </span>
     );
   }
@@ -364,11 +373,12 @@ function CellBadge({ sch }: { sch?: any }) {
   return (
     <div
       className={cn(
-        "inline-flex flex-col items-center justify-center w-full py-1 px-0.5 rounded-xl border group-hover:scale-105 transition-transform",
+        "relative inline-flex flex-col items-center justify-center w-full py-1 px-0.5 rounded-xl border group-hover:scale-105 transition-transform",
         cls
       )}
       title={`${shiftName} — ${startTime ?? "?"} dan ${endTime ?? "?"} gacha${overnight ? " (ertangi kun)" : ""}`}
     >
+      {sourceLock}
       {/* 1-qator: smen turi */}
       <span className="text-[8px] font-bold leading-none opacity-90">{label}</span>
       {/* 2-qator: kelish vaqti */}
@@ -868,7 +878,7 @@ export default function SchedulesPage() {
                   view === "grafik" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/5"
                 )}
               >
-                <Calendar className="w-3.5 h-3.5" /> Grafik
+                  <Calendar className="w-3.5 h-3.5" /> Asosiy grafik
               </button>
               <button
                 onClick={() => setView("smenlar")}
@@ -887,7 +897,7 @@ export default function SchedulesPage() {
                     view === "postlar" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/5"
                   )}
                 >
-                  <FileSpreadsheet className="w-3.5 h-3.5" /> Post grafik
+                  <FileSpreadsheet className="w-3.5 h-3.5" /> Post reja
                 </button>
               )}
             </div>
@@ -1117,13 +1127,23 @@ export default function SchedulesPage() {
                   {!isLoading &&
                     employees.map((emp: any) => {
                       const empSchedules = scheduleMap.get(emp.id);
+                      const hasProtectedPostSchedules = empSchedules
+                        ? Array.from(empSchedules.values()).some((schedule: any) => Boolean(schedule.sourcePlanId))
+                        : false;
                       return (
                         <tr key={emp.id} className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors group">
                           {/* Left Sticky Column */}
                           <td className="sticky left-0 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 dark:group-hover:bg-[#161821] z-20 px-4 py-2 border-r shadow-[4px_0_12px_-2px_rgba(0,0,0,0.05)] dark:shadow-[4px_0_12px_-2px_rgba(0,0,0,0.5)] transition-colors">
                             <div
                               className="cursor-pointer group/item"
-                              onClick={() => { setGenerateEmpId(emp.id); setModalOpen(true); }}
+                              onClick={() => {
+                                if (hasProtectedPostSchedules) {
+                                  toast.info("Bu xodimda tasdiqlangan post rejasi mavjud. O‘zgarishni Post reja orqali kiriting.");
+                                  return;
+                                }
+                                setGenerateEmpId(emp.id);
+                                setModalOpen(true);
+                              }}
                             >
                               <p className="font-semibold text-slate-900 dark:text-white truncate max-w-[190px] group-hover/item:text-indigo-600 dark:group-hover/item:text-indigo-400 transition-colors">
                                 {emp.fullName}
@@ -1144,10 +1164,15 @@ export default function SchedulesPage() {
                                   "text-center p-1 border-r border-slate-200 dark:border-white/5 relative transition-all",
                                   c.isWeekend && "bg-slate-50/50 dark:bg-white/[0.01]",
                                   c.isToday && "bg-indigo-500/5",
-                                  sch && "cursor-pointer hover:bg-slate-100 dark:hover:bg-white/[0.04]"
+                                  sch && !sch.sourcePlanId && "cursor-pointer hover:bg-slate-100 dark:hover:bg-white/[0.04]",
+                                  sch?.sourcePlanId && "cursor-not-allowed bg-indigo-500/[0.03]"
                                 )}
                                 onClick={() => {
                                   if (!sch) return;
+                                  if (sch.sourcePlanId) {
+                                    toast.info("Bu kun tasdiqlangan post rejasidan kelgan. O‘zgarishni Post reja orqali kiriting.");
+                                    return;
+                                  }
                                   setEditEntry({
                                     id: sch.id,
                                     status: sch.status,
@@ -1196,6 +1221,9 @@ export default function SchedulesPage() {
 
               {!isLoading && employees.map((emp: any) => {
                 const empSchedules = scheduleMap.get(emp.id);
+                const hasProtectedPostSchedules = empSchedules
+                  ? Array.from(empSchedules.values()).some((schedule: any) => Boolean(schedule.sourcePlanId))
+                  : false;
                 let ish = 0, dam = 0;
                 if (empSchedules) {
                   // Array.from — tsconfig target ES5 bo'lgani uchun
@@ -1211,7 +1239,14 @@ export default function SchedulesPage() {
                     {/* Xodim sarlavhasi */}
                     <div
                       className="flex items-center justify-between gap-2 px-4 mb-2 cursor-pointer"
-                      onClick={() => { setGenerateEmpId(emp.id); setModalOpen(true); }}
+                      onClick={() => {
+                        if (hasProtectedPostSchedules) {
+                          toast.info("Bu xodimda tasdiqlangan post rejasi mavjud. O‘zgarishni Post reja orqali kiriting.");
+                          return;
+                        }
+                        setGenerateEmpId(emp.id);
+                        setModalOpen(true);
+                      }}
                     >
                       <div className="min-w-0">
                         <p className="font-semibold text-sm text-slate-900 dark:text-white truncate">
@@ -1242,6 +1277,10 @@ export default function SchedulesPage() {
                             type="button"
                             onClick={() => {
                               if (!sch) return;
+                              if (sch.sourcePlanId) {
+                                toast.info("Bu kun tasdiqlangan post rejasidan kelgan. O‘zgarishni Post reja orqali kiriting.");
+                                return;
+                              }
                               setEditEntry({
                                 id: sch.id,
                                 status: sch.status,
@@ -1257,7 +1296,8 @@ export default function SchedulesPage() {
                                 : c.isWeekend
                                   ? "border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/[0.02]"
                                   : "border-slate-200 dark:border-white/5",
-                              sch && "active:bg-slate-100 dark:active:bg-white/5"
+                              sch && !sch.sourcePlanId && "active:bg-slate-100 dark:active:bg-white/5",
+                              sch?.sourcePlanId && "cursor-not-allowed bg-indigo-500/[0.03]"
                             )}
                           >
                             <span className={cn(
@@ -1318,8 +1358,11 @@ export default function SchedulesPage() {
               <span className="flex items-center gap-2 font-medium">
                 <span className="font-bold text-pink-600 dark:text-pink-400 text-[10px]">Ka</span> Kasallik
               </span>
+              <span className="flex items-center gap-2 font-medium text-indigo-600 dark:text-indigo-400">
+                <span className="rounded-full bg-indigo-600 p-1 text-white"><Lock className="h-2.5 w-2.5" /></span> Post rejasidan — shu yerda tahrirlanmaydi
+              </span>
               <span className="flex items-center gap-1.5 ml-auto text-[11px] font-medium text-indigo-600 dark:text-indigo-400">
-                <Edit3 className="w-3.5 h-3.5" /> Katak ustiga bosib grafikni o&apos;zgartirishingiz mumkin
+                <Edit3 className="w-3.5 h-3.5" /> Oddiy katak ustiga bosib grafikni o&apos;zgartiring
               </span>
             </div>
           </div>
