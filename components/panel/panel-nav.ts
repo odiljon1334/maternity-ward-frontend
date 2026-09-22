@@ -20,17 +20,26 @@ export interface PanelNavItem {
 /**
  * Superadmin boshqaruv paneli navigatsiyasi.
  * Reja.md — FAZA 5 bandlariga mos: har bir link o'sha bandning
- * frontend sahifasiga to'g'ri keladi. Hozircha faqat "/panel" (Umumiy
- * ko'rinish) to'liq ishlaydi — qolganlari "tez orada" belgisi bilan
- * ComingSoon skeletiga ega (404 bo'lmasligi uchun).
+ * frontend sahifasiga to'g'ri keladi. Tugallanmagan sahifalargina
+ * "tez orada" belgisi bilan ComingSoon skeletiga ega.
  */
 export const PANEL_NAV: PanelNavItem[] = [
   { href: "/panel", label: "Umumiy ko'rinish", icon: LayoutDashboard },
   { href: "/panel/hospitals", label: "Shifoxonalar", icon: Building2 },
   { href: "/panel/users", label: "Foydalanuvchilar", icon: Users },
   { href: "/panel/leads", label: "Yangi so'rovlar", icon: Inbox },
-  { href: "/panel/payments", label: "To'lovlar", icon: CreditCard, badge: "soon" },
-  { href: "/panel/subscriptions", label: "Daromad tahlili", icon: BarChart3, badge: "soon" },
-  { href: "/panel/permissions", label: "Ruxsatlar", icon: ShieldCheck, badge: "soon" },
+  { href: "/panel/payments", label: "To'lovlar", icon: CreditCard },
+  {
+    href: "/panel/subscriptions",
+    label: "Daromad tahlili",
+    icon: BarChart3,
+    badge: "soon",
+  },
+  {
+    href: "/panel/permissions",
+    label: "Ruxsatlar",
+    icon: ShieldCheck,
+    badge: "soon",
+  },
   { href: "/panel/audit", label: "Audit log", icon: History, badge: "soon" },
 ];
