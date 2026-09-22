@@ -63,15 +63,15 @@ export default function MyCompensationPage() {
       <Topbar title="Bonus va avans" subtitle="KPI, mukofot, tushuntirish va avanslarim" />
       <main className="p-4 sm:p-6 space-y-5 max-w-5xl mx-auto">
         <div className="card p-4 flex gap-3">
-          <select className="input w-36" value={month} onChange={(e) => setMonth(+e.target.value)}>{Array.from({ length: 12 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}-oy</option>)}</select>
-          <input className="input w-32" type="number" value={year} onChange={(e) => setYear(+e.target.value)} />
+          <select className="input-field w-36" value={month} onChange={(e) => setMonth(+e.target.value)}>{Array.from({ length: 12 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}-oy</option>)}</select>
+          <input className="input-field w-32" type="number" value={year} onChange={(e) => setYear(+e.target.value)} />
         </div>
 
         <section className="card p-5">
           <div className="flex items-center gap-2 mb-4"><HandCoins className="w-5 h-5 text-emerald-500" /><h2 className="font-bold">Avans so‘rash</h2></div>
           <div className="grid sm:grid-cols-3 gap-3">
-            <input className="input" type="number" placeholder="Summa" value={amount} onChange={(e) => setAmount(e.target.value)} />
-            <input className="input" placeholder="Sabab yoki izoh" value={note} onChange={(e) => setNote(e.target.value)} />
+            <input className="input-field" type="number" placeholder="Summa" value={amount} onChange={(e) => setAmount(e.target.value)} />
+            <input className="input-field" placeholder="Sabab yoki izoh" value={note} onChange={(e) => setNote(e.target.value)} />
             <button className="btn-primary" disabled={!amount || request.isPending} onClick={() => request.mutate()}>So‘rov yuborish</button>
           </div>
         </section>
