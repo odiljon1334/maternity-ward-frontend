@@ -499,6 +499,20 @@ export default function HospitalsPage() {
     onError: (e: any) => toast.error(e?.response?.data?.message || "Xatolik"),
   });
 
+  const planningModeMutation = useMutation({
+    mutationFn: ({ id, mode }: { id: string; mode: "STANDARD" | "POST_COVERAGE" }) =>
+      hospitalsApi.setSchedulePlanningMode(id, mode),
+    onSuccess: (_, { mode }) => {
+      qc.invalidateQueries({ queryKey: ["hospitals"] });
+      toast.success(
+        mode === "POST_COVERAGE"
+          ? "Post bo‘yicha oylik grafik yoqildi"
+          : "Oddiy grafik rejimi tiklandi",
+      );
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message || "Grafik rejimini o‘zgartirib bo‘lmadi"),
+  });
+
   // useCallback — har render da yangi funksiya yaratishdan saqlanadi
   const handleSelectHospital = useCallback((h: any) => {
     // Toast darhol — UI javob beradi
@@ -657,6 +671,30 @@ export default function HospitalsPage() {
                         {termStatus.online > 0 ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
                         <span>{termStatus.online}/{termStatus.total} terminal</span>
                       </div>
+                    </div>
+                  )}
+
+                  {isSuperAdmin && (
+                    <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-hover)] p-2.5">
+                      <label className="mb-1 block text-[11px] font-medium text-[var(--text-muted)]">
+                        Grafik rejimi
+                      </label>
+                      <select
+                        className="input-field h-9 py-1.5 text-xs"
+                        value={h.schedulePlanningMode || "STANDARD"}
+                        disabled={planningModeMutation.isPending}
+                        onChange={(event) => {
+                          const mode = event.target.value as "STANDARD" | "POST_COVERAGE";
+                          const message = mode === "POST_COVERAGE"
+                            ? `"${h.name}" uchun 24/7 post bo‘yicha oylik grafikni yoqasizmi? Bu rejim faqat tug‘ruqxona/postlar uchun ishlatilishi kerak.`
+                            : `"${h.name}" uchun oddiy grafik rejimiga qaytasizmi? Avvalgi post rejalari o‘chmaydi, lekin modul yopiladi.`;
+                          if (!confirm(message)) return;
+                          planningModeMutation.mutate({ id: h.id, mode });
+                        }}
+                      >
+                        <option value="STANDARD">Oddiy grafik</option>
+                        <option value="POST_COVERAGE">24/7 post grafigi</option>
+                      </select>
                     </div>
                   )}
 

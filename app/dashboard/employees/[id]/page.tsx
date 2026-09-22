@@ -28,7 +28,8 @@ interface AttendanceRecord {
   // Backend davomat statuslari + grafikdan keladigan virtual statuslar
   status:
     | "PRESENT" | "LATE" | "LATE_EARLY" | "ABSENT" | "EARLY_LEAVE"
-    | "PLANNED" | "DAY_OFF" | "VACATION" | "SICK" | "HOLIDAY";
+    | "PLANNED" | "DAY_OFF" | "VACATION" | "SICK" | "HOLIDAY"
+    | "MATERNITY_LEAVE" | "TRAINING" | "OTHER_ABSENCE";
   schedule?: {
     shift?: {
       startTime?: string;
@@ -98,10 +99,13 @@ const STATUS_LABELS: Record<string, { label: string; color: string; bg: string; 
   VACATION:    { label: "Ta'til",     color: "text-teal-700 dark:text-teal-400",     bg: "bg-teal-50 dark:bg-teal-500/10",    border: "border-teal-200 dark:border-teal-500/20" },
   SICK:        { label: "Kasallik",   color: "text-pink-700 dark:text-pink-400",     bg: "bg-pink-50 dark:bg-pink-500/10",    border: "border-pink-200 dark:border-pink-500/20" },
   HOLIDAY:     { label: "Bayram",     color: "text-violet-700 dark:text-violet-400", bg: "bg-violet-50 dark:bg-violet-500/10", border: "border-violet-200 dark:border-violet-500/20" },
+  MATERNITY_LEAVE: { label: "Tug‘ruq ta’tili", color: "text-fuchsia-700 dark:text-fuchsia-400", bg: "bg-fuchsia-50 dark:bg-fuchsia-500/10", border: "border-fuchsia-200 dark:border-fuchsia-500/20" },
+  TRAINING: { label: "Malaka oshirish", color: "text-cyan-700 dark:text-cyan-400", bg: "bg-cyan-50 dark:bg-cyan-500/10", border: "border-cyan-200 dark:border-cyan-500/20" },
+  OTHER_ABSENCE: { label: "Boshqa yo‘qlik", color: "text-orange-700 dark:text-orange-400", bg: "bg-orange-50 dark:bg-orange-500/10", border: "border-orange-200 dark:border-orange-500/20" },
 };
 
 /** Ishlamaydigan kunlar — jadvalda xiraroq ko'rsatiladi */
-const NON_WORK_STATUSES = new Set(["DAY_OFF", "VACATION", "SICK", "HOLIDAY"]);
+const NON_WORK_STATUSES = new Set(["DAY_OFF", "VACATION", "SICK", "HOLIDAY", "MATERNITY_LEAVE", "TRAINING", "OTHER_ABSENCE"]);
 
 // ─── Stat Card ───────────────────────────────────────────────────────────────
 function StatCard({ label, value, sub, icon, iconBg, progressColor, percent = 100 }: {

@@ -49,6 +49,9 @@ const STATUS_CONFIG: Record<string, { label: string; badgeCls: string }> = {
   VACATION:    { label: "Ta'tilda",     badgeCls: "bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20" },
   SICK:        { label: "Kasallik",     badgeCls: "bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/20" },
   HOLIDAY:     { label: "Bayram",       badgeCls: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20" },
+  MATERNITY_LEAVE: { label: "Tug‘ruq ta’tili", badgeCls: "bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-400 border-fuchsia-500/20" },
+  TRAINING:    { label: "Malaka oshirish", badgeCls: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20" },
+  OTHER_ABSENCE: { label: "Boshqa yo‘qlik", badgeCls: "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20" },
   // Grafik yozuvi umuman yo'q — DB ga yozilmaydi, virtual object
   NO_SCHEDULE: { label: "Grafik yo'q",  badgeCls: "bg-slate-500/10 text-slate-500 dark:text-slate-400 border-slate-400/20" },
 };
@@ -60,11 +63,11 @@ const PRESENT_STATUSES = new Set(["PRESENT", "LATE", "EARLY_LEAVE", "LATE_EARLY"
  * Grafigi bor, lekin o'sha kuni ishlamaydigan xodimlar.
  * Bular "kelmagan" ham, "grafik yo'q" ham emas — davomat foizidan chiqariladi.
  */
-const OFF_DUTY_STATUSES = new Set(["DAY_OFF", "VACATION", "SICK", "HOLIDAY"]);
+const OFF_DUTY_STATUSES = new Set(["DAY_OFF", "VACATION", "SICK", "HOLIDAY", "MATERNITY_LEAVE", "TRAINING", "OTHER_ABSENCE"]);
 
 /** Davomat foizi hisobiga umuman kirmaydigan statuslar */
 const NOT_EXPECTED_STATUSES = new Set([
-  "DAY_OFF", "VACATION", "SICK", "HOLIDAY", "NO_SCHEDULE",
+  "DAY_OFF", "VACATION", "SICK", "HOLIDAY", "MATERNITY_LEAVE", "TRAINING", "OTHER_ABSENCE", "NO_SCHEDULE",
 ]);
 
 // ─── WEEKEND HELPER ───────────────────────────────────────────────────────────

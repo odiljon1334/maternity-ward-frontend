@@ -4,7 +4,7 @@ import { GenerateModal } from "@/components/schedules/GenerateModal";
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { schedulesApi, employeesApi, shiftsApi, departmentsApi, api } from "@/lib/api";
+import { schedulesApi, employeesApi, shiftsApi, departmentsApi, schedulePlanningApi } from "@/lib/api";
 import { Topbar } from "@/components/layout/Topbar";
 import { cn } from "@/lib/utils";
 import { 
@@ -15,6 +15,7 @@ import {
 import dayjs from "dayjs";
 import { useForm } from "react-hook-form";
 import { useAuthStore } from "@/stores/auth";
+import { PostSchedulePlanner } from "@/components/schedules/PostSchedulePlanner";
 
 // ─── Sana kaliti keshi ──────────────────────────────────────────────────────
 // Backend ISO sana qaytaradi; jadval kalitlari "YYYY-MM-DD" ko'rinishida.
@@ -322,6 +323,9 @@ const NON_WORKING_BADGE: Record<string, { mark: string; title: string; cls: stri
   VACATION: { mark: "Ta", title: "Ta'til",         cls: "text-teal-600 dark:text-teal-400" },
   SICK:     { mark: "Ka", title: "Kasallik",       cls: "text-pink-600 dark:text-pink-400" },
   HOLIDAY:  { mark: "B",  title: "Bayram",         cls: "text-indigo-600 dark:text-indigo-400" },
+  MATERNITY_LEAVE: { mark: "TT", title: "Tug‘ruq ta’tili", cls: "text-fuchsia-600 dark:text-fuchsia-400" },
+  TRAINING: { mark: "MO", title: "Malaka oshirish", cls: "text-cyan-600 dark:text-cyan-400" },
+  OTHER_ABSENCE: { mark: "B", title: "Boshqa yo‘qlik", cls: "text-orange-600 dark:text-orange-400" },
 };
 
 function CellBadge({ sch }: { sch?: any }) {
@@ -595,34 +599,35 @@ function ImportModal({
   );
 }
 
-// ─── Normalizer ─────────────────────────────────────────────────────────────
-function normalizeStr(str: string): string {
-  const cyr: Record<string, string> = {
-    'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'yo','ж':'j','з':'z',
-    'и':'i','й':'y','к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r',
-    'с':'s','т':'t','у':'u','ф':'f','х':'x','ц':'c','ч':'ch','ш':'sh',
-    'ъ':"'",'ь':"'",'э':'e','ю':'yu','я':'ya', 'ғ':'g','қ':'q','ҳ':'h','ў':'o',
-  };
-  return str.toLowerCase().split('').map(c => cyr[c] || c).join('');
-}
-
 // ─── Main Page Component ──────────────────────────────────────────────────
 export default function SchedulesPage() {
   const [month, setMonth] = useState(dayjs().month() + 1);
   const [year, setYear] = useState(dayjs().year());
   const [deptFilter, setDeptFilter] = useState("");
   const [empSearch, setEmpSearch] = useState("");
+  const [debouncedEmpSearch, setDebouncedEmpSearch] = useState("");
   const [scheduleFilter, setScheduleFilter] = useState<"all" | "with" | "without">("all");
   const [modalOpen, setModalOpen] = useState(false);
   const [generateEmpId, setGenerateEmpId] = useState<string | undefined>(undefined);
   const [editEntry, setEditEntry] = useState<any>(null);
-  const [view, setView] = useState<"grafik" | "smenlar">("grafik");
+  const [view, setView] = useState<"grafik" | "smenlar" | "postlar">("grafik");
   const [rollingOver, setRollingOver] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
 
-  const { selectedHospital } = useAuthStore();
+  const { selectedHospital, user } = useAuthStore();
   const targetHospitalId = selectedHospital?.id;
   const qc = useQueryClient();
+
+  const { data: planningConfig } = useQuery({
+    queryKey: ["schedule-planning-config", targetHospitalId, user?.hospitalId],
+    queryFn: () => schedulePlanningApi.config(targetHospitalId ? { targetHospitalId } : undefined),
+    enabled: !!targetHospitalId || !!user?.hospitalId,
+  });
+  const postCoverageEnabled = planningConfig?.postCoverageEnabled === true;
+
+  useEffect(() => {
+    if (!postCoverageEnabled && view === "postlar") setView("grafik");
+  }, [postCoverageEnabled, view]);
 
   // Scroll konteyner ref'i Infinite Scroll uchun
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -633,8 +638,17 @@ export default function SchedulesPage() {
   useEffect(() => {
     setDeptFilter("");
     setEmpSearch("");
+    setDebouncedEmpSearch("");
     setScheduleFilter("all");
   }, [targetHospitalId]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(
+      () => setDebouncedEmpSearch(empSearch.trim()),
+      300,
+    );
+    return () => window.clearTimeout(timer);
+  }, [empSearch]);
 
   // 1. O'zgarmaydigan statistika (Cards uchun)
   const { data: statsData, isLoading: statsLoading } = useQuery({
@@ -650,22 +664,34 @@ export default function SchedulesPage() {
   isFetchingNextPage, 
   isLoading: schedLoading 
 } = useInfiniteQuery({
-  queryKey: ['staff-schedule-paginated', month, year, targetHospitalId],
-  queryFn: async ({ pageParam = 1 }) => {
-    const res = await api.get(`/schedules/monthly-paginated`, {
-      params: {
-        page: pageParam,
-        limit: 30,
-        month: month, // 👈 Sizdagi state nomi
-        year: year,   // 👈 Sizdagi state nomi
-        targetHospitalId: targetHospitalId,
-      },
-    });
-    return res.data;
-  },
+  queryKey: [
+    'staff-schedule-paginated',
+    month,
+    year,
+    targetHospitalId,
+    deptFilter,
+    debouncedEmpSearch,
+    scheduleFilter,
+  ],
+  queryFn: ({ pageParam = 1 }) =>
+    schedulesApi.monthlyPaginated({
+      page: pageParam,
+      limit: 30,
+      month,
+      year,
+      ...(targetHospitalId && { targetHospitalId }),
+      ...(deptFilter && { departmentId: deptFilter }),
+      ...(debouncedEmpSearch && { search: debouncedEmpSearch }),
+      scheduleFilter,
+    }),
   initialPageParam: 1,
   getNextPageParam: (lastPage, allPages) => {
-    const items = Array.isArray(lastPage) ? lastPage : (lastPage?.data ?? lastPage?.items ?? []);
+    if (lastPage?.meta) {
+      return lastPage.meta.page < lastPage.meta.totalPages
+        ? lastPage.meta.page + 1
+        : undefined;
+    }
+    const items = lastPage?.data ?? [];
     if (items.length < 30) {
       return undefined;
     }
@@ -736,7 +762,7 @@ export default function SchedulesPage() {
     const seenIds = new Set<string>();
 
     for (const page of paginatedData.pages) {
-      const items = Array.isArray(page) ? page : (page?.data ?? page?.items ?? page?.result ?? []);
+      const items = page?.data ?? [];
 
       if (Array.isArray(items)) {
         for (const item of items) {
@@ -768,32 +794,9 @@ export default function SchedulesPage() {
     return map;
   }, [employeesWithSchedules]);
 
-  // Frontend filtrlash (Bo'lim, Qidiruv, Grafik mavjudligi bo'yicha)
-  const employees = useMemo(() => {
-    let list = deptFilter
-      ? employeesWithSchedules.filter((e) => e.department?.id === deptFilter || e.departmentId === deptFilter)
-      : [...employeesWithSchedules];
-
-    // "Grafikli" = kamida bitta grafik yozuvi bor (WORKING, DAY_OFF, ta'til...).
-    // Bu "Grafikli / Grafiksiz" kartochkalaridagi backend hisobiga mos keladi —
-    // ilgari filtr faqat WORKING ni sanardi va kartochka bilan farq qilardi.
-    const hasAnySchedule = (id: string) => {
-      const empSch = scheduleMap.get(id);
-      return !!empSch && empSch.size > 0;
-    };
-
-    if (scheduleFilter === "with") {
-      list = list.filter((e) => hasAnySchedule(e.id));
-    } else if (scheduleFilter === "without") {
-      list = list.filter((e) => !hasAnySchedule(e.id));
-    }
-
-    if (empSearch.trim()) {
-      const q = normalizeStr(empSearch.trim());
-      list = list.filter((e) => normalizeStr(e.fullName).includes(q));
-    }
-    return list;
-  }, [employeesWithSchedules, deptFilter, scheduleFilter, empSearch, scheduleMap]);
+  // Filtrlar backendda barcha xodimlarga paginationdan OLDIN qo'llanadi.
+  // Shu sabab `employeesWithSchedules` allaqachon to'g'ri natija hisoblanadi.
+  const employees = employeesWithSchedules;
 
   // Jadval yuklanishi faqat grafik so'roviga bog'liq.
   // Hodimlar ro'yxati modal uchun alohida yuklanadi — u jadvalni bloklamasligi kerak.
@@ -876,9 +879,20 @@ export default function SchedulesPage() {
               >
                 <Clock className="w-3.5 h-3.5" /> Smenlar
               </button>
+              {postCoverageEnabled && (
+                <button
+                  onClick={() => setView("postlar")}
+                  className={cn(
+                    "px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-2",
+                    view === "postlar" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/5"
+                  )}
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" /> Post grafik
+                </button>
+              )}
             </div>
 
-            {view === "grafik" && (
+            {(view === "grafik" || view === "postlar") && (
               <div className="flex items-center gap-1 bg-slate-100 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 rounded-xl p-1 shadow-sm">
                 <button onClick={() => navMonth(-1)} className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-white/5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
                   <ChevronLeft className="w-4 h-4" />
@@ -892,7 +906,7 @@ export default function SchedulesPage() {
               </div>
             )}
 
-            {(month !== dayjs().month() + 1 || year !== dayjs().year()) && view === "grafik" && (
+            {(month !== dayjs().month() + 1 || year !== dayjs().year()) && (view === "grafik" || view === "postlar") && (
               <button onClick={() => { setMonth(dayjs().month() + 1); setYear(dayjs().year()); }} className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/5 text-xs font-semibold transition-all">
                 Joriy oy
               </button>
@@ -1030,6 +1044,17 @@ export default function SchedulesPage() {
 
         {/* Smenlar ko'rinishi */}
         {view === "smenlar" && <ShiftsView targetHospitalId={targetHospitalId} />}
+
+        {view === "postlar" && postCoverageEnabled && (
+          <PostSchedulePlanner
+            targetHospitalId={targetHospitalId}
+            month={month}
+            year={year}
+            departments={departments as any[]}
+            shifts={shifts as any[]}
+            userRole={user?.role}
+          />
+        )}
 
         {/* Main Grid Calendar with Infinite Scroll */}
         {view === "grafik" && (

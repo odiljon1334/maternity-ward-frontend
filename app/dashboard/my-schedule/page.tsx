@@ -108,10 +108,10 @@ function CompactScheduleCalendar({
           // Dam olishdan boshqa ishlamaydigan kunlar (ta'til, kasallik, bayram)
           // Katak juda tor (~38px) — desktop jadvaldagi kabi qisqa belgilar
           const offMark   = hasData && !isWorkDay && !isDayOff
-            ? ({ VACATION: "Ta", SICK: "Ka", HOLIDAY: "B" } as Record<string, string>)[schedule.status]
+            ? ({ VACATION: "Ta", SICK: "Ka", HOLIDAY: "B", MATERNITY_LEAVE: "TT", TRAINING: "MO", OTHER_ABSENCE: "B" } as Record<string, string>)[schedule.status]
             : undefined;
           const offLabel  = hasData && !isWorkDay && !isDayOff
-            ? ({ VACATION: "Ta'til", SICK: "Kasallik", HOLIDAY: "Bayram" } as Record<string, string>)[schedule.status]
+            ? ({ VACATION: "Ta'til", SICK: "Kasallik", HOLIDAY: "Bayram", MATERNITY_LEAVE: "Tug‘ruq ta’tili", TRAINING: "Malaka oshirish", OTHER_ABSENCE: "Boshqa yo‘qlik" } as Record<string, string>)[schedule.status]
             : undefined;
 
           // Skeleton

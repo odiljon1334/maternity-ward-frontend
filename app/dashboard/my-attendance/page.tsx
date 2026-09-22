@@ -47,7 +47,7 @@ interface ScheduleDay {
   date:       string;           // ISO string
   // ⚠️ Backend ScheduleStatus enum'ining barcha qiymatlarini qaytaradi —
   //    ilgari bu yerda faqat WORKING | DAY_OFF yozilgan edi
-  status:     "WORKING" | "DAY_OFF" | "VACATION" | "SICK" | "HOLIDAY";
+  status:     "WORKING" | "DAY_OFF" | "VACATION" | "SICK" | "HOLIDAY" | "MATERNITY_LEAVE" | "TRAINING" | "OTHER_ABSENCE";
   note:       string | null;    // "Ta'til: Mehnat ta'tili" kabi izoh
   employeeId: string;
   shift: {
@@ -95,6 +95,9 @@ const REST_LABELS: Record<string, string> = {
   VACATION: "Ta'til",
   SICK:     "Kasallik",
   HOLIDAY:  "Bayram",
+  MATERNITY_LEAVE: "Tug‘ruq ta’tili",
+  TRAINING: "Malaka oshirish",
+  OTHER_ABSENCE: "Boshqa yo‘qlik",
 };
 
 /** Schedule yoki attendance record dan smena turini aniqlaydi */
@@ -110,8 +113,8 @@ function resolveShiftType(
     return "DAY";
   }
 
-  // 2. DAY_OFF — smena yo'q
-  if (scheduleDay?.status === "DAY_OFF") return null;
+  // 2. Ishlamaydigan grafik holatlarida smena yo'q
+  if (scheduleDay && scheduleDay.status !== "WORKING") return null;
 
   // 3. Fallback: attendance record dan (grafik yo'q xodim kelgan bo'lsa)
   const recShift = record?.schedule?.shift;

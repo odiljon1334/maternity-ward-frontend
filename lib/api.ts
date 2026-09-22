@@ -222,8 +222,20 @@ export const schedulesApi = {
   // YANGI QO'SHILADIGAN API'LAR:
   statisticsSummary: (params?: { month?: number; year?: number; targetHospitalId?: string }) =>
     api.get("/schedules/statistics/summary", { params }).then((r) => r.data.data ?? r.data),
-  monthlyPaginated: (params?: { month?: number; year?: number; page?: number; limit?: number; targetHospitalId?: string }) =>
-    api.get("/schedules/monthly-paginated", { params }).then((r) => r.data.data ?? r.data),
+  monthlyPaginated: (params?: {
+    month?: number;
+    year?: number;
+    page?: number;
+    limit?: number;
+    targetHospitalId?: string;
+    departmentId?: string;
+    search?: string;
+    scheduleFilter?: "all" | "with" | "without";
+  }) =>
+    api.get("/schedules/monthly-paginated", { params }).then((r) => ({
+      data: r.data.data ?? [],
+      meta: r.data.meta,
+    })),
 
   employee: (id: string, params?: { month?: number; year?: number }) =>
     api.get(`/schedules/employee/${id}`, { params }).then((r) => r.data.data),
@@ -239,6 +251,44 @@ export const schedulesApi = {
       params,
       timeout: 300000,
     }).then((r) => r.data.data ?? r.data),
+};
+
+// ─── Post-based schedule planning (hospital opt-in) ───────
+export const schedulePlanningApi = {
+  config: (params?: { targetHospitalId?: string }) =>
+    api.get("/schedule-planning/config", { params }).then((r) => r.data.data),
+  posts: (params?: { targetHospitalId?: string; departmentId?: string }) =>
+    api.get("/schedule-planning/posts", { params }).then((r) => r.data.data),
+  createPost: (
+    data: { name: string; code: string; departmentId: string; dailyCoverageMinutes?: number },
+    params?: { targetHospitalId?: string },
+  ) => api.post("/schedule-planning/posts", data, { params }).then((r) => r.data.data),
+  plans: (params: { targetHospitalId?: string; year: number; month: number; postId?: string }) =>
+    api.get("/schedule-planning/plans", { params }).then((r) => r.data.data),
+  plan: (id: string, params?: { targetHospitalId?: string }) =>
+    api.get(`/schedule-planning/plans/${id}`, { params }).then((r) => r.data.data),
+  createPlan: (
+    data: { postId: string; year: number; month: number },
+    params?: { targetHospitalId?: string },
+  ) => api.post("/schedule-planning/plans", data, { params }).then((r) => r.data.data),
+  saveEntries: (id: string, entries: any[], params?: { targetHospitalId?: string }) =>
+    api.put(`/schedule-planning/plans/${id}/entries`, { entries }, { params }).then((r) => r.data.data),
+  submitPlan: (id: string, params?: { targetHospitalId?: string }) =>
+    api.post(`/schedule-planning/plans/${id}/submit`, {}, { params }).then((r) => r.data.data),
+  approvePlan: (id: string, params?: { targetHospitalId?: string }) =>
+    api.post(`/schedule-planning/plans/${id}/approve`, {}, { params }).then((r) => r.data.data),
+  rejectPlan: (id: string, reason: string, params?: { targetHospitalId?: string }) =>
+    api.post(`/schedule-planning/plans/${id}/reject`, { reason }, { params }).then((r) => r.data.data),
+  exportPlan: (id: string, params?: { targetHospitalId?: string }) =>
+    api.get(`/schedule-planning/plans/${id}/export`, { params, responseType: "blob" }),
+  createChange: (data: any, params?: { targetHospitalId?: string }) =>
+    api.post("/schedule-planning/changes", data, { params }).then((r) => r.data.data),
+  acceptChange: (id: string, params?: { targetHospitalId?: string }) =>
+    api.patch(`/schedule-planning/changes/${id}/accept`, {}, { params }).then((r) => r.data.data),
+  approveChange: (id: string, params?: { targetHospitalId?: string }) =>
+    api.patch(`/schedule-planning/changes/${id}/approve`, {}, { params }).then((r) => r.data.data),
+  rejectChange: (id: string, reason: string, params?: { targetHospitalId?: string }) =>
+    api.patch(`/schedule-planning/changes/${id}/reject`, { reason }, { params }).then((r) => r.data.data),
 };
 
 // ─── Attendance ─────────────────────────────────
@@ -395,6 +445,8 @@ export const hospitalsApi = {
   get: (id: string) => api.get(`/hospitals/${id}`).then((r) => r.data.data),
   create: (data: any) => api.post("/hospitals", data).then((r) => r.data.data),
   update: (id: string, data: any) => api.put(`/hospitals/${id}`, data).then((r) => r.data.data),
+  setSchedulePlanningMode: (id: string, mode: "STANDARD" | "POST_COVERAGE") =>
+    api.patch(`/hospitals/${id}/schedule-planning-mode`, { mode }).then((r) => r.data.data),
   delete: (id: string) => api.delete(`/hospitals/${id}`).then((r) => r.data.data),
   createDirector: (hospitalId: string, data: any) =>
     api.post(`/hospitals/${hospitalId}/directors`, data).then((r) => r.data.data),
