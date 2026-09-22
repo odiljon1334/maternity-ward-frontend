@@ -1,3 +1,19 @@
+# MaternityCare frontend
+
+Frontend productionda backend repo ichidagi yagona Compose loyiha tomonidan
+build va deploy qilinadi. VPS'da ushbu repodan alohida deploy buyrug'ini
+ishlatmang.
+
+```bash
+cd /home/maternit-backend/maternity-ward-backend
+bash deploy.sh
+```
+
+Asosiy production tekshiruv ro'yxati backend repodagi
+`docs/PRODUCTION_REGRESSION_CHECKLIST.md` faylida saqlanadi.
+
+---
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
