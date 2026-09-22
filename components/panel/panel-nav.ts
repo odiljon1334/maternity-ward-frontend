@@ -33,7 +33,6 @@ export const PANEL_NAV: PanelNavItem[] = [
     href: "/panel/subscriptions",
     label: "Daromad tahlili",
     icon: BarChart3,
-    badge: "soon",
   },
   {
     href: "/panel/permissions",
