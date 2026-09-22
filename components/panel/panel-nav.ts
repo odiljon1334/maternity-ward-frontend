@@ -39,5 +39,5 @@ export const PANEL_NAV: PanelNavItem[] = [
     label: "Ruxsatlar",
     icon: ShieldCheck,
   },
-  { href: "/panel/audit", label: "Audit log", icon: History, badge: "soon" },
+  { href: "/panel/audit", label: "Audit log", icon: History },
 ];
