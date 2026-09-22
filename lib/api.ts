@@ -325,6 +325,33 @@ export const payrollApi = {
     api.get("/payroll/my/payslip", { params, responseType: "blob" }),
 };
 
+export const compensationApi = {
+  adjustments: (params?: any) =>
+    api.get("/compensation/adjustments", { params }).then((r) => r.data.data ?? r.data),
+  createAdjustment: (data: any, params?: any) =>
+    api.post("/compensation/adjustments", data, { params }).then((r) => r.data.data ?? r.data),
+  decideAdjustment: (id: string, data: any, params?: any) =>
+    api.patch(`/compensation/adjustments/${id}/decision`, data, { params }).then((r) => r.data.data ?? r.data),
+  myAdjustments: (params?: any) =>
+    api.get("/compensation/my/adjustments", { params }).then((r) => r.data.data ?? r.data),
+  submitExplanation: (id: string, explanation: string) =>
+    api.patch(`/compensation/my/adjustments/${id}/explanation`, { explanation }).then((r) => r.data.data ?? r.data),
+  acknowledgeAdjustment: (id: string) =>
+    api.patch(`/compensation/my/adjustments/${id}/acknowledge`).then((r) => r.data.data ?? r.data),
+  advances: (params?: any) =>
+    api.get("/compensation/advances", { params }).then((r) => r.data.data ?? r.data),
+  createAdvance: (data: any, params?: any) =>
+    api.post("/compensation/advances", data, { params }).then((r) => r.data.data ?? r.data),
+  decideAdvance: (id: string, data: any, params?: any) =>
+    api.patch(`/compensation/advances/${id}/decision`, data, { params }).then((r) => r.data.data ?? r.data),
+  markAdvancePaid: (id: string, data: any, params?: any) =>
+    api.patch(`/compensation/advances/${id}/paid`, data, { params }).then((r) => r.data.data ?? r.data),
+  myAdvances: (params?: any) =>
+    api.get("/compensation/my/advances", { params }).then((r) => r.data.data ?? r.data),
+  requestMyAdvance: (data: any) =>
+    api.post("/compensation/my/advances", data).then((r) => r.data.data ?? r.data),
+};
+
 export const hikvisionApi = {
   // Terminal CRUD
   getTerminals: (hospitalId: string) =>

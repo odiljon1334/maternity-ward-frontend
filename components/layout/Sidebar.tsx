@@ -10,7 +10,7 @@ import {
   Activity, ChevronLeft, ChevronRight, Building2, Bell,
   CreditCard, UserPlus, Shield, Send, Eye, X, Video, 
   ScanFace, UserCircle, Palmtree, BarChart2, Wallet, Bot, Archive, UserCog,
-  Sparkles,
+  Sparkles, BookOpen, HandCoins,
   MapPin
 } from "lucide-react";
 import { cn, getInitials, getAvatarColor } from "@/lib/utils";
@@ -35,6 +35,8 @@ const mainNavItems: NavItem[] = [
   { href: "/dashboard/my-schedule",       label: "Mening grafigim",    icon: CalendarDays,   exact: false, roles: ["EMPLOYEE"] },
   { href: "/dashboard/my-leaves",         label: "Ta'til so'rovlari",  icon: Palmtree,       exact: false, roles: ["EMPLOYEE"] },
   { href: "/dashboard/my-payroll",        label: "Maoshim",            icon: Wallet,         exact: false, roles: ["EMPLOYEE"] },
+  { href: "/dashboard/my-compensation",   label: "Bonus va avans",     icon: HandCoins,      exact: false, roles: ["EMPLOYEE"] },
+  { href: "/dashboard/labor-law",         label: "Mehnat huquqi",      icon: BookOpen,       exact: false, roles: ["EMPLOYEE", "SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/profile",           label: "Profilim",           icon: UserCircle,     exact: false, roles: ["EMPLOYEE"] },
   { href: "/dashboard",                   label: "Dashboard",          icon: LayoutDashboard, exact: true, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/employees",         label: "Xodimlar",           icon: Users,          exact: true,  roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
@@ -52,6 +54,7 @@ const mainNavItems: NavItem[] = [
   { href: "/dashboard/leaves",            label: "Ta'til so'rovlari",  icon: Palmtree,       exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/cameras", label: "Kameralar", icon: Video, exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "MINISTRY"] },
   { href: "/dashboard/payroll",           label: "Maosh",              icon: DollarSign,     exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
+  { href: "/dashboard/compensation",      label: "KPI, jarima, avans", icon: HandCoins,      exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR"] },
   { href: "/dashboard/analytics",         label: "Chuqur tahlil",      icon: BarChart2,      exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/reports",           label: "Hisobotlar",         icon: FileBarChart2,  exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/hospitals",         label: "Muassasalar",        icon: Building2,      exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN"] },

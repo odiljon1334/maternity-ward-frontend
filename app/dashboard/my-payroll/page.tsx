@@ -33,14 +33,16 @@ const YEARS = Array.from({ length: 4 }, (_, i) => dayjs().year() - 1 + i);
 function calcTotalDeductions(r: any): number {
   return (
     Number(r.absenceDeduction   ?? 0) +
-    Number(r.lateDeduction      ?? 0) +
     Number(r.earlyLeaveDeduction ?? 0) +
+    Number(r.disciplinaryFine ?? 0) +
+    Number(r.otherLawfulDeduction ?? 0) +
+    Number(r.advanceApplied ?? r.advancePaid ?? 0) +
     Number(r.manualDeduction    ?? 0)
   );
 }
 
 function calcTotalBonuses(r: any): number {
-  return Number(r.overtimeBonus ?? 0) + Number(r.manualBonus ?? 0);
+  return Number(r.overtimeBonus ?? 0) + Number(r.contractualKpiBonus ?? 0) + Number(r.oneTimeAward ?? 0) + Number(r.manualBonus ?? 0);
 }
 
 // ─── STATUS BADGE ─────────────────────────────────────────────────────────────

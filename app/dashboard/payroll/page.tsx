@@ -11,6 +11,20 @@ import {
   AlertTriangle, Info, X, Calculator, FileText,
 } from "lucide-react";
 import dayjs from "dayjs";
+
+const payrollDeductions = (r: any) =>
+  Number(r.absenceDeduction || 0) +
+  Number(r.earlyLeaveDeduction || 0) +
+  Number(r.disciplinaryFine || 0) +
+  Number(r.otherLawfulDeduction || 0) +
+  Number(r.advanceApplied || r.advancePaid || 0) +
+  Number(r.manualDeduction || 0);
+
+const payrollBonuses = (r: any) =>
+  Number(r.overtimeBonus || 0) +
+  Number(r.contractualKpiBonus || 0) +
+  Number(r.oneTimeAward || 0) +
+  Number(r.manualBonus || 0);
 import { useAuthStore } from "@/stores/auth";
 
 const STATUS_MAP: Record<string, { label: string; cls: string }> = {
@@ -38,12 +52,8 @@ function PayrollPreviewModal({
 
   const hasExisting  = records.length > 0;
   const totalNet     = records.reduce((s, r) => s + Number(r.netSalary      || 0), 0);
-  const totalDeduct  = records.reduce((s, r) => s + Number(r.lateDeduction   || 0)
-                                                  + Number(r.earlyLeaveDeduction || 0)
-                                                  + Number(r.absenceDeduction    || 0)
-                                                  + Number(r.manualDeduction     || 0), 0);
-  const totalBonus   = records.reduce((s, r) => s + Number(r.overtimeBonus || 0)
-                                                  + Number(r.manualBonus   || 0), 0);
+  const totalDeduct  = records.reduce((s, r) => s + payrollDeductions(r), 0);
+  const totalBonus   = records.reduce((s, r) => s + payrollBonuses(r), 0);
   const monthLabel   = dayjs().month(month - 1).format("MMMM");
 
   return (
@@ -207,8 +217,8 @@ export default function PayrollPage() {
   const totalPages = Math.ceil(total / LIMIT);
 
   const totalNet    = records.reduce((s, r) => s + Number(r.netSalary || 0), 0);
-  const totalDeduct = records.reduce((s, r) => s + Number(r.lateDeduction || 0) + Number(r.earlyLeaveDeduction || 0) + Number(r.absenceDeduction || 0), 0);
-  const totalBonus  = records.reduce((s, r) => s + Number(r.overtimeBonus || 0) + Number(r.manualBonus || 0), 0);
+  const totalDeduct = records.reduce((s, r) => s + payrollDeductions(r), 0);
+  const totalBonus  = records.reduce((s, r) => s + payrollBonuses(r), 0);
 
   return (
     <div>
@@ -300,8 +310,8 @@ export default function PayrollPage() {
             </div>
           )}
           {!isLoading && records.map((r: any) => {
-            const deductions = Number(r.lateDeduction || 0) + Number(r.earlyLeaveDeduction || 0) + Number(r.absenceDeduction || 0) + Number(r.manualDeduction || 0);
-            const bonuses = Number(r.overtimeBonus || 0) + Number(r.manualBonus || 0);
+            const deductions = payrollDeductions(r);
+            const bonuses = payrollBonuses(r);
             const st = STATUS_MAP[r.status] || { label: r.status, cls: "badge-gray" };
             return (
               <div key={r.id} className="card p-4">
@@ -403,8 +413,8 @@ export default function PayrollPage() {
                 ))}
 
                 {!isLoading && records.map((r: any) => {
-                  const deductions = Number(r.lateDeduction || 0) + Number(r.earlyLeaveDeduction || 0) + Number(r.absenceDeduction || 0) + Number(r.manualDeduction || 0);
-                  const bonuses = Number(r.overtimeBonus || 0) + Number(r.manualBonus || 0);
+                  const deductions = payrollDeductions(r);
+                  const bonuses = payrollBonuses(r);
                   return (
                     <tr key={r.id} className="border-b border-[var(--border)] table-row-hover">
                       <td className="px-5 py-3.5">
