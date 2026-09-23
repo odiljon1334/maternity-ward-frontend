@@ -749,6 +749,64 @@ export const leadsApi = {
     publicApi.post("/public/trial-request", data).then((r) => r.data),
 };
 
+export interface WorkSite {
+  id: string;
+  hospitalId: string;
+  name: string;
+  address: string | null;
+  gpsLat: number;
+  gpsLng: number;
+  gpsRadius: number;
+  isActive: boolean;
+  employeeCount: number;
+}
+
+export interface LegacyCenter {
+  employeeId: string;
+  fullName: string;
+  position: string | null;
+  department: string | null;
+  gpsLat: number;
+  gpsLng: number;
+  gpsRadius: number;
+  distanceFromMain: number | null;
+}
+
+type WorkSiteInput = {
+  name: string;
+  address?: string;
+  lat: number;
+  lng: number;
+  radius?: number;
+  accuracy?: number;
+};
+
+/** Ish joylari (FAZA 6, 4b). SUPER/ASSISTANT admin `targetHospitalId` yuboradi. */
+export const workSitesApi = {
+  list: (targetHospitalId?: string) =>
+    api.get("/work-sites", { params: { targetHospitalId } }).then((r) => r.data.data as WorkSite[]),
+  create: (data: WorkSiteInput, targetHospitalId?: string) =>
+    api.post("/work-sites", data, { params: { targetHospitalId } }).then((r) => r.data.data as WorkSite),
+  update: (id: string, data: Partial<WorkSiteInput> & { isActive?: boolean }, targetHospitalId?: string) =>
+    api.patch(`/work-sites/${id}`, data, { params: { targetHospitalId } }).then((r) => r.data.data as WorkSite),
+  remove: (id: string, targetHospitalId?: string) =>
+    api.delete(`/work-sites/${id}`, { params: { targetHospitalId } }).then((r) => r.data.data),
+  employees: (id: string, targetHospitalId?: string) =>
+    api
+      .get(`/work-sites/${id}/employees`, { params: { targetHospitalId } })
+      .then((r) => r.data.data as { id: string; fullName: string; position: string | null }[]),
+  setEmployees: (id: string, employeeIds: string[], targetHospitalId?: string) =>
+    api.put(`/work-sites/${id}/employees`, { employeeIds }, { params: { targetHospitalId } }).then((r) => r.data.data),
+  legacyCenters: (targetHospitalId?: string) =>
+    api.get("/work-sites/legacy-centers", { params: { targetHospitalId } }).then((r) => r.data.data as LegacyCenter[]),
+  approveLegacy: (employeeId: string, data: { name: string; radius?: number }, targetHospitalId?: string) =>
+    api
+      .post(`/work-sites/legacy-centers/${employeeId}/approve`, data, { params: { targetHospitalId } })
+      .then((r) => r.data.data as WorkSite),
+  rejectLegacy: (employeeId: string, targetHospitalId?: string) =>
+    api.post(`/work-sites/legacy-centers/${employeeId}/reject`, {}, { params: { targetHospitalId } }).then((r) => r.data.data),
+};
+
 export interface HospitalGps {
   gpsLat: number | null;
   gpsLng: number | null;

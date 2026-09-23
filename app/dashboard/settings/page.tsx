@@ -16,6 +16,7 @@ import { cn, formatTerminalConnectivity, isSuperLike } from "@/lib/utils";
 import { useConfirmation } from "@/components/ui";
 import { TelegramBotAccessPanel } from "@/components/settings/TelegramBotAccessPanel";
 import { GeofencePanel } from "@/components/settings/GeofencePanel";
+import { WorkSitesPanel } from "@/components/settings/WorkSitesPanel";
 
 // ─────────────────────────────────────────────
 // SHARED: Inline Edit Row
@@ -285,6 +286,9 @@ export default function SettingsPage() {
           <PositionsPanel targetHospitalId={targetHospitalId} />
         </div>
         {canManageBranding && <GeofencePanel />}
+        {(canManageBranding || (isSuperLike(user?.role) && targetHospitalId)) && (
+          <WorkSitesPanel targetHospitalId={isSuperLike(user?.role) ? targetHospitalId : undefined} />
+        )}
         {canManageTerminals && <TerminalsPanel hospitalId={terminalsHospitalId} />}
         {botAccessHospitalId && (
           <TelegramBotAccessPanel
