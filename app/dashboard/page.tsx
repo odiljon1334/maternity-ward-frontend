@@ -48,7 +48,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (user?.role === "MINISTRY") router.replace("/dashboard/ministry");
-    if (user?.role === "EMPLOYEE") router.replace("/dashboard/my-attendance");
+    if (user?.role === "EMPLOYEE") router.replace("/dashboard/my-checkin");
   }, [user?.role, router]);
 
   const FAST_REFRESH = 2 * 60 * 1000;

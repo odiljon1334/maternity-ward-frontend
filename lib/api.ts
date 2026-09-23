@@ -805,7 +805,18 @@ export const workSitesApi = {
       .then((r) => r.data.data as WorkSite),
   rejectLegacy: (employeeId: string, targetHospitalId?: string) =>
     api.post(`/work-sites/legacy-centers/${employeeId}/reject`, {}, { params: { targetHospitalId } }).then((r) => r.data.data),
+  /** Xodimning o'zi uchun: check-in qilish mumkin bo'lgan barcha markazlar */
+  my: () => api.get("/work-sites/my").then((r) => r.data.data as MyGeoCenter[]),
 };
+
+export interface MyGeoCenter {
+  lat: number;
+  lng: number;
+  radius: number;
+  name: string;
+  source: "SITE" | "PERSONAL" | "POSITION" | "HOSPITAL";
+  workSiteId?: string | null;
+}
 
 export interface HospitalGps {
   gpsLat: number | null;

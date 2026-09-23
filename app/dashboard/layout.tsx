@@ -55,7 +55,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           Bezak dog'lari (absolute, pointer-events-none) main dan oldin
           kelgani uchun baribir orqada qoladi.
         */}
-        <main className="relative flex-1 overflow-y-auto min-w-0 pb-16 sm:pb-0">
+        <main className="relative flex-1 overflow-y-auto min-w-0 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:pb-0">
           <EmailVerificationReminder />
           {children}
         </main>
