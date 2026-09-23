@@ -326,25 +326,6 @@ export const attendanceApi = {
       headers: { "Content-Type": "multipart/form-data" },
     }).then((r) => r.data.data ?? r.data);
   },
-  /** Birinchi marta ish joyi GPS ni kasalxona uchun o'rnatish */
-  setHospitalGps: (lat: number, lng: number) =>
-    api.post("/attendance/set-hospital-gps", { lat: String(lat), lng: String(lng) })
-      .then((r) => r.data.data ?? r.data),
-
-  /** Birinchi marta ish joyi GPS ni position uchun o'rnatish */
-  // accuracy — brauzer bergan o'lchov aniqligi (metr). Server past aniqlikdagi
-  // (Wi-Fi/antenna orqali topilgan) koordinatani saqlashni rad etadi.
-  setPositionGps: (lat: number, lng: number, accuracy?: number) =>
-  api.post("/attendance/set-employee-gps", {
-    lat: String(lat),
-    lng: String(lng),
-    ...(accuracy !== undefined ? { accuracy: String(accuracy) } : {}),
-  }).then((r) => r.data.data ?? r.data),
-
-  setEmployeeGps: (lat: number, lng: number) =>
-    api.post("/attendance/set-employee-gps", { lat: String(lat), lng: String(lng) })
-      .then((r) => r.data.data ?? r.data),
-
   resetEmployeeGps: (employeeId: string) =>
     api.post(`/attendance/reset-employee-gps/${employeeId}`).then((r) => r.data.data),
 };
@@ -474,6 +455,11 @@ export const hospitalsApi = {
     api.patch(`/hospitals/${id}/gps-radius`, { radius }).then((r) => r.data.data),
   resetGps: (id: string) =>
     api.patch(`/hospitals/${id}/gps-reset`).then((r) => r.data.data),
+  /** DIRECTOR/ADMIN: o'z muassasasining geofence markazi */
+  getMyGps: () =>
+    api.get(`/hospitals/me/gps`).then((r) => r.data.data as HospitalGps),
+  setMyGps: (data: { lat: number; lng: number; accuracy?: number; radius?: number }) =>
+    api.put(`/hospitals/me/gps`, data).then((r) => r.data.data as HospitalGps),
   resetTelegramSubs: (id: string) => api.delete(`/hospitals/${id}/telegram-subs`).then((r) => r.data),
   listAssistants: (id: string) =>
     api.get(`/hospitals/${id}/assistants`).then((r) => r.data.data),
@@ -762,3 +748,11 @@ export const leadsApi = {
   trialRequest: (data: TrialRequestPayload) =>
     publicApi.post("/public/trial-request", data).then((r) => r.data),
 };
+
+export interface HospitalGps {
+  gpsLat: number | null;
+  gpsLng: number | null;
+  gpsRadius: number;
+  /** Shaxsiy markazi bor faol xodimlar soni (ular muassasa markazidan ustun) */
+  personalCenters: number;
+}

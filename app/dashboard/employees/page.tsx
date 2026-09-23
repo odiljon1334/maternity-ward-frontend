@@ -739,7 +739,7 @@ const EmpRow = memo(function EmpRow({
             <button
               onClick={() => onResetGps(emp)}
               className="px-2.5 py-1 rounded-lg text-xs font-bold text-sky-600 dark:text-sky-400 hover:text-sky-800 dark:hover:text-sky-300 hover:bg-sky-500/10 transition-colors"
-              title="Xodim GPS joylashuvini qayta belgilash">
+              title="Xodimning shaxsiy GPS markazini tozalash">
               📍 GPS
             </button>
           )}
@@ -1005,7 +1005,7 @@ const resetGpsMutation = useMutation({
         })),
       };
     });
-    toast.success("Xodim GPS joylashuvi tozalandi — xodim qaytadan belgilashi mumkin");
+    toast.success("Xodimning shaxsiy GPS markazi tozalandi — endi muassasa markazi ishlatiladi");
   },
   onError: (e: any) => toast.error(e?.response?.data?.message || "GPS reset xatoligi"),
 });
@@ -1035,7 +1035,7 @@ const resetGpsMutation = useMutation({
   const handleResetGps = async (emp: any) => {
     const approved = await confirm({
       title: "GPS joylashuvi tozalansinmi?",
-      description: `${emp.fullName} ilovaga keyingi kirishda joylashuvini qaytadan belgilashi kerak bo‘ladi.`,
+      description: `${emp.fullName}ning shaxsiy ish joyi markazi o‘chiriladi. Shundan keyin u muassasa markazi (Sozlamalar → Check-in hududi) bo‘yicha tekshiriladi.`,
       confirmLabel: "GPS’ni tozalash",
       tone: "warning",
     });
@@ -1428,7 +1428,7 @@ const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
                     <button
                       onClick={() => handleResetGps(emp)}
                       className="text-sky-600 dark:text-sky-400 hover:text-sky-800 dark:hover:text-sky-300 px-2 py-1 rounded text-xs font-bold"
-                      title="GPS joylashuvni qayta belgilash"
+                      title="Xodimning shaxsiy GPS markazini tozalash"
                     >
                       📍 GPS
                     </button>

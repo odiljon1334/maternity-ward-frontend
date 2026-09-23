@@ -15,6 +15,7 @@ import { usePushNotification } from "@/hooks/usePushNotification";
 import { cn, formatTerminalConnectivity, isSuperLike } from "@/lib/utils";
 import { useConfirmation } from "@/components/ui";
 import { TelegramBotAccessPanel } from "@/components/settings/TelegramBotAccessPanel";
+import { GeofencePanel } from "@/components/settings/GeofencePanel";
 
 // ─────────────────────────────────────────────
 // SHARED: Inline Edit Row
@@ -283,6 +284,7 @@ export default function SettingsPage() {
           <DepartmentsPanel targetHospitalId={targetHospitalId} />
           <PositionsPanel targetHospitalId={targetHospitalId} />
         </div>
+        {canManageBranding && <GeofencePanel />}
         {canManageTerminals && <TerminalsPanel hospitalId={terminalsHospitalId} />}
         {botAccessHospitalId && (
           <TelegramBotAccessPanel

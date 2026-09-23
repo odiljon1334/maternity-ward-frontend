@@ -7,7 +7,7 @@ import { useRef, useState, useCallback, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Camera, MapPin, CheckCircle2, XCircle, Loader2,
-  RefreshCw, AlertTriangle, Clock, LogIn, LogOut, Building2, Sparkles, User,
+  RefreshCw, AlertTriangle, Clock, LogIn, LogOut, Sparkles, User,
   ScanFace, Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -274,7 +274,6 @@ const GPS_TARGET_ACCURACY_M = 25;
 /** Ish joyini saqlash uchun ruxsat etilgan eng past aniqlik.
  *  ⚠️ Next.js sahifa fayllarida faqat maxsus export'larga ruxsat bor —
  *  shuning uchun bu konstanta export qilinmaydi. */
-const GPS_MAX_SAVE_ACCURACY_M = 75;
 /** Sun'iy yo'ldosh qulfini kutish muddati */
 const GPS_MAX_WAIT_MS = 25_000;
 
@@ -424,7 +423,7 @@ export default function MyCheckinPage() {
   const qc   = useQueryClient();
   const cam  = useCameraCapture();
   const gps  = useGPS();
-  const { user, updateEmployeeGps } = useAuthStore();
+  const { user } = useAuthStore();
 
   const empName = user?.employee?.fullName ?? user?.username ?? "Xodim";
 
@@ -436,25 +435,6 @@ export default function MyCheckinPage() {
   useEffect(() => () => {
     if (faceSuccessTimerRef.current) clearTimeout(faceSuccessTimerRef.current);
   }, []);
-
-  // MUHIM: employee.gpsLat/gpsLng ni tekshiramiz (position emas!) — chunki
-  // savePositionGps() aslida backend'dagi POST /attendance/set-employee-gps
-  // orqali shu maydonga yozadi (nomlanishi "position" bo'lsa ham). Avval
-  // bu yerda position?.gpsLat tekshirilardi — u umuman yozilmagani uchun
-  // doim false qolardi, va localStorage'dagi UMUMIY (userga bog'liq bo'lmagan)
-  // 'position_gps_set' bayrog'iga tayanib qolinardi. Bitta qurilmada ikkinchi
-  // xodim akkountiga kirilganda o'sha bayroq ALLAQACHON 'true' bo'lib qolar
-  // edi (birinchi xodim saqlaganidan) — shu sabab ikkinchi xodim hech qachon
-  // o'z joylashuvini belgilash so'ralmasdi va kasalxonaning umumiy (boshqa
-  // filial) manziliga tushib qolardi. localStorage endi ishlatilmaydi.
-  const employeeGpsReady = !!(user?.employee?.gpsLat && user?.employee?.gpsLng);
-  const [positionSetupDone, setPositionSetupDone] = useState(employeeGpsReady);
-  const [positionSetupStep, setPositionSetupStep] = useState<"idle" | "confirming" | "saving">("idle");
-  const [positionSaveError, setPositionSaveError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setPositionSetupDone(employeeGpsReady);
-  }, [employeeGpsReady]);
 
   const today = dayjs();
   const { data, isLoading } = useQuery({
@@ -501,24 +481,6 @@ export default function MyCheckinPage() {
       setFaceVerification("error");
     },
   });
-
-const savePositionGps = useCallback(async () => {
-  if (!gps.coords) return;
-  setPositionSetupStep("saving");
-  setPositionSaveError(null);
-  try {
-    await attendanceApi.setPositionGps(gps.coords.lat, gps.coords.lng, gps.coords.accuracy);
-
-    // Store'ni darhol yangilash — sahifa refresh kutmasdan banner yo'qoladi
-    updateEmployeeGps(gps.coords.lat, gps.coords.lng);
-
-    setPositionSetupDone(true);
-    setPositionSetupStep("idle");
-  } catch (e: any) {
-    setPositionSaveError(e?.response?.data?.message ?? "Saqlashda xatolik");
-    setPositionSetupStep("confirming");
-  }
-}, [gps.coords, updateEmployeeGps]);
 
   const isCheckedIn  = !!data?.checkIn;
   const isCheckedOut = !!data?.checkOut;
@@ -586,127 +548,6 @@ const savePositionGps = useCallback(async () => {
             {today.format("DD MMMM YYYY, dddd")}
           </p>
         </div>
-
-        {!positionSetupDone && (
-          <div className="rounded-3xl border border-amber-500/40 bg-amber-500/10 p-6 space-y-4 shadow-xl">
-            <div className="flex items-start gap-3">
-              <Building2 className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-bold text-amber-300">Ish joyi manzilini belgilang</p>
-                <p className="text-xs text-amber-400/80 mt-0.5">
-                  Bu bir martalik sozlama. Hozirgi joylashuvingiz ish joyi sifatida saqlanadi.
-                </p>
-              </div>
-            </div>
-
-            {positionSetupStep === "idle" && (
-              <div className="space-y-3">
-                {!gps.coords ? (
-                  <button
-                    onClick={gps.locate}
-                    disabled={gps.loading}
-                    className="w-full py-3 rounded-2xl text-sm font-bold bg-amber-600 hover:bg-amber-700 text-white flex items-center justify-center gap-2 transition-colors shadow-lg shadow-amber-600/25"
-                  >
-                    {gps.loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4" />}
-                    {gps.loading ? "Aniqlanmoqda..." : "Joylashuvni aniqlash"}
-                  </button>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="rounded-2xl bg-[var(--bg-main)] p-4 text-xs text-amber-200 space-y-1 border border-amber-500/20">
-                      <p>📍 Kenglik: <span className="font-mono">{gps.coords.lat.toFixed(6)}</span></p>
-                      <p>📍 Uzunlik: <span className="font-mono">{gps.coords.lng.toFixed(6)}</span></p>
-                      <p className={cn(
-                        "font-semibold",
-                        gps.coords.accuracy > GPS_MAX_SAVE_ACCURACY_M ? "text-rose-400" : "text-emerald-400"
-                      )}>
-                        🎯 Aniqlik: ±{Math.round(gps.coords.accuracy)}m
-                        {gps.loading && <span className="ml-1 opacity-70">— aniqlashtirilmoqda...</span>}
-                      </p>
-                    </div>
-
-                    {/* Past aniqlikda saqlash bloklanadi — aks holda ish joyi
-                        Wi-Fi/antenna orqali topilgan uzoq nuqtaga yozilib qoladi */}
-                    {gps.coords.accuracy > GPS_MAX_SAVE_ACCURACY_M && (
-                      <div className="rounded-2xl border border-rose-500/40 bg-rose-500/10 p-3 text-xs text-rose-300 space-y-1">
-                        <p className="font-bold">⚠️ Aniqlik yetarli emas (±{Math.round(gps.coords.accuracy)}m)</p>
-                        <p className="text-rose-300/80">
-                          Hozir joylashuv Wi-Fi/antenna orqali taxminan aniqlanmoqda.
-                          Deraza yoniga yoki ochiq havoga chiqing va bir necha soniya kuting —
-                          aniqlik ±{GPS_MAX_SAVE_ACCURACY_M}m dan yaxshi bo&apos;lishi kerak.
-                        </p>
-                      </div>
-                    )}
-
-                    <div className="w-full h-48 rounded-2xl overflow-hidden border border-amber-500/30">
-                      <YMaps query={{ apikey: process.env.NEXT_PUBLIC_YANDEX_MAPS_KEY }}>
-                        <Map
-                          state={{ center: [gps.coords.lat, gps.coords.lng], zoom: 16 }}
-                          style={{ width: "100%", height: "100%" }}
-                        >
-                          <Placemark geometry={[gps.coords.lat, gps.coords.lng]} />
-                        </Map>
-                      </YMaps>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        onClick={gps.locate}
-                        disabled={gps.loading}
-                        className="py-3 rounded-2xl text-xs font-bold border border-amber-500/40 text-amber-300 hover:bg-amber-500/10 flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
-                      >
-                        {gps.loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MapPin className="w-3.5 h-3.5" />}
-                        Qayta o&apos;lchash
-                      </button>
-                      <button
-                        onClick={() => setPositionSetupStep("confirming")}
-                        disabled={gps.coords.accuracy > GPS_MAX_SAVE_ACCURACY_M}
-                        className="py-3 rounded-2xl text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white flex items-center justify-center gap-1.5 transition-colors shadow-lg shadow-amber-600/25 disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        <Building2 className="w-3.5 h-3.5" />
-                        Saqlash
-                      </button>
-                    </div>
-                  </div>
-                )}
-                {gps.error && (
-                  <LocationIssueAlert issue={gps.error} onRetry={gps.locate} />
-                )}
-              </div>
-            )}
-
-            {positionSetupStep === "confirming" && (
-              <div className="space-y-3">
-                <p className="text-xs text-amber-300 font-semibold">
-                  ⚠️ Tasdiqlash: Hozirgi joylashuvingiz ish joyi sifatida saqlansinmi?
-                </p>
-                {positionSaveError && (
-                  <p className="text-xs text-red-400 font-medium">❌ {positionSaveError}</p>
-                )}
-                <div className="flex gap-3">
-                  <button
-                    onClick={savePositionGps}
-                    className="flex-1 py-2.5 rounded-2xl text-sm font-bold bg-amber-600 hover:bg-amber-700 text-white transition-colors"
-                  >
-                    Ha, saqlash
-                  </button>
-                  <button
-                    onClick={() => { setPositionSetupStep("idle"); gps.locate(); }}
-                    className="flex-1 py-2.5 rounded-2xl text-sm font-bold bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors"
-                  >
-                    Qayta aniqlash
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {positionSetupStep === "saving" && (
-              <div className="flex items-center justify-center gap-2 py-2 text-amber-300 text-sm font-semibold">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Saqlanmoqda...
-              </div>
-            )}
-          </div>
-        )}
 
         {isLoading ? (
           <div className="rounded-3xl border border-[var(--border)] bg-[var(--bg-card)] p-6 animate-pulse h-36" />
