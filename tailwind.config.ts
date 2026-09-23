@@ -12,6 +12,8 @@ const config: Config = {
     extend: {
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
+        // Xodimning mobil ekranlari (check-in, pastki menyu) — FAZA 6 · 4c dizayni
+        jakarta: ["\"Plus Jakarta Sans\"", "Inter", "system-ui", "sans-serif"],
       },
     },
   },

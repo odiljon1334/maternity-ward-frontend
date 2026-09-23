@@ -316,14 +316,25 @@ export const attendanceApi = {
     gpsLng?: number;
     gpsAccuracy?: number;
     selfie?: File | null;
+    /** Fayl serverga to'liq yetib borganda (javobdan oldin) chaqiriladi */
+    onUploaded?: () => void;
   }) => {
     const form = new FormData();
     if (opts.gpsLat      != null) form.append("gpsLat",      String(opts.gpsLat));
     if (opts.gpsLng      != null) form.append("gpsLng",      String(opts.gpsLng));
     if (opts.gpsAccuracy != null) form.append("gpsAccuracy", String(opts.gpsAccuracy));
     if (opts.selfie)               form.append("selfie",      opts.selfie);
+    let uploaded = false;
     return api.post("/attendance/self-checkin", form, {
       headers: { "Content-Type": "multipart/form-data" },
+      // Yuz tekshiruvi serverda bir necha soniya olishi mumkin
+      timeout: 45_000,
+      onUploadProgress: (e) => {
+        if (!uploaded && e.total && e.loaded >= e.total) {
+          uploaded = true;
+          opts.onUploaded?.();
+        }
+      },
     }).then((r) => r.data.data ?? r.data);
   },
   resetEmployeeGps: (employeeId: string) =>

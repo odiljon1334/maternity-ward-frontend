@@ -4,6 +4,11 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { ThemeProvider } from "next-themes";
 import { useState } from "react";
 import { Toaster } from "sonner";
+import dayjs from "dayjs";
+import "dayjs/locale/uz-latn";
+
+// Butun ilova uchun o'zbek (lotin) oy/kun nomlari. "uz" — kirill, uni ishlatmang.
+dayjs.locale("uz-latn");
 
 // QueryClient ni global export qilamiz — logout da tozalash uchun
 export let globalQueryClient: QueryClient;

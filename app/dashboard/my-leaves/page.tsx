@@ -14,9 +14,9 @@ import { leaveApi } from "@/lib/api";
 import { Topbar } from "@/components/layout/Topbar";
 import { cn } from "@/lib/utils";
 import dayjs from "dayjs";
-import "dayjs/locale/uz";
+import "dayjs/locale/uz-latn";
 import { useAuthStore } from "@/stores/auth";
-dayjs.locale("uz");
+dayjs.locale("uz-latn");
 
 // ─── Konstantalar ─────────────────────────────────────────────────────────────
 

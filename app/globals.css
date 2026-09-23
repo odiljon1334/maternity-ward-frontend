@@ -594,3 +594,75 @@ html.dark ::-webkit-scrollbar-thumb:hover {
     display: flex;
   }
 }
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Xodim mobil ekranlari (check-in, pastki menyu, "Ko'proq") — FAZA 6 · 4c.
+   Dizayn kanvasidagi ranglar; tungi rejim uchun alohida qiymatlar.
+   ───────────────────────────────────────────────────────────────────────── */
+.ci {
+  --ci-bg: #F4F5FA;
+  --ci-card: #FFFFFF;
+  --ci-border: #E6E8F0;
+  --ci-ink: #0F1222;
+  --ci-muted: #5B6078;
+  --ci-faint: #6B7090;
+  --ci-soft: #F4F5FA;
+  --ci-disabled: #E3E5EF;
+  --ci-indigo: #4338CA;
+  --ci-indigo-text: #4338CA;
+  --ci-indigo-tint: #EEF0FF;
+  --ci-avatar: #E0E3FF;
+  --ci-avatar-ink: #3730A3;
+  --ci-orange: #C2410C;
+  --ci-orange-text: #C2410C;
+  --ci-orange-tint: #FFF1E8;
+  --ci-teal: #0F766E;
+  --ci-teal-text: #0F766E;
+  --ci-teal-tint: #E3F5F2;
+  --ci-amber: #D97706;
+  --ci-amber-ink: #92400E;
+  --ci-amber-tint: #FEF3C7;
+  --ci-amber-track: #F1E7C8;
+  --ci-rose-ink: #BE123C;
+  --ci-rose-tint: #FFE4E6;
+  --ci-hero: #12152B;
+  --ci-hero-track: #2A2F55;
+  --ci-hero-muted: #A9AECB;
+  --ci-camera: #1B1F36;
+  --ci-shadow: 0 -8px 24px rgba(15, 18, 34, 0.06);
+}
+.dark .ci {
+  --ci-bg: #0B0E1C;
+  --ci-card: #141831;
+  --ci-border: #262B4A;
+  --ci-ink: #EEF0F8;
+  --ci-muted: #9CA2C0;
+  --ci-faint: #8A90AE;
+  --ci-soft: #1C2140;
+  --ci-disabled: #232845;
+  --ci-indigo: #4F46E5;
+  --ci-indigo-text: #A5B4FC;
+  --ci-indigo-tint: rgba(99, 102, 241, 0.16);
+  --ci-avatar: rgba(99, 102, 241, 0.22);
+  --ci-avatar-ink: #C7D2FE;
+  --ci-orange-text: #FDBA74;
+  --ci-orange-tint: rgba(234, 88, 12, 0.16);
+  --ci-teal-text: #5EEAD4;
+  --ci-teal-tint: rgba(20, 184, 166, 0.16);
+  --ci-amber-ink: #FCD34D;
+  --ci-amber-tint: rgba(217, 119, 6, 0.18);
+  --ci-amber-track: rgba(217, 119, 6, 0.25);
+  --ci-rose-ink: #FDA4AF;
+  --ci-rose-tint: rgba(244, 63, 94, 0.16);
+  --ci-hero: #171B36;
+  --ci-camera: #10132A;
+  --ci-shadow: 0 -8px 24px rgba(0, 0, 0, 0.35);
+}
+@keyframes ci-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .55; transform: scale(.97); } }
+@keyframes ci-sweep { from { transform: translateY(-90px); } to { transform: translateY(90px); } }
+.ci-pulse { animation: ci-pulse 1.6s ease-in-out infinite; }
+.ci-sweep { animation: ci-sweep 1.8s ease-in-out infinite alternate; }
+@media (prefers-reduced-motion: reduce) {
+  .ci-pulse, .ci-sweep { animation: none; }
+}

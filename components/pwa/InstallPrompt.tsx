@@ -101,7 +101,7 @@ export function InstallPrompt() {
   if (!visible) return null;
 
   return (
-    <div className="fixed bottom-[72px] sm:bottom-4 left-0 right-0 z-50 flex justify-center px-4 pointer-events-none">
+    <div className="fixed bottom-[calc(7rem+env(safe-area-inset-bottom))] sm:bottom-4 left-0 right-0 z-50 flex justify-center px-4 pointer-events-none">
       <div className="pointer-events-auto w-full max-w-sm bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl shadow-xl shadow-black/20 p-4 flex items-start gap-3 animate-in slide-in-from-bottom-4 duration-300">
         {/* Ilova ikonkasi */}
         <div className="w-11 h-11 rounded-xl bg-indigo-600 flex items-center justify-center flex-shrink-0">

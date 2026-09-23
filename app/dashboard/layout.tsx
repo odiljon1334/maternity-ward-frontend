@@ -36,7 +36,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       close: () => setMobileOpen(false),
     }}>
       <ConfirmationProvider>
-      <div className="relative flex h-screen overflow-hidden bg-[var(--bg-primary)]">
+      {/* 100dvh: iOS Safari'da 100vh manzil satri ortidagi joyni ham o'z ichiga oladi — pastki menyu yashirinib qolardi */}
+      <div className="relative flex h-screen supports-[height:100dvh]:h-[100dvh] overflow-hidden bg-[var(--bg-primary)]">
         <div aria-hidden className="pointer-events-none absolute -top-48 -left-48 h-[32rem] w-[32rem] rounded-full bg-blue-600/10 blur-[140px] dark:block hidden" />
         <div aria-hidden className="pointer-events-none absolute -bottom-56 -right-48 h-[34rem] w-[34rem] rounded-full bg-violet-600/10 blur-[150px] dark:block hidden" />
         <Sidebar />
@@ -55,7 +56,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           Bezak dog'lari (absolute, pointer-events-none) main dan oldin
           kelgani uchun baribir orqada qoladi.
         */}
-        <main className="relative flex-1 overflow-y-auto min-w-0 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:pb-0">
+        <main
+          className={
+            // Xodim menyusida markaziy tugma bar ustidan ~32px ko'tariladi
+            user.role === "EMPLOYEE"
+              ? "relative flex-1 overflow-y-auto min-w-0 pb-[calc(6.5rem+env(safe-area-inset-bottom))] sm:pb-0"
+              : "relative flex-1 overflow-y-auto min-w-0 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:pb-0"
+          }
+        >
           <EmailVerificationReminder />
           {children}
         </main>
