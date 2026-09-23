@@ -4,6 +4,8 @@ import {
   buildLiveMapMarkerLayout,
   getEmployeePositionLabel,
   getLiveTrackingStatus,
+  getVisibleLiveMapMarkers,
+  sortLiveMapEmployees,
 } from "../lib/live-map-layout";
 
 test("bir xil joydagi xodim markerlari bir-birini yopmaydi", () => {
@@ -86,5 +88,37 @@ test("yangi GPS nuqtasi geofence tashqarisida bo‘lsa OUTSIDE qaytaradi", () =>
       now,
     ),
     "OUTSIDE",
+  );
+});
+
+test("online xodim signal uzilganlardan oldin ko‘rsatiladi", () => {
+  const now = new Date("2026-09-23T08:30:00.000Z").getTime();
+  const employees = [
+    { userId: "stale", name: "Stale", createdAt: "2026-09-23T06:00:00.000Z" },
+    { userId: "outside", name: "Outside", createdAt: "2026-09-23T08:29:00.000Z", isOutside: true },
+    { userId: "online", name: "Online", createdAt: "2026-09-23T08:28:00.000Z" },
+  ];
+
+  assert.deepEqual(
+    sortLiveMapEmployees(employees, now).map((employee) => employee.userId),
+    ["online", "outside", "stale"],
+  );
+});
+
+test("stale markerlar online xaritani bosmaydi, faqat tanlanganda oxirgi joyi ko‘rinadi", () => {
+  const now = new Date("2026-09-23T08:30:00.000Z").getTime();
+  const employees = [
+    { userId: "online", createdAt: "2026-09-23T08:28:00.000Z" },
+    { userId: "stale-a", createdAt: "2026-09-23T06:00:00.000Z" },
+    { userId: "stale-b", createdAt: "2026-09-23T07:00:00.000Z" },
+  ];
+
+  assert.deepEqual(
+    getVisibleLiveMapMarkers(employees, now, "online").map((employee) => employee.userId),
+    ["online"],
+  );
+  assert.deepEqual(
+    getVisibleLiveMapMarkers(employees, now, "stale-a").map((employee) => employee.userId),
+    ["online", "stale-a"],
   );
 });

@@ -59,6 +59,48 @@ export function getEmployeePositionLabel(info: EmployeeWorkplaceInfo) {
   return info.positionName?.trim() || "Lavozim ko‘rsatilmagan";
 }
 
+type LiveMapEmployeeListItem = LiveTrackingStatusInput & {
+  userId: string;
+  name?: string | null;
+};
+
+/** Faol lokatsiyalarni birinchi, ogohlantirishlarni keyin ko‘rsatadi. */
+export function sortLiveMapEmployees<T extends LiveMapEmployeeListItem>(
+  employees: T[],
+  now = Date.now(),
+) {
+  const statusOrder: Record<LiveTrackingStatus, number> = {
+    ONLINE: 0,
+    OUTSIDE: 1,
+    SIGNAL_LOST: 2,
+  };
+
+  return [...employees].sort((left, right) => {
+    const statusDifference =
+      statusOrder[getLiveTrackingStatus(left, now)] -
+      statusOrder[getLiveTrackingStatus(right, now)];
+
+    return statusDifference || (left.name ?? "").localeCompare(right.name ?? "");
+  });
+}
+
+/**
+ * Stale koordinata jonli joylashuv emas. Xarita odatda faqat yangi signalni
+ * ko‘rsatadi; administrator stale xodimni tanlasa, uning oxirgi ma’lum nuqtasi
+ * diagnostika uchun vaqtincha ko‘rinadi.
+ */
+export function getVisibleLiveMapMarkers<T extends LiveMapEmployeeListItem>(
+  employees: T[],
+  now = Date.now(),
+  selectedUserId?: string | null,
+) {
+  return employees.filter(
+    (employee) =>
+      getLiveTrackingStatus(employee, now) !== "SIGNAL_LOST" ||
+      employee.userId === selectedUserId,
+  );
+}
+
 const EARTH_RADIUS_METERS = 6_371_000;
 const NEARBY_THRESHOLD_METERS = 12;
 

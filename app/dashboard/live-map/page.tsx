@@ -22,7 +22,9 @@ import {
 } from "lucide-react";
 import { API_ORIGIN } from "@/lib/api";
 import {
+  getVisibleLiveMapMarkers,
   getLiveTrackingStatus,
+  sortLiveMapEmployees,
   type LiveTrackingStatus,
 } from "@/lib/live-map-layout";
 import dynamic from "next/dynamic";
@@ -433,20 +435,13 @@ export default function LiveMapPage() {
   // ─────────────────────────────────────────
 
   const markerList = useMemo(() => {
-    const statusOrder: Record<LiveTrackingStatus, number> = {
-      OUTSIDE: 0,
-      SIGNAL_LOST: 1,
-      ONLINE: 2,
-    };
-
-    return Array.from(markers.values()).sort((left, right) => {
-      const statusDifference =
-        statusOrder[getLiveTrackingStatus(left, now)] -
-        statusOrder[getLiveTrackingStatus(right, now)];
-
-      return statusDifference || left.name.localeCompare(right.name);
-    });
+    return sortLiveMapEmployees(Array.from(markers.values()), now);
   }, [markers, now]);
+
+  const visibleMarkerList = useMemo(
+    () => getVisibleLiveMapMarkers(markerList, now, selectedUser?.userId),
+    [markerList, now, selectedUser?.userId],
+  );
 
   const outsideCount = markerList.filter(
     (employee) => getLiveTrackingStatus(employee, now) === "OUTSIDE"
@@ -739,7 +734,7 @@ export default function LiveMapPage() {
 
       <div className="relative flex-1 min-w-0 rounded-none md:rounded-2xl overflow-hidden border-0 md:border md:border-[var(--border)] shadow-none md:shadow-sm">
         <MapWithNoSSR
-          markers={markerList}
+          markers={visibleMarkerList}
           selectedUser={
             selectedFromMarkers
           }
@@ -1321,7 +1316,7 @@ export default function LiveMapPage() {
           NO EMPLOYEES MOBILE STATE
       ═══════════════════════════════════ */}
 
-      {markerList.length === 0 && (
+      {visibleMarkerList.length === 0 && (
         <div className="md:hidden absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none">
           <div className="flex flex-col items-center justify-center px-6 py-5 rounded-3xl bg-black/50 backdrop-blur-xl border border-white/10 shadow-xl">
             <div className="w-11 h-11 rounded-2xl bg-white/10 flex items-center justify-center mb-3">
