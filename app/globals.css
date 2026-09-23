@@ -522,3 +522,63 @@ html.dark ::-webkit-scrollbar-thumb:hover {
   filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.85));
   animation: faceIdChaseDot 2.8s ease-in-out infinite;
 }
+
+/* Live Map marker label: Mapbox markerning transformini buzmasdan nom/lavozim. */
+.live-map-marker-label {
+  position: absolute;
+  top: 66px;
+  left: 50%;
+  z-index: 3;
+  display: flex;
+  width: max-content;
+  max-width: 190px;
+  transform: translateX(-50%);
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: 10px;
+  background: rgba(15, 18, 28, .9);
+  padding: 5px 8px;
+  color: white;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .28);
+  backdrop-filter: blur(10px);
+  pointer-events: none;
+  transition: opacity .18s ease, background-color .18s ease, box-shadow .18s ease;
+}
+
+.live-map-marker-name,
+.live-map-marker-position {
+  display: block;
+  max-width: 172px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.live-map-marker-name {
+  font: 700 11px/1.25 system-ui, sans-serif;
+}
+
+.live-map-marker-position {
+  color: rgba(224, 231, 255, .72);
+  font: 600 9px/1.2 system-ui, sans-serif;
+}
+
+.live-map-marker[data-selected="true"] .live-map-marker-label,
+.live-map-marker:hover .live-map-marker-label,
+.live-map-marker:focus-visible .live-map-marker-label {
+  border-color: rgba(165, 180, 252, .55);
+  background: rgba(49, 46, 129, .94);
+  box-shadow: 0 10px 28px rgba(49, 46, 129, .38);
+}
+
+@media (max-width: 767px) {
+  .live-map-marker-label {
+    display: none;
+  }
+
+  .live-map-marker[data-selected="true"] .live-map-marker-label {
+    display: flex;
+  }
+}

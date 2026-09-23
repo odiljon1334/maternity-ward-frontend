@@ -10,7 +10,9 @@ import {
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 
-import { EmployeeMarker } from "@/app/dashboard/live-map/page";
+import type { EmployeeMarker } from "@/app/dashboard/live-map/page";
+import { buildLiveMapMarkerLayout, getEmployeePositionLabel } from "@/lib/live-map-layout";
+import type { LiveMapMarkerLayout } from "@/lib/live-map-layout";
 
 mapboxgl.accessToken =
   process.env.NEXT_PUBLIC_MAPBOX_TOKEN!;
@@ -191,6 +193,8 @@ export default function MapboxMap({
         )
       );
 
+    const markerLayout = buildLiveMapMarkerLayout(markers);
+
     // ─────────────────────────────────────
     // REMOVE
     // ─────────────────────────────────────
@@ -236,6 +240,19 @@ export default function MapboxMap({
         );
 
       if (existing) {
+        const layout = markerLayout.get(emp.userId);
+        existing.marker.setOffset(
+          layout?.offset ?? [0, 0]
+        );
+        existing.element.onclick = () => clickHandlerRef.current(emp);
+        existing.element.onkeydown = (event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            clickHandlerRef.current(emp);
+          }
+        };
+        updateMarkerLayoutElement(existing.element, layout);
+
         updateMarkerElement(
           existing.element,
           emp,
@@ -259,16 +276,30 @@ export default function MapboxMap({
             emp.userId
         );
 
+      updateMarkerElement(
+        element,
+        emp,
+        selectedUserRef.current?.userId === emp.userId
+      );
+      updateMarkerLayoutElement(element, markerLayout.get(emp.userId));
+
       element.onclick = () => {
         clickHandlerRef.current(
           emp
         );
+      };
+      element.onkeydown = (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          clickHandlerRef.current(emp);
+        }
       };
 
       const marker =
         new mapboxgl.Marker({
           element,
           anchor: "bottom",
+          offset: markerLayout.get(emp.userId)?.offset ?? [0, 0],
         })
           .setLngLat([
             emp.longitude,
@@ -495,6 +526,10 @@ function updateMarkerElement(
   emp: EmployeeMarker,
   selected: boolean
 ) {
+  element.style.zIndex = selected ? "1000" : "1";
+  element.dataset.selected = selected ? "true" : "false";
+  element.setAttribute("aria-pressed", selected ? "true" : "false");
+  element.setAttribute("aria-label", `${emp.name} joylashuvini ko‘rish`);
   const colors = [
     "#3B82F6",
     "#8B5CF6",
@@ -600,6 +635,91 @@ function updateMarkerElement(
         ?.toUpperCase() ??
       "?";
   }
+
+  updateMarkerInfoLabel(element, emp);
+}
+
+function updateMarkerInfoLabel(element: HTMLDivElement, emp: EmployeeMarker) {
+  let label = element.querySelector(".live-map-marker-label") as HTMLDivElement | null;
+  if (!label) {
+    label = document.createElement("div");
+    label.className = "live-map-marker-label";
+
+    const name = document.createElement("span");
+    name.className = "live-map-marker-name";
+    label.appendChild(name);
+
+    const position = document.createElement("span");
+    position.className = "live-map-marker-position";
+    label.appendChild(position);
+
+    element.appendChild(label);
+  }
+
+  const name = label.querySelector(".live-map-marker-name");
+  const position = label.querySelector(".live-map-marker-position");
+  if (name) name.textContent = emp.name;
+  if (position) position.textContent = getEmployeePositionLabel(emp);
+}
+
+function updateMarkerLayoutElement(
+  element: HTMLDivElement,
+  layout?: LiveMapMarkerLayout,
+) {
+  const existingBadge = element.querySelector(".marker-overlap-badge") as HTMLSpanElement | null;
+  const existingLeg = element.querySelector(".marker-spider-leg") as HTMLSpanElement | null;
+
+  if (!layout || layout.groupSize <= 1) {
+    existingBadge?.remove();
+    existingLeg?.remove();
+    element.removeAttribute("data-overlap-count");
+    return;
+  }
+
+  const [offsetX, offsetY] = layout.offset;
+  const leg = existingLeg ?? document.createElement("span");
+  const legLength = Math.hypot(offsetX, offsetY);
+  const legAngle = Math.atan2(-offsetY, -offsetX);
+  leg.className = "marker-spider-leg";
+  leg.style.cssText = `
+    position: absolute;
+    left: 36px;
+    top: 86px;
+    width: ${legLength}px;
+    height: 2px;
+    transform: rotate(${legAngle}rad);
+    transform-origin: 0 50%;
+    border-radius: 999px;
+    background: rgba(79, 70, 229, .65);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, .55);
+    pointer-events: none;
+  `;
+  if (!existingLeg) element.prepend(leg);
+
+  const badge = existingBadge ?? document.createElement("span");
+  badge.className = "marker-overlap-badge";
+  badge.textContent = `${layout.groupIndex + 1}/${layout.groupSize}`;
+  badge.style.cssText = `
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 28px;
+    height: 20px;
+    padding: 0 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    border: 2px solid white;
+    background: #4f46e5;
+    color: white;
+    font: 700 10px/1 system-ui, sans-serif;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, .3);
+    pointer-events: none;
+  `;
+
+  if (!existingBadge) element.appendChild(badge);
+  element.setAttribute("data-overlap-count", String(layout.groupSize));
 }
 
 // ─────────────────────────────────────────────
@@ -649,6 +769,11 @@ function createMarkerElement(
       "div"
     );
 
+  el.className = "live-map-marker";
+  el.setAttribute("role", "button");
+  el.setAttribute("tabindex", "0");
+  el.setAttribute("aria-label", `${emp.name} joylashuvini ko‘rish`);
+
   el.style.cssText = `
     width: 72px;
     height: 86px;
@@ -660,18 +785,17 @@ function createMarkerElement(
         0 8px 14px
         rgba(0,0,0,.35)
       );
-    transition:
-      transform .2s cubic-bezier(.22,1,.36,1);
   `;
 
   el.innerHTML = `
     <svg
+      class="marker-graphic"
       width="72"
       height="86"
       viewBox="0 0 72 86"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      style="overflow: visible;"
+      style="overflow: visible; transform-origin: 36px 64px; transition: transform .2s cubic-bezier(.22,1,.36,1);"
     >
 
       <defs>
@@ -880,13 +1004,13 @@ function createMarkerElement(
   // ─────────────────────────────────────
 
   el.onmouseenter = () => {
-    el.style.transform =
-      "scale(1.12) translateY(-3px)";
+    const graphic = el.querySelector(".marker-graphic") as SVGSVGElement | null;
+    if (graphic) graphic.style.transform = "scale(1.12) translateY(-3px)";
   };
 
   el.onmouseleave = () => {
-    el.style.transform =
-      "scale(1)";
+    const graphic = el.querySelector(".marker-graphic") as SVGSVGElement | null;
+    if (graphic) graphic.style.transform = "scale(1)";
   };
 
   return el;

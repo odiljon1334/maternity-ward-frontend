@@ -16,6 +16,9 @@ import {
   Signal,
   Users,
   AlertTriangle,
+  BriefcaseBusiness,
+  Building2,
+  Layers3,
 } from "lucide-react";
 import { API_ORIGIN } from "@/lib/api";
 import dynamic from "next/dynamic";
@@ -38,6 +41,9 @@ export interface EmployeeMarker {
   userId: string;
   name: string;
   photo: string | null;
+  positionName?: string | null;
+  departmentName?: string | null;
+  hospitalName?: string | null;
 
   latitude: number;
   longitude: number;
@@ -459,24 +465,24 @@ export default function LiveMapPage() {
         p-0
         md:p-4
         overflow-hidden
+        bg-[var(--bg-primary)]
       "
     >
       {/* ═══════════════════════════════════
           DESKTOP LEFT PANEL
       ═══════════════════════════════════ */}
 
-      <div className="hidden md:flex w-80 flex-col gap-3 flex-shrink-0">
+      <aside className="hidden w-[19rem] flex-shrink-0 flex-col gap-3 md:flex xl:w-[21rem]">
         {/* Header */}
 
-        <div className="flex items-center justify-between px-4 py-3 rounded-2xl bg-[var(--bg-card)] border border-[var(--border)] shadow-sm">
+        <div className="flex items-center justify-between rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-4 py-3.5 shadow-sm">
           <div>
             <h1 className="text-sm font-black text-[var(--text-primary)]">
               Live Xarita
             </h1>
 
-            <p className="text-xs text-[var(--text-muted)]">
-              {markerList.length} ta xodim
-              online
+            <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+              {markerList.length} ta xodim online
             </p>
           </div>
 
@@ -501,7 +507,7 @@ export default function LiveMapPage() {
 
         {/* Employee list */}
 
-        <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-2 shadow-sm">
           {markerList.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-40 text-[var(--text-muted)]">
               <MapPin className="w-8 h-8 mb-2 opacity-30" />
@@ -532,10 +538,10 @@ export default function LiveMapPage() {
                         emp
                       )
                     }
-                    className={`group relative w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl border text-left transition-all duration-300 ${
+                    className={`group relative flex w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 ${
                       isSelected
-                        ? "bg-indigo-600 border-indigo-400/30 text-white shadow-lg shadow-indigo-500/20"
-                        : "bg-[var(--bg-card)] border-[var(--border)] hover:bg-[var(--bg-hover)]"
+                        ? "border-indigo-400/40 bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
+                        : "border-transparent bg-[var(--bg-secondary)] hover:border-[var(--border-hover)] hover:bg-[var(--bg-hover)]"
                     }`}
                   >
                     {/* Avatar */}
@@ -594,6 +600,10 @@ export default function LiveMapPage() {
                         {emp.name}
                       </p>
 
+                      <p className={`mt-0.5 truncate text-[10px] ${isSelected ? "text-indigo-100" : "text-[var(--text-muted)]"}`}>
+                        {emp.positionName || "Lavozim ko‘rsatilmagan"}
+                      </p>
+
                       <div className="flex items-center gap-2 mt-1">
                         {emp.battery !==
                           null && (
@@ -638,6 +648,11 @@ export default function LiveMapPage() {
                               )}m`}
                         </span>
                       </div>
+
+                      <p className={`mt-1.5 flex items-center gap-1 text-[9px] ${isSelected ? "text-indigo-100/75" : "text-[var(--text-muted)]"}`}>
+                        <Clock3 className="h-2.5 w-2.5" />
+                        {getRelativeTime(emp.createdAt)} yangilangan
+                      </p>
                     </div>
                   </button>
                 );
@@ -645,7 +660,7 @@ export default function LiveMapPage() {
             )
           )}
         </div>
-      </div>
+      </aside>
 
       {/* ═══════════════════════════════════
           MAP
@@ -788,8 +803,8 @@ export default function LiveMapPage() {
                       </p>
 
                       <div className="flex items-center gap-1 mt-0.5">
-                        <span className="text-[9px] text-green-300">
-                          Online
+                        <span className="max-w-[82px] truncate text-[9px] text-white/65">
+                          {emp.positionName || "Online"}
                         </span>
 
                         {emp.battery !==
@@ -829,12 +844,17 @@ export default function LiveMapPage() {
             left-1/2
             -translate-x-1/2
             bottom-2
-            md:bottom-6
+            md:bottom-auto
+            md:top-6
+            md:left-auto
+            md:right-6
+            md:translate-x-0
             w-[calc(100%-1rem)]
-            md:w-[min(420px,calc(100%-2rem))]
+            md:w-[min(390px,calc(100%-2rem))]
             max-h-[calc(100dvh-5rem)]
-            md:max-h-none
+            md:max-h-[calc(100%-3rem)]
             animate-[slideUp_.35s_cubic-bezier(.22,1,.36,1)]
+            md:animate-none
           "
         >
           <div
@@ -913,6 +933,10 @@ export default function LiveMapPage() {
                     }
                   </h2>
 
+                  <p className="mt-0.5 truncate text-[10px] font-semibold text-indigo-200 md:text-xs">
+                    {selectedFromMarkers.positionName || "Lavozim ko‘rsatilmagan"}
+                  </p>
+
                   <div className="flex items-center gap-2 mt-1">
                     <span className="inline-flex items-center gap-1 text-[10px] md:text-[11px] font-bold text-green-400">
                       <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
@@ -960,6 +984,36 @@ export default function LiveMapPage() {
                 >
                   <X className="w-4 h-4" />
                 </button>
+              </div>
+
+              <div className="mt-3 grid gap-1.5 rounded-2xl border border-white/[0.07] bg-white/[0.04] p-3 md:mt-4">
+                <div className="flex items-start gap-2.5">
+                  <BriefcaseBusiness className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-indigo-300" />
+                  <div className="min-w-0">
+                    <p className="text-[8px] font-bold uppercase tracking-wide text-white/35">Lavozim / ish joyi</p>
+                    <p className="truncate text-[10px] font-bold text-white/85 md:text-xs">
+                      {selectedFromMarkers.positionName || "Ko‘rsatilmagan"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2.5">
+                  <Layers3 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-cyan-300" />
+                  <div className="min-w-0">
+                    <p className="text-[8px] font-bold uppercase tracking-wide text-white/35">Bo‘lim</p>
+                    <p className="truncate text-[10px] font-semibold text-white/70 md:text-xs">
+                      {selectedFromMarkers.departmentName || "Ko‘rsatilmagan"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2.5">
+                  <Building2 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-emerald-300" />
+                  <div className="min-w-0">
+                    <p className="text-[8px] font-bold uppercase tracking-wide text-white/35">Muassasa</p>
+                    <p className="truncate text-[10px] font-semibold text-white/70 md:text-xs">
+                      {selectedFromMarkers.hospitalName || "Ko‘rsatilmagan"}
+                    </p>
+                  </div>
+                </div>
               </div>
 
               {/* ═══════════════════════════
