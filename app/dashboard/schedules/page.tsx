@@ -1,14 +1,14 @@
 "use client";
 
 import { GenerateModal } from "@/components/schedules/GenerateModal";
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { schedulesApi, employeesApi, shiftsApi, departmentsApi, schedulePlanningApi } from "@/lib/api";
 import { Topbar } from "@/components/layout/Topbar";
 import { cn } from "@/lib/utils";
-import { 
-  ChevronLeft, ChevronRight, Zap, X, Edit3, Check, Clock, Sun, Moon, 
+import {
+  ChevronLeft, ChevronRight, X, Edit3, Check, Clock, Sun, Moon,
   Plus, Edit2, Trash2, Search, Copy, Upload, FileSpreadsheet,
   Calendar, Users, UserCheck, UserX, Sparkles, AlertCircle, Lock
 } from "lucide-react";
@@ -16,6 +16,11 @@ import dayjs from "dayjs";
 import { useForm } from "react-hook-form";
 import { useAuthStore } from "@/stores/auth";
 import { PostSchedulePlanner } from "@/components/schedules/PostSchedulePlanner";
+import { Button } from "@/components/ui/Button";
+import { Input, Select } from "@/components/ui/FormControls";
+import { Surface } from "@/components/ui/Surface";
+import { StatePanel } from "@/components/ui/StatePanel";
+import { ConfirmDialog } from "@/components/ui/Dialog";
 
 // ─── Sana kaliti keshi ──────────────────────────────────────────────────────
 // Backend ISO sana qaytaradi; jadval kalitlari "YYYY-MM-DD" ko'rinishida.
@@ -109,8 +114,8 @@ function ShiftModal({ open, onClose, shift, targetHospitalId }: {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-md rounded-2xl bg-white dark:bg-[#12141c] border border-slate-200 dark:border-white/5 p-6 space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
+    <div className="ui-dialog-backdrop">
+      <div className="ui-dialog-panel max-w-md space-y-5">
         <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-4">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
@@ -123,7 +128,7 @@ function ShiftModal({ open, onClose, shift, targetHospitalId }: {
               <p className="text-xs text-slate-500 dark:text-slate-400">Ish vaqti parametrlarini kiriting</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors">
+          <button onClick={onClose} className="btn-ghost min-h-9 p-2" aria-label="Oynani yopish">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -131,13 +136,13 @@ function ShiftModal({ open, onClose, shift, targetHospitalId }: {
         <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Smen nomi *</label>
-            <input {...register("name", { required: "Nomini kiritish majburiy" })} className="w-full rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-all" placeholder="Masalan: Kunduzgi 12 soat" />
+            <input {...register("name", { required: "Nomini kiritish majburiy" })} className="input-field text-xs" placeholder="Masalan: Kunduzgi 12 soat" />
             {errors.name && <p className="text-xs text-rose-500 dark:text-rose-400 mt-1">{errors.name.message}</p>}
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Smen turi *</label>
-            <select {...register("type", { required: true })} className="w-full rounded-xl bg-white dark:bg-[#1a1d26] border border-slate-200 dark:border-white/10 px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 transition-all">
+            <select {...register("type", { required: true })} className="input-field text-xs">
               <option value="DAYTIME">☀️ Kunduzgi</option>
               <option value="NIGHTTIME">🌙 Tungi</option>
               <option value="CUSTOM">⚙️ Maxsus (Moslashuvchan)</option>
@@ -147,11 +152,11 @@ function ShiftModal({ open, onClose, shift, targetHospitalId }: {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Boshlanish vaqti</label>
-              <input {...register("startTime", { required: true })} type="time" className="w-full rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 transition-all" />
+              <input {...register("startTime", { required: true })} type="time" className="input-field text-xs" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Tugash vaqti</label>
-              <input {...register("endTime", { required: true })} type="time" className="w-full rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 transition-all" />
+              <input {...register("endTime", { required: true })} type="time" className="input-field text-xs" />
             </div>
           </div>
 
@@ -168,7 +173,7 @@ function ShiftModal({ open, onClose, shift, targetHospitalId }: {
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Kechikish uchun ruxsat (daqiqa)</label>
-            <input {...register("graceMinutes", { min: 0, max: 60 })} type="number" min={0} max={60} className="w-full rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 transition-all" placeholder="15" />
+            <input {...register("graceMinutes", { min: 0, max: 60 })} type="number" min={0} max={60} className="input-field text-xs" placeholder="15" />
           </div>
 
           <div className="rounded-xl border border-slate-200 dark:border-white/5 p-4 space-y-3 bg-slate-50/50 dark:bg-white/[0.01]">
@@ -178,18 +183,18 @@ function ShiftModal({ open, onClose, shift, targetHospitalId }: {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">Boshlanishi</label>
-                <input {...register("lunchStart")} type="time" className="w-full rounded-xl bg-white dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 transition-all" />
+                <input {...register("lunchStart")} type="time" className="input-field text-xs" />
               </div>
               <div>
                 <label className="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">Tugashi</label>
-                <input {...register("lunchEnd")} type="time" className="w-full rounded-xl bg-white dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 transition-all" />
+                <input {...register("lunchEnd")} type="time" className="input-field text-xs" />
               </div>
             </div>
           </div>
 
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl font-semibold text-xs text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/5 transition-all">Bekor qilish</button>
-            <button type="submit" disabled={mutation.isPending} className="flex-1 py-2.5 rounded-xl font-semibold text-xs text-white bg-indigo-600 hover:bg-indigo-500 shadow-lg shadow-indigo-600/20 transition-all">
+            <button type="button" onClick={onClose} className="btn-secondary flex-1 text-xs">Bekor qilish</button>
+            <button type="submit" disabled={mutation.isPending} className="btn-primary flex-1 text-xs">
               {mutation.isPending ? "Saqlanmoqda..." : (shift ? "Yangilash" : "Qo'shish")}
             </button>
           </div>
@@ -203,16 +208,17 @@ function ShiftModal({ open, onClose, shift, targetHospitalId }: {
 function ShiftsView({ targetHospitalId }: { targetHospitalId?: string }) {
   const qc = useQueryClient();
   const [shiftModal, setShiftModal] = useState<{ open: boolean; shift?: any }>({ open: false });
+  const [deleteShift, setDeleteShift] = useState<any>(null);
   const params = targetHospitalId ? { targetHospitalId } : undefined;
 
-  const { data: shifts = [], isLoading } = useQuery({
+  const { data: shifts = [], isLoading, isError, isFetching, refetch } = useQuery({
     queryKey: ["shifts", targetHospitalId],
     queryFn: () => shiftsApi.list(params),
   });
 
   const deleteMut = useMutation({
     mutationFn: (id: string) => shiftsApi.delete(id, params),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["shifts"] }); toast.success("O'chirildi"); },
+    onSuccess: () => { setDeleteShift(null); qc.invalidateQueries({ queryKey: ["shifts"] }); toast.success("O'chirildi"); },
     onError: (e: any) => toast.error(e?.response?.data?.message || "O'chirishda xatolik"),
   });
 
@@ -224,8 +230,8 @@ function ShiftsView({ targetHospitalId }: { targetHospitalId?: string }) {
 
   return (
     <>
-      <div className="bg-white dark:bg-[#12141c] border border-slate-200 dark:border-white/5 shadow-xl rounded-2xl overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-[#0e1017]">
+      <div className="ui-surface overflow-hidden">
+        <div className="flex items-center justify-between border-b border-[var(--border)] bg-[var(--bg-secondary)] px-4 py-4 sm:px-6">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400">
               <Clock className="w-5 h-5" />
@@ -238,20 +244,29 @@ function ShiftsView({ targetHospitalId }: { targetHospitalId?: string }) {
               {(shifts as any[]).length}
             </span>
           </div>
-          <button onClick={() => setShiftModal({ open: true })} className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/20 transition-all flex items-center gap-2">
+          <Button onClick={() => setShiftModal({ open: true })} size="sm">
             <Plus className="w-4 h-4" /> Smen qo&apos;shish
-          </button>
+          </Button>
         </div>
 
         <div className="divide-y divide-slate-100 dark:divide-white/[0.03]">
           {isLoading && (
-            <div className="px-4 py-12 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
-              <div className="w-4 h-4 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
-              Smenlar yuklanmoqda...
-            </div>
+            <StatePanel kind="loading" title="Smenalar yuklanmoqda" className="m-4" />
           )}
 
-          {(shifts as any[]).map((s) => (
+          {isError && !isLoading && (
+            <StatePanel
+              kind="error"
+              className="m-4"
+              title="Smenalarni yuklab bo‘lmadi"
+              description="Internet aloqasini tekshirib, qayta urinib ko‘ring."
+              actionLabel="Qayta urinish"
+              onAction={() => void refetch()}
+              actionLoading={isFetching}
+            />
+          )}
+
+          {!isError && (shifts as any[]).map((s) => (
             <div key={s.id} className="flex items-center justify-between px-6 py-4 hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors group">
               <div className="flex items-center gap-4 min-w-0">
                 <div className={cn(
@@ -280,10 +295,10 @@ function ShiftsView({ targetHospitalId }: { targetHospitalId?: string }) {
                 </span>
                 
                 <div className="flex items-center gap-1">
-                  <button onClick={() => setShiftModal({ open: true, shift: s })} className="p-2 rounded-xl text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors">
+                  <Button onClick={() => setShiftModal({ open: true, shift: s })} variant="ghost" size="icon" aria-label={`${s.name} smenasini tahrirlash`}>
                     <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button onClick={() => confirm("Smenni o'chirishni tasdiqlaysizmi?") && deleteMut.mutate(s.id)} className="p-2 rounded-xl text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors">
+                  </Button>
+                  <button onClick={() => setDeleteShift(s)} className="btn-ghost min-h-10 p-2 text-slate-400 hover:bg-rose-500/10 hover:text-rose-500" aria-label={`${s.name} smenasini o‘chirish`}>
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
@@ -291,17 +306,16 @@ function ShiftsView({ targetHospitalId }: { targetHospitalId?: string }) {
             </div>
           ))}
 
-          {!isLoading && (shifts as any[]).length === 0 && (
-            <div className="px-4 py-16 text-center space-y-4">
-              <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-white/5 flex items-center justify-center mx-auto text-slate-400 border border-slate-200 dark:border-white/5">
-                <Clock className="w-6 h-6" />
-              </div>
-              <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Hozircha hech qanday smen yo&apos;q</p>
-              <button onClick={() => seedMut.mutate()} disabled={seedMut.isPending} className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-lg shadow-indigo-600/20 transition-all mx-auto flex items-center gap-2">
-                <Zap className="w-4 h-4" />
-                {seedMut.isPending ? "Yaratilmoqda..." : "Standart smenlarni yaratish"}
-              </button>
-            </div>
+          {!isLoading && !isError && (shifts as any[]).length === 0 && (
+            <StatePanel
+              className="m-4"
+              title="Hozircha hech qanday smena yo‘q"
+              description="Ish grafiklarini boshlash uchun standart smenalarni yarating."
+              icon={Clock}
+              actionLabel="Standart smenalarni yaratish"
+              onAction={() => seedMut.mutate()}
+              actionLoading={seedMut.isPending}
+            />
           )}
         </div>
       </div>
@@ -311,6 +325,16 @@ function ShiftsView({ targetHospitalId }: { targetHospitalId?: string }) {
         onClose={() => setShiftModal({ open: false })}
         shift={shiftModal.shift}
         targetHospitalId={targetHospitalId}
+      />
+      <ConfirmDialog
+        open={Boolean(deleteShift)}
+        onClose={() => setDeleteShift(null)}
+        onConfirm={() => deleteShift && deleteMut.mutate(deleteShift.id)}
+        title="Smena o‘chirilsinmi?"
+        description={`${deleteShift?.name ?? "Tanlangan smena"} boshqa grafiklarda ishlatilgan bo‘lsa, tizim o‘chirishni rad etadi.`}
+        confirmLabel="O‘chirish"
+        tone="danger"
+        loading={deleteMut.isPending}
       />
     </>
   );
@@ -427,14 +451,14 @@ function CellEditModal({
   if (!entry) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-[#12141c] border border-slate-200 dark:border-white/5 p-6 space-y-5 shadow-2xl">
+    <div className="ui-dialog-backdrop">
+      <div className="ui-dialog-panel max-w-sm space-y-5">
         <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-4">
           <div>
             <h2 className="font-semibold text-slate-900 dark:text-white text-sm">Grafikni tahrirlash</h2>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{entry.employeeName} • {dayjs(entry.date).format("DD.MM.YYYY")}</p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"><X className="w-4 h-4" /></button>
+          <button onClick={onClose} className="btn-ghost min-h-9 p-2" aria-label="Oynani yopish"><X className="w-4 h-4" /></button>
         </div>
 
         <div className="space-y-4">
@@ -465,10 +489,10 @@ function CellEditModal({
           {status === "WORKING" && (
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Smenni tanlang</label>
-              <select
+              <Select
                 value={shiftId}
                 onChange={(e) => setShiftId(e.target.value)}
-                className="w-full rounded-xl bg-white dark:bg-[#1a1d26] border border-slate-200 dark:border-white/10 px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 transition-all"
+                className="text-xs"
               >
                 <option value="">Smen tanlanmagan</option>
                 {shifts.map((s: any) => (
@@ -476,20 +500,20 @@ function CellEditModal({
                     {s.name} ({s.type === "DAYTIME" ? "Kunduzgi" : "Tungi"})
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           )}
 
           <div className="flex gap-3 pt-2">
-            <button onClick={onClose} className="flex-1 py-2.5 rounded-xl font-semibold text-xs text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/5 transition-all">Bekor qilish</button>
-            <button
+            <Button onClick={onClose} variant="secondary" className="flex-1 text-xs">Bekor qilish</Button>
+            <Button
               onClick={() => mutation.mutate()}
-              disabled={mutation.isPending}
-              className="flex-1 py-2.5 rounded-xl font-semibold text-xs text-white bg-indigo-600 hover:bg-indigo-500 shadow-lg shadow-indigo-600/20 transition-all flex items-center justify-center gap-1.5"
+              loading={mutation.isPending}
+              className="flex-1 text-xs"
             >
               <Check className="w-3.5 h-3.5" />
-              {mutation.isPending ? "Saqlanmoqda..." : "Saqlash"}
-            </button>
+              Saqlash
+            </Button>
           </div>
         </div>
       </div>
@@ -531,8 +555,8 @@ function ImportModal({
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-md rounded-2xl bg-white dark:bg-[#12141c] border border-slate-200 dark:border-white/5 p-6 space-y-5 shadow-2xl">
+    <div className="ui-dialog-backdrop">
+      <div className="ui-dialog-panel max-w-md space-y-5">
         <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-4">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
@@ -540,7 +564,7 @@ function ImportModal({
             </div>
             <h2 className="font-semibold text-slate-900 dark:text-white text-base">XLSX Import</h2>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"><X className="w-4 h-4" /></button>
+          <button onClick={onClose} className="btn-ghost min-h-9 p-2" aria-label="Oynani yopish"><X className="w-4 h-4" /></button>
         </div>
 
         <div className="space-y-4">
@@ -555,17 +579,17 @@ function ImportModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Oy</label>
-              <select value={importMonth} onChange={(e) => setImportMonth(+e.target.value)} className="w-full rounded-xl bg-white dark:bg-[#1a1d26] border border-slate-200 dark:border-white/10 px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 transition-all">
+              <Select value={importMonth} onChange={(e) => setImportMonth(+e.target.value)} className="text-xs">
                 {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
                   <option key={m} value={m}>{dayjs().month(m - 1).format("MMMM")}</option>
                 ))}
-              </select>
+              </Select>
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Yil</label>
-              <select value={importYear} onChange={(e) => setImportYear(+e.target.value)} className="w-full rounded-xl bg-white dark:bg-[#1a1d26] border border-slate-200 dark:border-white/10 px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 transition-all">
+              <Select value={importYear} onChange={(e) => setImportYear(+e.target.value)} className="text-xs">
                 {[2025, 2026, 2027].map((y) => <option key={y} value={y}>{y}</option>)}
-              </select>
+              </Select>
             </div>
           </div>
 
@@ -593,15 +617,16 @@ function ImportModal({
           )}
 
           <div className="flex gap-3 pt-2">
-            <button onClick={onClose} className="flex-1 py-2.5 rounded-xl font-semibold text-xs text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/5 transition-all">Bekor qilish</button>
-            <button
+            <Button onClick={onClose} variant="secondary" className="flex-1 text-xs">Bekor qilish</Button>
+            <Button
               onClick={handleSubmit}
-              disabled={!file || loading}
-              className="flex-1 py-2.5 rounded-xl font-semibold text-xs text-white bg-indigo-600 hover:bg-indigo-500 shadow-lg shadow-indigo-600/20 transition-all flex items-center justify-center gap-2"
+              disabled={!file}
+              loading={loading}
+              className="flex-1 text-xs"
             >
               <Upload className="w-4 h-4" />
-              {loading ? "Yuklanmoqda..." : "Import qilish"}
-            </button>
+              Import qilish
+            </Button>
           </div>
         </div>
       </div>
@@ -622,6 +647,7 @@ export default function SchedulesPage() {
   const [editEntry, setEditEntry] = useState<any>(null);
   const [view, setView] = useState<"grafik" | "smenlar" | "postlar">("grafik");
   const [rollingOver, setRollingOver] = useState(false);
+  const [rolloverConfirmOpen, setRolloverConfirmOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
 
   const { selectedHospital, user } = useAuthStore();
@@ -667,12 +693,15 @@ export default function SchedulesPage() {
   });
 
  // 2. Sahifalangan (paginated) oylik grafiklar ro'yxati (Infinite Scroll uchun)
- const { 
+ const {
   data: paginatedData, 
   fetchNextPage, 
   hasNextPage, 
   isFetchingNextPage, 
-  isLoading: schedLoading 
+  isLoading: schedLoading,
+  isError: schedError,
+  isFetching: schedFetching,
+  refetch: refetchSchedules,
 } = useInfiniteQuery({
   queryKey: [
     'staff-schedule-paginated',
@@ -844,7 +873,6 @@ export default function SchedulesPage() {
   const handleRollover = async () => {
     const cur = dayjs(`${year}-${String(month).padStart(2, "0")}-01`);
     const prev = cur.subtract(1, "month");
-    if (!window.confirm(`${prev.format("MMMM YYYY")} oyidagi grafiklarni ${cur.format("MMMM YYYY")} oyiga ko'chirasizmi?`)) return;
 
     setRollingOver(true);
     const tid = toast.loading("Grafiklar ko'chirilmoqda...");
@@ -854,6 +882,7 @@ export default function SchedulesPage() {
       toast.success(res?.message || "Grafiklar muvaffaqiyatli ko'chirildi", { id: tid });
       qc.invalidateQueries({ queryKey: ["staff-schedule-paginated"] });
       qc.invalidateQueries({ queryKey: ["schedule-statistics"] });
+      setRolloverConfirmOpen(false);
     } catch (e: any) {
       toast.error(e?.response?.data?.message || "Ko'chirishda xatolik", { id: tid });
     } finally {
@@ -862,101 +891,95 @@ export default function SchedulesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0b0d14] text-slate-900 dark:text-slate-100 pb-12">
+    <div className="min-h-screen bg-[var(--bg-primary)] pb-12 text-[var(--text-primary)]">
       <Topbar title="Ish Grafigi" subtitle="Xodimlarning oylik smena jadvallarini boshqarish" />
 
       <div className="p-4 sm:p-6 lg:p-8 space-y-5 max-w-[1700px] mx-auto">
         
         {/* Navigation & Controls Header */}
-        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl shadow-xl">
+        <Surface className="flex flex-col justify-between gap-4 p-4 xl:flex-row xl:items-center">
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center p-1 bg-slate-100 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 rounded-xl">
-              <button
+            <div className="flex items-center rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-1">
+              <Button
                 onClick={() => setView("grafik")}
-                className={cn(
-                  "px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-2",
-                  view === "grafik" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/5"
-                )}
+                variant={view === "grafik" ? "primary" : "ghost"}
+                size="sm"
               >
                   <Calendar className="w-3.5 h-3.5" /> Asosiy grafik
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => setView("smenlar")}
-                className={cn(
-                  "px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-2",
-                  view === "smenlar" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/5"
-                )}
+                variant={view === "smenlar" ? "primary" : "ghost"}
+                size="sm"
               >
                 <Clock className="w-3.5 h-3.5" /> Smenlar
-              </button>
+              </Button>
               {postCoverageEnabled && (
-                <button
+                <Button
                   onClick={() => setView("postlar")}
-                  className={cn(
-                    "px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-2",
-                    view === "postlar" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-white/5"
-                  )}
+                  variant={view === "postlar" ? "primary" : "ghost"}
+                  size="sm"
                 >
                   <FileSpreadsheet className="w-3.5 h-3.5" /> Post reja
-                </button>
+                </Button>
               )}
             </div>
 
             {(view === "grafik" || view === "postlar") && (
-              <div className="flex items-center gap-1 bg-slate-100 dark:bg-white/[0.02] border border-slate-200 dark:border-white/5 rounded-xl p-1 shadow-sm">
-                <button onClick={() => navMonth(-1)} className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-white/5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
+              <div className="flex items-center gap-1 rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-1 shadow-sm">
+                <Button onClick={() => navMonth(-1)} variant="ghost" size="icon" className="h-8 w-8" aria-label="Oldingi oy">
                   <ChevronLeft className="w-4 h-4" />
-                </button>
-                <span className="px-3 text-xs font-bold text-slate-900 dark:text-white min-w-[120px] text-center">
+                </Button>
+                <span className="min-w-[120px] px-3 text-center text-xs font-bold text-[var(--text-primary)]">
                   {dayjs(`${year}-${String(month).padStart(2, "0")}-01`).format("MMMM YYYY")}
                 </span>
-                <button onClick={() => navMonth(1)} className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-white/5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors">
+                <Button onClick={() => navMonth(1)} variant="ghost" size="icon" className="h-8 w-8" aria-label="Keyingi oy">
                   <ChevronRight className="w-4 h-4" />
-                </button>
+                </Button>
               </div>
             )}
 
             {(month !== dayjs().month() + 1 || year !== dayjs().year()) && (view === "grafik" || view === "postlar") && (
-              <button onClick={() => { setMonth(dayjs().month() + 1); setYear(dayjs().year()); }} className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/5 text-xs font-semibold transition-all">
+              <Button onClick={() => { setMonth(dayjs().month() + 1); setYear(dayjs().year()); }} variant="secondary" size="sm">
                 Joriy oy
-              </button>
+              </Button>
             )}
           </div>
 
           {view === "grafik" && (
             <div className="flex flex-wrap items-center gap-2.5">
-              <select
+              <Select
                 value={deptFilter}
                 onChange={(e) => setDeptFilter(e.target.value)}
-                className="rounded-xl bg-white dark:bg-[#1a1d26] border border-slate-200 dark:border-white/10 px-3.5 h-9 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 transition-all min-w-[160px]"
+                className="h-9 min-w-[160px] w-auto text-xs"
               >
                 <option value="">Barcha bo&apos;limlar</option>
                 {(departments as any[]).map((d: any) => (
                   <option key={d.id} value={d.id}>{d.name}</option>
                 ))}
-              </select>
+              </Select>
 
-              <button onClick={handleRollover} disabled={rollingOver} className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/5 text-xs font-semibold transition-all flex items-center gap-1.5">
+              <Button onClick={() => setRolloverConfirmOpen(true)} loading={rollingOver} variant="secondary" size="sm">
                 <Copy className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
                 <span className="hidden sm:inline">Nusxa olish</span>
-              </button>
+              </Button>
 
-              <button onClick={() => setImportOpen(true)} className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/5 text-xs font-semibold transition-all flex items-center gap-1.5">
+              <Button onClick={() => setImportOpen(true)} variant="secondary" size="sm">
                 <Upload className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
                 <span className="hidden sm:inline">Import</span>
-              </button>
+              </Button>
 
-              <button onClick={() => { setGenerateEmpId(undefined); setModalOpen(true); }} className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/20 transition-all flex items-center gap-2">
+              <Button onClick={() => { setGenerateEmpId(undefined); setModalOpen(true); }} size="sm">
                 <Sparkles className="w-3.5 h-3.5" /> Grafik yaratish
-              </button>
+              </Button>
             </div>
           )}
-        </div>
+        </Surface>
 
         {/* Stats Cards (Scroll qilinganda o'zgarmaydigan umumiy statistika) */}
         {view === "grafik" && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-            <div className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl flex items-center gap-3.5 shadow-xl">
+            <div className="ui-surface flex items-center gap-3.5 p-4">
               <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
                 <Users className="w-5 h-5" />
               </div>
@@ -968,7 +991,7 @@ export default function SchedulesPage() {
               </div>
             </div>
 
-            <div className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl flex items-center gap-3.5 shadow-xl">
+            <div className="ui-surface flex items-center gap-3.5 p-4">
               <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                 <UserCheck className="w-5 h-5" />
               </div>
@@ -980,7 +1003,7 @@ export default function SchedulesPage() {
               </div>
             </div>
 
-            <div className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl flex items-center gap-3.5 shadow-xl">
+            <div className="ui-surface flex items-center gap-3.5 p-4">
               <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
                 <UserX className="w-5 h-5" />
               </div>
@@ -992,7 +1015,7 @@ export default function SchedulesPage() {
               </div>
             </div>
 
-            <div className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 p-4 rounded-2xl flex items-center gap-3.5 shadow-xl">
+            <div className="ui-surface flex items-center gap-3.5 p-4">
               <div className="p-2.5 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400">
                 <Clock className="w-5 h-5" />
               </div>
@@ -1008,16 +1031,16 @@ export default function SchedulesPage() {
 
         {/* Filter Toolbar */}
         {view === "grafik" && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 p-3.5 rounded-2xl shadow-xl">
+          <Surface className="flex flex-col items-center justify-between gap-3 p-3.5 sm:flex-row">
             <div className="relative w-full sm:w-80">
               {!empSearch && (
                 <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               )}
-              <input
+              <Input
                 value={empSearch}
                 onChange={(e) => setEmpSearch(e.target.value)}
                 placeholder="Xodim ismini izlash..."
-                className="w-full rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 px-3.5 h-9 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-all"
+                className="h-9 pr-10 text-xs"
               />
               {empSearch && (
                 <button 
@@ -1035,21 +1058,18 @@ export default function SchedulesPage() {
                 { v: "with", l: "Grafikli" },
                 { v: "without", l: "Grafiksiz" },
               ] as const).map((f) => (
-                <button
+                <Button
                   key={f.v}
                   onClick={() => setScheduleFilter(f.v)}
-                  className={cn(
-                    "px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap border",
-                    scheduleFilter === f.v
-                      ? "bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-600/20"
-                      : "border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-white/[0.02] text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white"
-                  )}
+                  variant={scheduleFilter === f.v ? "primary" : "secondary"}
+                  size="sm"
+                  className="whitespace-nowrap"
                 >
                   {f.l}
-                </button>
+                </Button>
               ))}
             </div>
-          </div>
+          </Surface>
         )}
 
         {/* Smenlar ko'rinishi */}
@@ -1067,8 +1087,19 @@ export default function SchedulesPage() {
         )}
 
         {/* Main Grid Calendar with Infinite Scroll */}
-        {view === "grafik" && (
-          <div className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 shadow-2xl rounded-2xl overflow-hidden">
+        {view === "grafik" && schedError && (
+          <StatePanel
+            kind="error"
+            title="Oylik grafikni yuklab bo‘lmadi"
+            description="Saqlangan ma’lumot o‘zgarmadi. Aloqani tekshirib, qayta urinib ko‘ring."
+            actionLabel="Qayta urinish"
+            onAction={() => void refetchSchedules()}
+            actionLoading={schedFetching}
+          />
+        )}
+
+        {view === "grafik" && !schedError && (
+          <div className="ui-table-shell">
             {/* Jadval — faqat sm: dan yuqorida. 220px ism ustuni + 31x46px kun
                 ustunlari ≈ 1650px kenglik; mobilda ishlatib bo'lmaydi,
                 shuning uchun pastda kartochka ko'rinishi bor. */}
@@ -1078,17 +1109,17 @@ export default function SchedulesPage() {
               className="hidden sm:block overflow-x-auto overflow-y-auto max-h-[calc(100vh-320px)] relative"
             >
               <table className="w-full border-collapse text-xs table-fixed">
-                <thead className="sticky top-0 z-30 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-xl">
+                <thead className="ui-table-head sticky top-0 z-30 border-b border-[var(--border)] shadow-lg">
                   <tr>
-                    <th className="sticky left-0 z-40 bg-white dark:bg-slate-900 text-left px-4 py-3.5 font-bold text-slate-500 dark:text-slate-400 uppercase text-[10px] tracking-wider w-[220px] min-w-[220px] border-r border-slate-200 dark:border-slate-800 shadow-[4px_0_12px_-2px_rgba(0,0,0,0.05)] dark:shadow-[4px_0_12px_-2px_rgba(0,0,0,0.5)]">
+                    <th className="ui-table-head sticky left-0 z-40 w-[220px] min-w-[220px] border-r border-[var(--border)] px-4 py-3.5 text-left text-[10px] font-bold uppercase tracking-wider shadow-[4px_0_12px_-2px_rgba(0,0,0,0.18)]">
                       Xodimlarning F.I.Sh
                     </th>
                     {dayCells.map((c) => (
                       <th
                         key={c.dateStr}
                         className={cn(
-                          "text-center py-2.5 px-1 w-[46px] min-w-[46px] border-r border-slate-200 dark:border-white/5 font-medium transition-colors",
-                          c.isWeekend ? "bg-slate-50 dark:bg-white/[0.02] text-rose-500 dark:text-rose-400" : "text-slate-500 dark:text-slate-400",
+                          "text-center py-2.5 px-1 w-[46px] min-w-[46px] border-r border-[var(--border)] font-medium transition-colors",
+                          c.isWeekend ? "bg-rose-500/5 text-rose-500 dark:text-rose-400" : "text-[var(--text-muted)]",
                           c.isToday && "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-bold"
                         )}
                       >
@@ -1102,11 +1133,11 @@ export default function SchedulesPage() {
                   {isLoading &&
                     [...Array(8)].map((_, i) => (
                       <tr key={i}>
-                        <td className="px-4 py-3 sticky left-0 bg-white dark:bg-[#12141c] z-20 border-r border-slate-200 dark:border-white/5">
+                        <td className="sticky left-0 z-20 border-r border-[var(--border)] bg-[var(--bg-card)] px-4 py-3">
                           <div className="h-4 w-32 bg-slate-100 dark:bg-white/5 rounded animate-pulse" />
                         </td>
                         {[...Array(daysInMonth)].map((_, j) => (
-                          <td key={j} className="p-2 border-r border-slate-200 dark:border-white/5">
+                          <td key={j} className="border-r border-[var(--border)] p-2">
                             <div className="h-7 w-full bg-slate-100 dark:bg-white/5 rounded animate-pulse" />
                           </td>
                         ))}
@@ -1131,9 +1162,9 @@ export default function SchedulesPage() {
                         ? Array.from(empSchedules.values()).some((schedule: any) => Boolean(schedule.sourcePlanId))
                         : false;
                       return (
-                        <tr key={emp.id} className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors group">
+                        <tr key={emp.id} className="table-row-hover group">
                           {/* Left Sticky Column */}
-                          <td className="sticky left-0 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 dark:group-hover:bg-[#161821] z-20 px-4 py-2 border-r shadow-[4px_0_12px_-2px_rgba(0,0,0,0.05)] dark:shadow-[4px_0_12px_-2px_rgba(0,0,0,0.5)] transition-colors">
+                          <td className="sticky left-0 z-20 border border-[var(--border)] bg-[var(--bg-card)] px-4 py-2 shadow-[4px_0_12px_-2px_rgba(0,0,0,0.18)] transition-colors group-hover:bg-[var(--bg-hover)]">
                             <div
                               className="cursor-pointer group/item"
                               onClick={() => {
@@ -1161,7 +1192,7 @@ export default function SchedulesPage() {
                               <td
                                 key={c.dateStr}
                                 className={cn(
-                                  "text-center p-1 border-r border-slate-200 dark:border-white/5 relative transition-all",
+                                  "text-center p-1 border-r border-[var(--border)] relative transition-all",
                                   c.isWeekend && "bg-slate-50/50 dark:bg-white/[0.01]",
                                   c.isToday && "bg-indigo-500/5",
                                   sch && !sch.sourcePlanId && "cursor-pointer hover:bg-slate-100 dark:hover:bg-white/[0.04]",
@@ -1205,7 +1236,7 @@ export default function SchedulesPage() {
                 Kun tasmasi gorizontal scroll bo'ladi, sahifa esa vertikal.
                 Ism ustiga bosilsa grafik yaratish, kun ustiga bosilsa
                 o'sha kunni tahrirlash oynasi ochiladi. */}
-            <div className="sm:hidden divide-y divide-slate-200 dark:divide-slate-800">
+            <div className="divide-y divide-[var(--border)] sm:hidden">
               {isLoading && [...Array(4)].map((_, i) => (
                 <div key={i} className="p-4 space-y-2">
                   <div className="h-4 w-40 rounded bg-slate-100 dark:bg-white/5 animate-pulse" />
@@ -1332,7 +1363,7 @@ export default function SchedulesPage() {
 
 
             {/* Table Footer / Legend */}
-            <div className="flex flex-wrap items-center gap-6 px-6 py-3.5 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400">
+            <div className="flex flex-wrap items-center gap-6 border-t border-[var(--border)] bg-[var(--bg-secondary)] px-6 py-3.5 text-xs text-[var(--text-muted)]">
               <span className="flex items-center gap-2 font-medium">
                 <span className="bg-sky-500/10 text-sky-600 dark:text-sky-400 font-bold px-2 py-0.5 rounded-lg border border-sky-500/20 text-[10px]">K</span> Kunduzgi smen
               </span>
@@ -1402,6 +1433,15 @@ export default function SchedulesPage() {
           qc.invalidateQueries({ queryKey: ["staff-schedule-paginated"] });
           qc.invalidateQueries({ queryKey: ["schedule-statistics"] });
         }}
+      />
+      <ConfirmDialog
+        open={rolloverConfirmOpen}
+        onClose={() => setRolloverConfirmOpen(false)}
+        onConfirm={handleRollover}
+        title="Oldingi oy grafigi nusxalansinmi?"
+        description={`${dayjs(`${year}-${String(month).padStart(2, "0")}-01`).subtract(1, "month").format("MMMM YYYY")} grafigi ${dayjs(`${year}-${String(month).padStart(2, "0")}-01`).format("MMMM YYYY")} oyiga ko‘chiriladi.`}
+        confirmLabel="Nusxa olish"
+        loading={rollingOver}
       />
     </div>
   );

@@ -20,6 +20,17 @@ import { Topbar } from "@/components/layout/Topbar";
 import { compensationApi, employeesApi } from "@/lib/api";
 import { formatMoney, isSuperLike } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth";
+import {
+  Button,
+  ConfirmDialog,
+  Dialog,
+  Field,
+  Input,
+  Select,
+  StatePanel,
+  Surface,
+  Textarea,
+} from "@/components/ui";
 
 const TYPES = [
   { value: "OVERTIME_PAY", label: "Tasdiqlangan overtime to‘lovi" },
@@ -86,18 +97,48 @@ export default function CompensationPage() {
   const [tab, setTab] = useState<"adjustments" | "advances">("adjustments");
   const [form, setForm] = useState({ employeeId: "", type: TYPES[0].value, amount: "", reason: "", policyReference: "" });
   const [advance, setAdvance] = useState({ employeeId: "", amount: "", note: "" });
+  const [adjustmentDecision, setAdjustmentDecision] = useState<null | {
+    item: any;
+    decision: "APPROVED" | "REJECTED";
+    reason: string;
+    orderNumber: string;
+    orderDate: string;
+    explanationRefused: boolean;
+    refusalActReference: string;
+  }>(null);
+  const [advanceDecision, setAdvanceDecision] = useState<null | { item: any; decision: "APPROVED" | "REJECTED" }>(null);
+  const [paymentItem, setPaymentItem] = useState<any>(null);
+  const [paymentReference, setPaymentReference] = useState("");
 
   const params = { month, year, targetHospitalId };
-  const { data: employeeResult } = useQuery({
+  const {
+    data: employeeResult,
+    isLoading: employeesLoading,
+    isError: employeesError,
+    isFetching: employeesFetching,
+    refetch: refetchEmployees,
+  } = useQuery({
     queryKey: ["compensation-employees", targetHospitalId],
     queryFn: () => employeesApi.list({ limit: 500, targetHospitalId }),
   });
   const employees: any[] = employeeResult?.data ?? employeeResult?.employees ?? employeeResult ?? [];
-  const { data: adjustments = [] } = useQuery({
+  const {
+    data: adjustments = [],
+    isLoading: adjustmentsLoading,
+    isError: adjustmentsError,
+    isFetching: adjustmentsFetching,
+    refetch: refetchAdjustments,
+  } = useQuery({
     queryKey: ["compensation-adjustments", params],
     queryFn: () => compensationApi.adjustments(params),
   });
-  const { data: advances = [] } = useQuery({
+  const {
+    data: advances = [],
+    isLoading: advancesLoading,
+    isError: advancesError,
+    isFetching: advancesFetching,
+    refetch: refetchAdvances,
+  } = useQuery({
     queryKey: ["compensation-advances", params],
     queryFn: () => compensationApi.advances(params),
   });
@@ -129,46 +170,69 @@ export default function CompensationPage() {
     onError: (e: any) => toast.error(e?.response?.data?.message || "Saqlanmadi"),
   });
 
-  const decideAdjustment = async (item: any, decision: "APPROVED" | "REJECTED") => {
-    const decisionReason = window.prompt(decision === "APPROVED" ? "Qaror asosini kiriting" : "Rad etish sababini kiriting");
-    if (!decisionReason) return;
-    const body: any = { decision, decisionReason };
-    if (decision === "APPROVED") body.approvedAmount = Number(item.proposedAmount);
-    if (decision === "APPROVED" && item.type === "DISCIPLINARY_FINE") {
-      const orderNumber = window.prompt("Buyruq raqami");
-      const orderDate = window.prompt("Buyruq sanasi (YYYY-MM-DD)", dayjs().format("YYYY-MM-DD"));
-      if (!orderNumber || !orderDate) return;
-      body.orderNumber = orderNumber;
-      body.orderDate = orderDate;
-      body.finePercent = 30;
-      if (!item.employeeExplanation) {
-        body.explanationRefused = window.confirm("Xodim tushuntirish berishdan bosh tortgani dalolatnoma bilan qayd etilganmi?");
-        if (body.explanationRefused) {
-          body.refusalActReference = window.prompt("Bosh tortish dalolatnomasi raqami") || undefined;
-          if (!body.refusalActReference) return;
+  const decideAdjustmentMutation = useMutation({
+    mutationFn: async () => {
+      if (!adjustmentDecision) return;
+      const { item, decision, reason, orderNumber, orderDate, explanationRefused, refusalActReference } = adjustmentDecision;
+      const body: any = { decision, decisionReason: reason.trim() };
+      if (decision === "APPROVED") body.approvedAmount = Number(item.proposedAmount);
+      if (decision === "APPROVED" && item.type === "DISCIPLINARY_FINE") {
+        body.orderNumber = orderNumber.trim();
+        body.orderDate = orderDate;
+        body.finePercent = 30;
+        if (!item.employeeExplanation) {
+          body.explanationRefused = explanationRefused;
+          if (explanationRefused) body.refusalActReference = refusalActReference.trim();
         }
       }
-    }
-    try {
-      await compensationApi.decideAdjustment(item.id, body, { targetHospitalId });
-      refresh(); toast.success("Qaror saqlandi");
-    } catch (e: any) { toast.error(e?.response?.data?.message || "Qaror saqlanmadi"); }
-  };
+      return compensationApi.decideAdjustment(item.id, body, { targetHospitalId });
+    },
+    onSuccess: () => {
+      setAdjustmentDecision(null);
+      refresh();
+      toast.success("Qaror saqlandi");
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message || "Qaror saqlanmadi"),
+  });
 
-  const decideAdvance = async (item: any, decision: "APPROVED" | "REJECTED") => {
-    try {
-      await compensationApi.decideAdvance(item.id, { decision, approvedAmount: decision === "APPROVED" ? Number(item.requestedAmount) : undefined }, { targetHospitalId });
-      refresh(); toast.success("Qaror saqlandi");
-    } catch (e: any) { toast.error(e?.response?.data?.message || "Qaror saqlanmadi"); }
-  };
+  const decideAdvanceMutation = useMutation({
+    mutationFn: ({ item, decision }: { item: any; decision: "APPROVED" | "REJECTED" }) =>
+      compensationApi.decideAdvance(item.id, {
+        decision,
+        approvedAmount: decision === "APPROVED" ? Number(item.requestedAmount) : undefined,
+      }, { targetHospitalId }),
+    onSuccess: () => {
+      setAdvanceDecision(null);
+      refresh();
+      toast.success("Qaror saqlandi");
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message || "Qaror saqlanmadi"),
+  });
 
-  const markPaid = async (item: any) => {
-    const reference = window.prompt("Bank/to‘lov hujjati raqami");
-    if (!reference) return;
-    try {
-      await compensationApi.markAdvancePaid(item.id, { paidAmount: Number(item.approvedAmount), paymentReference: reference }, { targetHospitalId });
-      refresh(); toast.success("Avans to‘landi deb belgilandi");
-    } catch (e: any) { toast.error(e?.response?.data?.message || "Saqlanmadi"); }
+  const markPaidMutation = useMutation({
+    mutationFn: () => compensationApi.markAdvancePaid(paymentItem.id, {
+      paidAmount: Number(paymentItem.approvedAmount),
+      paymentReference: paymentReference.trim(),
+    }, { targetHospitalId }),
+    onSuccess: () => {
+      setPaymentItem(null);
+      setPaymentReference("");
+      refresh();
+      toast.success("Avans to‘landi deb belgilandi");
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message || "Saqlanmadi"),
+  });
+
+  const openAdjustmentDecision = (item: any, decision: "APPROVED" | "REJECTED") => {
+    setAdjustmentDecision({
+      item,
+      decision,
+      reason: "",
+      orderNumber: "",
+      orderDate: dayjs().format("YYYY-MM-DD"),
+      explanationRefused: false,
+      refusalActReference: "",
+    });
   };
 
   const total = useMemo(() => (adjustments as any[]).filter((x) => x.status === "APPROVED").reduce((s, x) => s + Number(x.approvedAmount || 0), 0), [adjustments]);
@@ -179,62 +243,81 @@ export default function CompensationPage() {
     !!form.reason.trim() &&
     (!policyMeta.required || !!form.policyReference.trim()) &&
     !createAdjustment.isPending;
+  const isFineApproval = adjustmentDecision?.decision === "APPROVED" && adjustmentDecision?.item?.type === "DISCIPLINARY_FINE";
+  const canSubmitAdjustmentDecision = Boolean(
+    adjustmentDecision?.reason.trim() &&
+    (!isFineApproval || (
+      adjustmentDecision?.orderNumber.trim() &&
+      adjustmentDecision?.orderDate &&
+      (!adjustmentDecision?.explanationRefused || adjustmentDecision?.refusalActReference.trim())
+    )),
+  );
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#080b16]">
+    <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
       <Topbar
         title="KPI, jarima va avans"
         subtitle="Qonuniy asos va qaror auditi bilan hisob-kitob"
       />
       <main className="mx-auto max-w-7xl space-y-5 p-4 sm:p-6">
-        <section className="card flex flex-col gap-4 p-4 sm:flex-row sm:items-end">
+        <Surface className="flex flex-col gap-4 p-4 sm:flex-row sm:items-end">
           <div className="grid grid-cols-2 gap-3">
-            <label className="block">
-              <span className="mb-1.5 block text-xs font-semibold text-muted">Oy</span>
-              <select
-                className="input-field min-w-36"
+            <Field label="Oy">
+              <Select
+                className="min-w-36"
                 value={month}
                 onChange={(e) => setMonth(+e.target.value)}
               >
                 {Array.from({ length: 12 }, (_, i) => (
                   <option key={i + 1} value={i + 1}>{i + 1}-oy</option>
                 ))}
-              </select>
-            </label>
-            <label className="block">
-              <span className="mb-1.5 block text-xs font-semibold text-muted">Yil</span>
-              <input
-                className="input-field min-w-32"
+              </Select>
+            </Field>
+            <Field label="Yil">
+              <Input
+                className="min-w-32"
                 type="number"
                 value={year}
                 onChange={(e) => setYear(+e.target.value)}
               />
-            </label>
+            </Field>
           </div>
           <div className="sm:ml-auto rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3">
             <p className="text-xs font-medium text-emerald-500">Tasdiqlangan yozuvlar</p>
             <p className="mt-0.5 text-lg font-bold text-theme">{formatMoney(total)}</p>
           </div>
-        </section>
+        </Surface>
+
+        {employeesError && (
+          <StatePanel
+            kind="error"
+            title="Xodimlar ro‘yxatini yuklab bo‘lmadi"
+            description="Yangi KPI, jarima yoki avans yozuvi yaratish uchun ro‘yxatni qayta yuklang."
+            actionLabel="Qayta urinish"
+            onAction={() => void refetchEmployees()}
+            actionLoading={employeesFetching}
+            className="min-h-32"
+          />
+        )}
 
         <div className="flex flex-wrap gap-2">
-          <button
-            className={tab === "adjustments" ? "btn-primary" : "btn-secondary"}
+          <Button
+            variant={tab === "adjustments" ? "primary" : "secondary"}
             onClick={() => setTab("adjustments")}
           >
             <Trophy className="h-4 w-4" /> KPI va tuzatishlar
-          </button>
-          <button
-            className={tab === "advances" ? "btn-primary" : "btn-secondary"}
+          </Button>
+          <Button
+            variant={tab === "advances" ? "primary" : "secondary"}
             onClick={() => setTab("advances")}
           >
             <HandCoins className="h-4 w-4" /> Avanslar
-          </button>
+          </Button>
         </div>
 
         {tab === "adjustments" ? (
           <>
-            <section className="card overflow-hidden">
+            <Surface className="overflow-hidden">
               <div className="border-b border-theme bg-gradient-to-r from-indigo-500/10 to-violet-500/5 px-5 py-4">
                 <h2 className="flex items-center gap-2 font-bold text-theme">
                   <Plus className="h-5 w-5 text-indigo-500" /> Yangi hisob-kitob yozuvi
@@ -246,12 +329,9 @@ export default function CompensationPage() {
 
               <div className="space-y-5 p-5">
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-12">
-                  <label className="block xl:col-span-4">
-                    <span className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-muted">
-                      <UserRound className="h-3.5 w-3.5" /> Xodim
-                    </span>
-                    <select
-                      className="input-field"
+                  <Field label={<span className="flex items-center gap-1.5"><UserRound className="h-3.5 w-3.5" /> Xodim</span>} className="xl:col-span-4">
+                    <Select
+                      disabled={employeesLoading || employeesError}
                       value={form.employeeId}
                       onChange={(e) => setForm({ ...form, employeeId: e.target.value })}
                     >
@@ -259,28 +339,22 @@ export default function CompensationPage() {
                       {employees.map((employee) => (
                         <option key={employee.id} value={employee.id}>{employee.fullName}</option>
                       ))}
-                    </select>
-                  </label>
+                    </Select>
+                  </Field>
 
-                  <label className="block xl:col-span-4">
-                    <span className="mb-1.5 block text-xs font-semibold text-muted">Hisob turi</span>
-                    <select
-                      className="input-field"
+                  <Field label="Hisob turi" className="xl:col-span-4">
+                    <Select
                       value={form.type}
                       onChange={(e) => setForm({ ...form, type: e.target.value, policyReference: "" })}
                     >
                       {TYPES.map((type) => (
                         <option key={type.value} value={type.value}>{type.label}</option>
                       ))}
-                    </select>
-                  </label>
+                    </Select>
+                  </Field>
 
-                  <label className="block xl:col-span-4">
-                    <span className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-muted">
-                      <Calculator className="h-3.5 w-3.5" /> Summa
-                    </span>
-                    <input
-                      className="input-field disabled:cursor-not-allowed disabled:opacity-60"
+                  <Field label={<span className="flex items-center gap-1.5"><Calculator className="h-3.5 w-3.5" /> Summa</span>} className="xl:col-span-4">
+                    <Input
                       type="number"
                       min="0"
                       disabled={form.type === "OVERTIME_PAY"}
@@ -288,31 +362,28 @@ export default function CompensationPage() {
                       value={form.amount}
                       onChange={(e) => setForm({ ...form, amount: e.target.value })}
                     />
-                  </label>
+                  </Field>
 
-                  <label className="block md:col-span-2 xl:col-span-7">
-                    <span className="mb-1.5 block text-xs font-semibold text-muted">Sabab</span>
-                    <textarea
-                      className="input-field min-h-24 resize-y"
+                  <Field label="Sabab" className="md:col-span-2 xl:col-span-7">
+                    <Textarea
                       placeholder="Nima sababdan berilayotgani yoki ushlab qolinayotganini aniq yozing"
                       value={form.reason}
                       onChange={(e) => setForm({ ...form, reason: e.target.value })}
                     />
-                  </label>
+                  </Field>
 
-                  <label className="block md:col-span-2 xl:col-span-5">
-                    <span className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-muted">
-                      <FileText className="h-3.5 w-3.5" /> {policyMeta.label}
-                      {policyMeta.required && <span className="text-red-400">*</span>}
-                    </span>
-                    <input
-                      className="input-field"
+                  <Field
+                    label={<span className="flex items-center gap-1.5"><FileText className="h-3.5 w-3.5" /> {policyMeta.label}</span>}
+                    required={policyMeta.required}
+                    hint={policyMeta.help}
+                    className="md:col-span-2 xl:col-span-5"
+                  >
+                    <Input
                       placeholder={policyMeta.placeholder}
                       value={form.policyReference}
                       onChange={(e) => setForm({ ...form, policyReference: e.target.value })}
                     />
-                    <p className="mt-2 text-xs leading-5 text-muted">{policyMeta.help}</p>
-                  </label>
+                  </Field>
                 </div>
 
                 <div className="flex flex-col gap-3 rounded-xl border border-indigo-500/20 bg-indigo-500/10 p-4 sm:flex-row sm:items-center">
@@ -320,28 +391,39 @@ export default function CompensationPage() {
                   <p className="flex-1 text-sm leading-6 text-slate-600 dark:text-slate-300">
                     <b>Hujjat/band nima?</b> Bu qaror qaysi tasdiqlangan qoida yoki buyruqqa asoslanganini ko‘rsatadi. Hujjat hali mavjud bo‘lmasa, intizomiy jarimani shoshilmasdan faqat qonuniy workflow orqali rasmiylashtiring.
                   </p>
-                  <button
-                    className="btn-primary shrink-0"
+                  <Button
+                    className="shrink-0"
                     disabled={!canCreateAdjustment}
+                    loading={createAdjustment.isPending}
                     onClick={() => createAdjustment.mutate()}
                   >
                     <Plus className="h-4 w-4" />
-                    {createAdjustment.isPending ? "Saqlanmoqda..." : "Yozuv yaratish"}
-                  </button>
+                    Yozuv yaratish
+                  </Button>
                 </div>
               </div>
-            </section>
+            </Surface>
 
             <section className="space-y-3">
-              {(adjustments as any[]).length === 0 && (
-                <div className="card p-8 text-center">
-                  <Scale className="mx-auto h-8 w-8 text-slate-400" />
-                  <p className="mt-3 font-semibold text-theme">Bu davr uchun yozuv yo‘q</p>
-                  <p className="mt-1 text-sm text-muted">Yangi KPI, mukofot yoki qonuniy tuzatish yuqoridagi forma orqali yaratiladi.</p>
-                </div>
+              {adjustmentsLoading && <StatePanel kind="loading" title="Hisob-kitob yozuvlari yuklanmoqda" />}
+              {adjustmentsError && (
+                <StatePanel
+                  kind="error"
+                  title="Hisob-kitob yozuvlarini yuklab bo‘lmadi"
+                  actionLabel="Qayta urinish"
+                  onAction={() => void refetchAdjustments()}
+                  actionLoading={adjustmentsFetching}
+                />
               )}
-              {(adjustments as any[]).map((item) => (
-                <article key={item.id} className="card flex flex-col gap-4 p-4 lg:flex-row lg:items-center">
+              {!adjustmentsLoading && !adjustmentsError && (adjustments as any[]).length === 0 && (
+                <StatePanel
+                  title="Bu davr uchun yozuv yo‘q"
+                  description="Yangi KPI, mukofot yoki qonuniy tuzatish yuqoridagi forma orqali yaratiladi."
+                  icon={Scale}
+                />
+              )}
+              {!adjustmentsError && (adjustments as any[]).map((item) => (
+                <Surface key={item.id} className="flex flex-col gap-4 p-4 lg:flex-row lg:items-center">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400">
                     <Scale className="h-5 w-5" />
                   </div>
@@ -360,53 +442,60 @@ export default function CompensationPage() {
                   <b className="text-lg text-theme">{formatMoney(item.approvedAmount ?? item.proposedAmount)}</b>
                   {["PENDING_APPROVAL", "PENDING_EXPLANATION"].includes(item.status) && (
                     <div className="flex gap-2">
-                      <button className="btn-secondary" onClick={() => decideAdjustment(item, "REJECTED")}>
+                      <Button variant="secondary" onClick={() => openAdjustmentDecision(item, "REJECTED")}>
                         <XCircle className="h-4 w-4" /> Rad
-                      </button>
-                      <button className="btn-primary" onClick={() => decideAdjustment(item, "APPROVED")}>
+                      </Button>
+                      <Button onClick={() => openAdjustmentDecision(item, "APPROVED")}>
                         <CheckCircle2 className="h-4 w-4" /> Tasdiq
-                      </button>
+                      </Button>
                     </div>
                   )}
-                </article>
+                </Surface>
               ))}
             </section>
           </>
         ) : (
           <>
-            <section className="card overflow-hidden">
+            <Surface className="overflow-hidden">
               <div className="border-b border-theme bg-gradient-to-r from-emerald-500/10 to-cyan-500/5 px-5 py-4">
                 <h2 className="flex items-center gap-2 font-bold text-theme">
                   <HandCoins className="h-5 w-5 text-emerald-500" /> Yangi avans so‘rovi
                 </h2>
               </div>
               <div className="grid gap-4 p-5 md:grid-cols-3 xl:grid-cols-4">
-                <label className="block">
-                  <span className="mb-1.5 block text-xs font-semibold text-muted">Xodim</span>
-                  <select className="input-field" value={advance.employeeId} onChange={(e) => setAdvance({ ...advance, employeeId: e.target.value })}>
+                <Field label="Xodim">
+                  <Select disabled={employeesLoading || employeesError} value={advance.employeeId} onChange={(e) => setAdvance({ ...advance, employeeId: e.target.value })}>
                     <option value="">Xodimni tanlang</option>
                     {employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.fullName}</option>)}
-                  </select>
-                </label>
-                <label className="block">
-                  <span className="mb-1.5 block text-xs font-semibold text-muted">Avans summasi</span>
-                  <input className="input-field" type="number" min="0" placeholder="Masalan: 1 000 000" value={advance.amount} onChange={(e) => setAdvance({ ...advance, amount: e.target.value })} />
-                </label>
-                <label className="block">
-                  <span className="mb-1.5 block text-xs font-semibold text-muted">Izoh</span>
-                  <input className="input-field" placeholder="Ixtiyoriy izoh" value={advance.note} onChange={(e) => setAdvance({ ...advance, note: e.target.value })} />
-                </label>
-                <button className="btn-primary self-end" disabled={!advance.employeeId || !advance.amount || createAdvance.isPending} onClick={() => createAdvance.mutate()}>
+                  </Select>
+                </Field>
+                <Field label="Avans summasi">
+                  <Input type="number" min="0" placeholder="Masalan: 1 000 000" value={advance.amount} onChange={(e) => setAdvance({ ...advance, amount: e.target.value })} />
+                </Field>
+                <Field label="Izoh">
+                  <Input placeholder="Ixtiyoriy izoh" value={advance.note} onChange={(e) => setAdvance({ ...advance, note: e.target.value })} />
+                </Field>
+                <Button className="self-end" disabled={!advance.employeeId || !advance.amount} loading={createAdvance.isPending} onClick={() => createAdvance.mutate()}>
                   <Plus className="h-4 w-4" /> So‘rov yaratish
-                </button>
+                </Button>
               </div>
-            </section>
+            </Surface>
             <section className="space-y-3">
-              {(advances as any[]).length === 0 && (
-                <div className="card p-8 text-center text-sm text-muted">Bu davr uchun avans so‘rovi yo‘q.</div>
+              {advancesLoading && <StatePanel kind="loading" title="Avans so‘rovlari yuklanmoqda" />}
+              {advancesError && (
+                <StatePanel
+                  kind="error"
+                  title="Avans so‘rovlarini yuklab bo‘lmadi"
+                  actionLabel="Qayta urinish"
+                  onAction={() => void refetchAdvances()}
+                  actionLoading={advancesFetching}
+                />
               )}
-              {(advances as any[]).map((item) => (
-                <article key={item.id} className="card flex flex-col gap-3 p-4 lg:flex-row lg:items-center">
+              {!advancesLoading && !advancesError && (advances as any[]).length === 0 && (
+                <StatePanel title="Bu davr uchun avans so‘rovi yo‘q" icon={HandCoins} />
+              )}
+              {!advancesError && (advances as any[]).map((item) => (
+                <Surface key={item.id} className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center">
                   <HandCoins className="h-5 w-5 text-emerald-500" />
                   <div className="flex-1">
                     <b className="text-theme">{item.employee?.fullName}</b>
@@ -415,17 +504,100 @@ export default function CompensationPage() {
                   <b className="text-theme">{formatMoney(item.paidAmount ?? item.approvedAmount ?? item.requestedAmount)}</b>
                   {item.status === "REQUESTED" && (
                     <div className="flex gap-2">
-                      <button className="btn-secondary" onClick={() => decideAdvance(item, "REJECTED")}>Rad</button>
-                      <button className="btn-primary" onClick={() => decideAdvance(item, "APPROVED")}>Tasdiq</button>
+                      <Button variant="secondary" onClick={() => setAdvanceDecision({ item, decision: "REJECTED" })}>Rad</Button>
+                      <Button onClick={() => setAdvanceDecision({ item, decision: "APPROVED" })}>Tasdiq</Button>
                     </div>
                   )}
-                  {item.status === "APPROVED" && <button className="btn-primary" onClick={() => markPaid(item)}>To‘landi</button>}
-                </article>
+                  {item.status === "APPROVED" && <Button onClick={() => { setPaymentItem(item); setPaymentReference(""); }}>To‘landi</Button>}
+                </Surface>
               ))}
             </section>
           </>
         )}
       </main>
+
+      <Dialog
+        open={Boolean(adjustmentDecision)}
+        onClose={() => setAdjustmentDecision(null)}
+        title={adjustmentDecision?.decision === "APPROVED" ? "Hisob-kitobni tasdiqlash" : "Hisob-kitobni rad etish"}
+        description={`${adjustmentDecision?.item?.employee?.fullName ?? "Xodim"} bo‘yicha qaror asosini kiriting.`}
+        footer={(
+          <>
+            <Button variant="secondary" onClick={() => setAdjustmentDecision(null)} disabled={decideAdjustmentMutation.isPending}>Bekor qilish</Button>
+            <Button
+              variant={adjustmentDecision?.decision === "REJECTED" ? "danger" : "primary"}
+              disabled={!canSubmitAdjustmentDecision}
+              loading={decideAdjustmentMutation.isPending}
+              onClick={() => decideAdjustmentMutation.mutate()}
+            >
+              Qarorni saqlash
+            </Button>
+          </>
+        )}
+      >
+        {adjustmentDecision && <div className="space-y-4">
+          <Field label={adjustmentDecision.decision === "APPROVED" ? "Qaror asosi" : "Rad etish sababi"} required>
+            <Textarea
+              value={adjustmentDecision.reason}
+              onChange={(e) => setAdjustmentDecision({ ...adjustmentDecision, reason: e.target.value })}
+              placeholder="Qarorning aniq asosini yozing"
+              autoFocus
+            />
+          </Field>
+          {isFineApproval && <>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Buyruq raqami" required>
+                <Input value={adjustmentDecision.orderNumber} onChange={(e) => setAdjustmentDecision({ ...adjustmentDecision, orderNumber: e.target.value })} placeholder="Masalan: 12-J" />
+              </Field>
+              <Field label="Buyruq sanasi" required>
+                <Input type="date" value={adjustmentDecision.orderDate} onChange={(e) => setAdjustmentDecision({ ...adjustmentDecision, orderDate: e.target.value })} />
+              </Field>
+            </div>
+            {!adjustmentDecision.item.employeeExplanation && <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-3">
+              <label className="flex cursor-pointer items-start gap-3 text-sm text-[var(--text-secondary)]">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4 accent-indigo-600"
+                  checked={adjustmentDecision.explanationRefused}
+                  onChange={(e) => setAdjustmentDecision({ ...adjustmentDecision, explanationRefused: e.target.checked, refusalActReference: "" })}
+                />
+                Xodim tushuntirish berishdan bosh tortgani dalolatnoma bilan qayd etilgan
+              </label>
+              {adjustmentDecision.explanationRefused && <Field label="Dalolatnoma raqami" required className="mt-3">
+                <Input value={adjustmentDecision.refusalActReference} onChange={(e) => setAdjustmentDecision({ ...adjustmentDecision, refusalActReference: e.target.value })} />
+              </Field>}
+            </div>}
+          </>}
+        </div>}
+      </Dialog>
+
+      <ConfirmDialog
+        open={Boolean(advanceDecision)}
+        onClose={() => setAdvanceDecision(null)}
+        onConfirm={() => advanceDecision && decideAdvanceMutation.mutate(advanceDecision)}
+        title={advanceDecision?.decision === "APPROVED" ? "Avans tasdiqlansinmi?" : "Avans rad etilsinmi?"}
+        description={`${advanceDecision?.item?.employee?.fullName ?? "Xodim"} — ${formatMoney(advanceDecision?.item?.requestedAmount ?? 0)}`}
+        confirmLabel={advanceDecision?.decision === "APPROVED" ? "Tasdiqlash" : "Rad etish"}
+        tone={advanceDecision?.decision === "APPROVED" ? "primary" : "danger"}
+        loading={decideAdvanceMutation.isPending}
+      />
+
+      <Dialog
+        open={Boolean(paymentItem)}
+        onClose={() => { setPaymentItem(null); setPaymentReference(""); }}
+        title="Avans to‘lovini qayd etish"
+        description={`${paymentItem?.employee?.fullName ?? "Xodim"} uchun bank yoki to‘lov hujjati raqamini kiriting.`}
+        footer={(
+          <>
+            <Button variant="secondary" onClick={() => { setPaymentItem(null); setPaymentReference(""); }} disabled={markPaidMutation.isPending}>Bekor qilish</Button>
+            <Button disabled={!paymentReference.trim()} loading={markPaidMutation.isPending} onClick={() => markPaidMutation.mutate()}>To‘landi deb belgilash</Button>
+          </>
+        )}
+      >
+        <Field label="To‘lov hujjati raqami" required>
+          <Input value={paymentReference} onChange={(e) => setPaymentReference(e.target.value)} placeholder="Masalan: BANK-2026-09-001" autoFocus />
+        </Field>
+      </Dialog>
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { PushNotificationBanner } from "@/components/pwa/PushNotificationBanner"
 import { EmailVerificationReminder } from "@/components/dashboard/EmailVerificationReminder";
 import { useAuthStore } from "@/stores/auth";
 import { MobileMenuContext } from "@/contexts/mobile-menu";
+import { ConfirmationProvider } from "@/components/ui";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router   = useRouter();
@@ -33,6 +34,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       toggle: () => setMobileOpen((v) => !v),
       close: () => setMobileOpen(false),
     }}>
+      <ConfirmationProvider>
       <div className="relative flex h-screen overflow-hidden bg-[var(--bg-primary)]">
         <div aria-hidden className="pointer-events-none absolute -top-48 -left-48 h-[32rem] w-[32rem] rounded-full bg-blue-600/10 blur-[140px] dark:block hidden" />
         <div aria-hidden className="pointer-events-none absolute -bottom-56 -right-48 h-[34rem] w-[34rem] rounded-full bg-violet-600/10 blur-[150px] dark:block hidden" />
@@ -60,6 +62,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <InstallPrompt />
         <PushNotificationBanner />
       </div>
+      </ConfirmationProvider>
     </MobileMenuContext.Provider>
   );
 }

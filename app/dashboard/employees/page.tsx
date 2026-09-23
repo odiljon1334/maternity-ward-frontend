@@ -19,6 +19,7 @@ import {
 import dayjs from "dayjs";
 import { useForm } from "react-hook-form";
 import { ArchivedBioModal } from "@/components/employees/ArchivedBioModal";
+import { useConfirmation } from "@/components/ui";
 
 const LIMIT = 20;
 
@@ -743,7 +744,7 @@ const EmpRow = memo(function EmpRow({
             </button>
           )}
           <button
-            onClick={() => confirm("O'chirishni tasdiqlaysizmi?") && onDelete(emp.id)}
+            onClick={() => onDelete(emp.id)}
             className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-red-600 dark:hover:text-red-400 hover:bg-red-500/10 transition-colors">
             <Trash2 className="w-4 h-4" />
           </button>
@@ -786,6 +787,7 @@ function describeUploadError(err: any): string {
 export default function EmployeesPage() {
   const qc = useQueryClient();
   const router = useRouter();
+  const { confirm } = useConfirmation();
   const { user, selectedHospital } = useAuthStore();
 
   const targetHospitalId = isSuperLike(user?.role)
@@ -1030,10 +1032,35 @@ const resetGpsMutation = useMutation({
     onError: (e: any) => toast.error(e?.response?.data?.message || "Xatolik"),
   });
 
-  const handleResetGps = (emp: any) => {
-  if (!confirm(`"${emp.fullName}" Xodimining GPS joylashuvini tozalaysizmi?\nXodim ilovaga kirganda qaytadan belgilashi kerak bo'ladi.`)) return;
-  resetGpsMutation.mutate(emp.id);
-};
+  const handleResetGps = async (emp: any) => {
+    const approved = await confirm({
+      title: "GPS joylashuvi tozalansinmi?",
+      description: `${emp.fullName} ilovaga keyingi kirishda joylashuvini qaytadan belgilashi kerak bo‘ladi.`,
+      confirmLabel: "GPS’ni tozalash",
+      tone: "warning",
+    });
+    if (approved) resetGpsMutation.mutate(emp.id);
+  };
+
+  const handleDeleteEmployee = async (id: string) => {
+    const approved = await confirm({
+      title: "Xodim o‘chirilsinmi?",
+      description: "Tanlangan xodimni o‘chirishni tasdiqlang. Bog‘liq ma’lumot bo‘lsa tizim amalni rad etishi mumkin.",
+      confirmLabel: "O‘chirish",
+      tone: "danger",
+    });
+    if (approved) deleteMutation.mutate(id);
+  };
+
+  const handleBulkDelete = async () => {
+    const approved = await confirm({
+      title: `${selectedIds.length} ta xodim o‘chirilsinmi?`,
+      description: "Bu amalni qaytarib bo‘lmaydi. Tanlangan xodimlar va ularga bog‘liq ruxsat etilgan ma’lumotlar o‘chiriladi.",
+      confirmLabel: "Barchasini o‘chirish",
+      tone: "danger",
+    });
+    if (approved) bulkDeleteMutation.mutate();
+  };
 
   const toggleSelect = (id: string, checked: boolean) => {
     setSelectedIds(prev => checked ? [...prev, id] : prev.filter(x => x !== id));
@@ -1407,7 +1434,7 @@ const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
                     </button>
                   )}
                   <button
-                    onClick={() => confirm("O'chirishni tasdiqlaysizmi?") && deleteMutation.mutate(emp.id)}
+                    onClick={() => void handleDeleteEmployee(emp.id)}
                     className="p-1.5 rounded text-[var(--text-muted)] hover:text-red-600 dark:hover:text-red-400 hover:bg-red-500/10"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -1465,7 +1492,7 @@ const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
                     lunchLate={lunchLateMap.get(emp.id)}
                     onLeave={onLeaveMap.get(emp.id)}
                     onEdit={(e) => { setEditEmp(e); setModalOpen(true); }}
-                    onDelete={(id) => deleteMutation.mutate(id)}
+                    onDelete={(id) => void handleDeleteEmployee(id)}
                     onResetGps={handleResetGps} 
                     onFire={(e) => { setFireEmp(e); setFireModalOpen(true); }}
                     onPhoto={handlePhotoClick}
@@ -1563,10 +1590,7 @@ const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
                 <span>Bo&apos;lim</span>
               </button>
               <button
-                onClick={() => {
-                  if (confirm(`${selectedIds.length} ta xodimni o'chirasizmi? Bu amalni qaytarib bo'lmaydi.`))
-                    bulkDeleteMutation.mutate();
-                }}
+                onClick={() => void handleBulkDelete()}
                 disabled={bulkDeleteMutation.isPending}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/80 hover:bg-red-500 text-white text-xs font-bold transition-colors"
               >

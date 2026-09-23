@@ -14,6 +14,10 @@ import {
 import dayjs from "dayjs";
 import { useAuthStore } from "@/stores/auth";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/Button";
+import { Field, Select, Textarea } from "@/components/ui/FormControls";
+import { Surface } from "@/components/ui/Surface";
+import { StatePanel } from "@/components/ui/StatePanel";
 
 const WEEKDAYS = ["Du", "Se", "Ch", "Pa", "Ju", "Sh", "Ya"];
 
@@ -242,7 +246,7 @@ export default function MySchedulePage() {
     }
   };
 
-  const { data: schedules = [], isLoading } = useQuery<any[]>({
+  const { data: schedules = [], isLoading, isError, isFetching, refetch } = useQuery<any[]>({
     queryKey: ["my-schedule", month, year],
     queryFn:  () => schedulesApi.my({ month, year }),
     staleTime: 5 * 60_000,
@@ -350,14 +354,14 @@ export default function MySchedulePage() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {!isError && <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: "Ish kunlari",    value: totalWorkDays, icon: Briefcase, color: "text-indigo-500", bg: "bg-indigo-500/10 border-indigo-500/20" },
             { label: "Dam olish",      value: totalDayOff,   icon: Coffee,    color: "text-amber-500",  bg: "bg-amber-500/10 border-amber-500/20"   },
             { label: "Kunduzgi",       value: totalDay,      icon: Sun,       color: "text-orange-500", bg: "bg-orange-500/10 border-orange-500/20" },
             { label: "Kechki smena",   value: totalNight,    icon: Moon,      color: "text-violet-500", bg: "bg-violet-500/10 border-violet-500/20" },
           ].map(s => (
-            <div key={s.label} className="rounded-3xl p-4 border border-[var(--border)] shadow-xl bg-[var(--bg-card)]">
+            <Surface key={s.label} className="p-4">
               <div className="flex items-center gap-3">
                 <div className={cn("p-2.5 rounded-2xl border", s.bg, s.color)}>
                   <s.icon className="w-4 h-4" />
@@ -371,51 +375,62 @@ export default function MySchedulePage() {
                   )}
                 </div>
               </div>
-            </div>
+            </Surface>
           ))}
-        </div>
+        </div>}
 
         {/* Calendar */}
-        <CompactScheduleCalendar
-          schedules={schedules}
-          year={year}
-          month={month}
-          isLoading={isLoading}
-          onSelectSchedule={setSelectedSchedule}
-        />
+        {isError ? (
+          <StatePanel
+            kind="error"
+            title="Shaxsiy grafikni yuklab bo‘lmadi"
+            description="Internet aloqasini tekshirib, qayta urinib ko‘ring."
+            actionLabel="Qayta urinish"
+            onAction={() => void refetch()}
+            actionLoading={isFetching}
+          />
+        ) : (
+          <CompactScheduleCalendar
+            schedules={schedules}
+            year={year}
+            month={month}
+            isLoading={isLoading}
+            onSelectSchedule={setSelectedSchedule}
+          />
+        )}
 
         {selectedSchedule && (
-          <div className="rounded-3xl border border-indigo-500/20 bg-[var(--bg-card)] p-5 shadow-xl space-y-4">
+          <Surface className="space-y-4 border-indigo-500/20 p-5">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h3 className="flex items-center gap-2 font-extrabold"><ArrowLeftRight className="h-4 w-4 text-indigo-500" />Smena o‘zgarishi so‘rovi</h3>
                 <p className="mt-1 text-xs text-[var(--text-muted)]">{dayjs(selectedSchedule.date).format("DD.MM.YYYY")} · {selectedSchedule.shift?.startTime}–{selectedSchedule.shift?.endTime}</p>
               </div>
-              <button onClick={closeChangeForm} className="rounded-lg p-2 text-[var(--text-muted)] hover:bg-[var(--bg-hover)]"><X className="h-4 w-4" /></button>
+              <Button onClick={closeChangeForm} variant="ghost" size="icon" aria-label="So‘rov formasini yopish"><X className="h-4 w-4" /></Button>
             </div>
 
-            {changeOptionsLoading ? <p className="text-sm text-[var(--text-muted)]">Variantlar yuklanmoqda...</p> : (
+            {changeOptionsLoading ? <StatePanel kind="loading" title="Variantlar yuklanmoqda" className="min-h-32" /> : (
               <div className="grid gap-3 sm:grid-cols-2">
-                <label className="space-y-1 text-xs font-semibold"><span>O‘zgarish turi</span><select value={changeType} onChange={(event) => setChangeType(event.target.value)} className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-main)] px-3 py-2.5"><option value="SUBSTITUTION">O‘rnimga boshqa xodim ishlaydi</option><option value="SWAP">Smenani o‘zaro almashtirish</option><option value="ABSENCE">Ishga chiqa olmayman</option></select></label>
-                {changeType === "SUBSTITUTION" && <label className="space-y-1 text-xs font-semibold"><span>O‘rnini bosuvchi xodim</span><select value={replacementEmployeeId} onChange={(event) => setReplacementEmployeeId(event.target.value)} className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-main)] px-3 py-2.5"><option value="">Xodimni tanlang</option>{(changeOptions?.replacementEmployees ?? []).map((employee: any) => <option key={employee.id} value={employee.id}>{employee.fullName}{employee.position?.name ? ` — ${employee.position.name}` : ""}</option>)}</select></label>}
-                {changeType === "SWAP" && <label className="space-y-1 text-xs font-semibold"><span>Almashiladigan smena</span><select value={counterpartEntryId} onChange={(event) => setCounterpartEntryId(event.target.value)} className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-main)] px-3 py-2.5"><option value="">Smenani tanlang</option>{(changeOptions?.counterpartEntries ?? []).map((entry: any) => <option key={entry.id} value={entry.id}>{entry.employee.fullName} — {dayjs(entry.workDate).format("DD.MM")} · {entry.shift?.startTime}–{entry.shift?.endTime}</option>)}</select></label>}
-                {changeType !== "SWAP" && <label className="space-y-1 text-xs font-semibold"><span>Sabab turi</span><select value={absenceEntryType} onChange={(event) => setAbsenceEntryType(event.target.value)} className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-main)] px-3 py-2.5"><option value="SICK">Kasallik</option><option value="DAY_OFF">Uzrli kun</option><option value="VACATION">Mehnat ta’tili</option><option value="MATERNITY_LEAVE">Tug‘ruq ta’tili</option><option value="TRAINING">Malaka oshirish</option><option value="OTHER_ABSENCE">Boshqa sabab</option></select></label>}
-                <label className="space-y-1 text-xs font-semibold sm:col-span-2"><span>Izoh</span><textarea value={changeReason} onChange={(event) => setChangeReason(event.target.value)} rows={3} placeholder="Smena o‘zgarishi sababini yozing" className="w-full resize-none rounded-xl border border-[var(--border)] bg-[var(--bg-main)] px-3 py-2.5" /></label>
+                <Field label="O‘zgarish turi"><Select value={changeType} onChange={(event) => setChangeType(event.target.value)}><option value="SUBSTITUTION">O‘rnimga boshqa xodim ishlaydi</option><option value="SWAP">Smenani o‘zaro almashtirish</option><option value="ABSENCE">Ishga chiqa olmayman</option></Select></Field>
+                {changeType === "SUBSTITUTION" && <Field label="O‘rnini bosuvchi xodim"><Select value={replacementEmployeeId} onChange={(event) => setReplacementEmployeeId(event.target.value)}><option value="">Xodimni tanlang</option>{(changeOptions?.replacementEmployees ?? []).map((employee: any) => <option key={employee.id} value={employee.id}>{employee.fullName}{employee.position?.name ? ` — ${employee.position.name}` : ""}</option>)}</Select></Field>}
+                {changeType === "SWAP" && <Field label="Almashiladigan smena"><Select value={counterpartEntryId} onChange={(event) => setCounterpartEntryId(event.target.value)}><option value="">Smenani tanlang</option>{(changeOptions?.counterpartEntries ?? []).map((entry: any) => <option key={entry.id} value={entry.id}>{entry.employee.fullName} — {dayjs(entry.workDate).format("DD.MM")} · {entry.shift?.startTime}–{entry.shift?.endTime}</option>)}</Select></Field>}
+                {changeType !== "SWAP" && <Field label="Sabab turi"><Select value={absenceEntryType} onChange={(event) => setAbsenceEntryType(event.target.value)}><option value="SICK">Kasallik</option><option value="DAY_OFF">Uzrli kun</option><option value="VACATION">Mehnat ta’tili</option><option value="MATERNITY_LEAVE">Tug‘ruq ta’tili</option><option value="TRAINING">Malaka oshirish</option><option value="OTHER_ABSENCE">Boshqa sabab</option></Select></Field>}
+                <Field label="Izoh" className="sm:col-span-2"><Textarea value={changeReason} onChange={(event) => setChangeReason(event.target.value)} rows={3} placeholder="Smena o‘zgarishi sababini yozing" /></Field>
               </div>
             )}
-            <button onClick={() => createChangeRequest.mutate()} disabled={!changeReason.trim() || (changeType === "SUBSTITUTION" && !replacementEmployeeId) || (changeType === "SWAP" && !counterpartEntryId) || createChangeRequest.isPending} className="rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50"><Send className="mr-1.5 inline h-4 w-4" />So‘rov yuborish</button>
-          </div>
+            <Button onClick={() => createChangeRequest.mutate()} loading={createChangeRequest.isPending} disabled={!changeReason.trim() || (changeType === "SUBSTITUTION" && !replacementEmployeeId) || (changeType === "SWAP" && !counterpartEntryId)} size="sm"><Send className="h-4 w-4" />So‘rov yuborish</Button>
+          </Surface>
         )}
 
         {changeRequests.length > 0 && (
-          <div className="rounded-3xl border border-[var(--border)] bg-[var(--bg-card)] p-5 shadow-xl space-y-3">
+          <Surface className="space-y-3 p-5">
             <h3 className="flex items-center gap-2 font-extrabold"><UserRoundCheck className="h-4 w-4 text-indigo-500" />Smena o‘zgarishlari</h3>
             {changeRequests.map((request: any) => <div key={request.id} className="flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--bg-main)] p-3 text-xs">
               <div><p className="font-bold">{request.type === "SWAP" ? "Smena almashish" : request.type === "SUBSTITUTION" ? "O‘rnini bosish" : "Ishga chiqmaslik"}</p><p className="text-[var(--text-muted)]">{request.primaryEntry.employee.fullName} · {dayjs(request.primaryEntry.workDate).format("DD.MM.YYYY")} · {request.reason}</p></div>
               <span className="ml-auto rounded-full bg-indigo-500/10 px-2.5 py-1 font-bold text-indigo-600 dark:text-indigo-300">{request.status}</span>
-              {request.canAccept && <button onClick={() => acceptChangeRequest.mutate(request.id)} className="rounded-xl bg-emerald-600 px-3 py-2 font-bold text-white"><CheckCircle2 className="mr-1 inline h-4 w-4" />Qabul qilish</button>}
+              {request.canAccept && <Button onClick={() => acceptChangeRequest.mutate(request.id)} loading={acceptChangeRequest.isPending} variant="success" size="sm"><CheckCircle2 className="h-4 w-4" />Qabul qilish</Button>}
             </div>)}
-          </div>
+          </Surface>
         )}
       </div>
     </div>

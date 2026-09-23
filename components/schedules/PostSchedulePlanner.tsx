@@ -12,6 +12,12 @@ import {
   shiftsApi,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/Button";
+import { Field, Input, Select } from "@/components/ui/FormControls";
+import { ConfirmDialog, PromptDialog } from "@/components/ui/Dialog";
+import { StatePanel } from "@/components/ui/StatePanel";
+import { Surface } from "@/components/ui/Surface";
+import { TableShell } from "@/components/ui/TableShell";
 
 type Props = {
   targetHospitalId?: string;
@@ -87,6 +93,9 @@ export function PostSchedulePlanner({
   const [shiftType, setShiftType] = useState("DAYTIME");
   const [shiftStartTime, setShiftStartTime] = useState("08:00");
   const [shiftEndTime, setShiftEndTime] = useState("20:00");
+  const [postConfirmation, setPostConfirmation] = useState<"archive" | "delete" | null>(null);
+  const [rejectPlanOpen, setRejectPlanOpen] = useState(false);
+  const [rejectPlanReason, setRejectPlanReason] = useState("");
 
   useEffect(() => {
     if (!departmentId && departments.length) setDepartmentId(departments[0].id);
@@ -225,6 +234,7 @@ export function PostSchedulePlanner({
       schedulePlanningApi.setPostStatus(id, isActive, params),
     onSuccess: (_, variables) => {
       toast.success(variables.isActive ? "Post qayta faollashtirildi" : "Post arxivlandi");
+      setPostConfirmation(null);
       qc.invalidateQueries({ queryKey: ["schedule-posts"] });
     },
     onError: (error) => toast.error(getErrorMessage(error, "Post holati o‘zgarmadi")),
@@ -234,6 +244,7 @@ export function PostSchedulePlanner({
     mutationFn: (id: string) => schedulePlanningApi.deletePost(id, params),
     onSuccess: () => {
       toast.success("Post o‘chirildi");
+      setPostConfirmation(null);
       setPostId("");
       setPlanId("");
       qc.invalidateQueries({ queryKey: ["schedule-posts"] });
@@ -309,15 +320,16 @@ export function PostSchedulePlanner({
   });
 
   const statusMutation = useMutation({
-    mutationFn: async (action: "submit" | "approve" | "reject") => {
+    mutationFn: async ({ action, reason }: { action: "submit" | "approve" | "reject"; reason?: string }) => {
       if (action === "submit") return schedulePlanningApi.submitPlan(planId, params);
       if (action === "approve") return schedulePlanningApi.approvePlan(planId, params);
-      const reason = window.prompt("Rad etish sababini kiriting")?.trim();
-      if (!reason) throw new Error("Rad etish sababi kiritilmadi");
-      return schedulePlanningApi.rejectPlan(planId, reason, params);
+      if (!reason?.trim()) throw new Error("Rad etish sababi kiritilmadi");
+      return schedulePlanningApi.rejectPlan(planId, reason.trim(), params);
     },
     onSuccess: () => {
       toast.success("Grafik holati yangilandi");
+      setRejectPlanOpen(false);
+      setRejectPlanReason("");
       qc.invalidateQueries({ queryKey: ["post-schedule-plan"] });
       qc.invalidateQueries({ queryKey: ["post-schedule-plans"] });
     },
@@ -349,61 +361,53 @@ export function PostSchedulePlanner({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-4 shadow-xl">
+      <Surface className="p-4">
         <div className="flex flex-wrap items-center gap-2">
-          <label className="space-y-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-            <span className="px-1">Bo‘lim</span>
-            <select value={departmentId} onChange={(event) => setDepartmentId(event.target.value)} className="block h-9 min-w-52 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#1a1d26] px-3 text-xs font-normal normal-case tracking-normal text-slate-900 dark:text-white">
+          <Field label="Bo‘lim" className="min-w-52 flex-1 sm:flex-none">
+            <Select value={departmentId} onChange={(event) => setDepartmentId(event.target.value)} className="h-10 min-w-52 text-xs">
               {departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
-            </select>
-          </label>
-          <label className="space-y-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-            <span className="px-1">Post</span>
-            <select value={postId} onChange={(event) => setPostId(event.target.value)} className="block h-9 min-w-52 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#1a1d26] px-3 text-xs font-normal normal-case tracking-normal text-slate-900 dark:text-white">
+            </Select>
+          </Field>
+          <Field label="Post" className="min-w-52 flex-1 sm:flex-none">
+            <Select value={postId} onChange={(event) => setPostId(event.target.value)} className="h-10 min-w-52 text-xs">
               <option value="">Postni tanlang</option>
               {posts.map((post: any) => <option key={post.id} value={post.id}>{post.name}{post.isActive ? "" : " — arxiv"}</option>)}
-            </select>
-          </label>
-          {canWrite && <button onClick={() => setPostFormOpen((value) => !value)} className="mt-4 h-9 rounded-xl border border-slate-200 dark:border-white/10 px-3 text-xs font-semibold"><Plus className="inline h-3.5 w-3.5 mr-1" />Yangi post</button>}
-          {canWrite && <button onClick={() => setShiftFormOpen((value) => !value)} className="mt-4 h-9 rounded-xl border border-slate-200 dark:border-white/10 px-3 text-xs font-semibold"><Clock className="inline h-3.5 w-3.5 mr-1" />Yangi smena</button>}
-          {canCreatePlan && <button onClick={() => createPlan.mutate()} disabled={createPlan.isPending} className="h-9 rounded-xl bg-indigo-600 px-4 text-xs font-semibold text-white">{plans.length ? "Yangi versiya" : "Oylik reja yaratish"}</button>}
-          {!!plans.length && <select value={planId} onChange={(event) => setPlanId(event.target.value)} className="h-9 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#1a1d26] px-3 text-xs">
+            </Select>
+          </Field>
+          {canWrite && <Button onClick={() => setPostFormOpen((value) => !value)} variant="secondary" size="sm" className="mt-5"><Plus className="h-3.5 w-3.5" />Yangi post</Button>}
+          {canWrite && <Button onClick={() => setShiftFormOpen((value) => !value)} variant="secondary" size="sm" className="mt-5"><Clock className="h-3.5 w-3.5" />Yangi smena</Button>}
+          {canCreatePlan && <Button onClick={() => createPlan.mutate()} loading={createPlan.isPending} size="sm" className="mt-5">{plans.length ? "Yangi versiya" : "Oylik reja yaratish"}</Button>}
+          {!!plans.length && <Select aria-label="Grafik versiyasi" value={planId} onChange={(event) => setPlanId(event.target.value)} className="mt-5 h-9 w-auto min-w-32 text-xs">
             {plans.map((plan: any) => <option key={plan.id} value={plan.id}>v{plan.version} — {plan.status}</option>)}
-          </select>}
+          </Select>}
           {selectedPost && canWrite && (selectedPost.isActive ? (
-            <button
-              onClick={() => window.confirm("Post arxivlanadi. Eski grafiklar saqlanadi. Davom etasizmi?") && postStatus.mutate({ id: selectedPost.id, isActive: false })}
-              className="mt-4 h-9 rounded-xl border border-amber-500/30 px-3 text-xs font-semibold text-amber-600 dark:text-amber-400"
-            ><Archive className="inline h-3.5 w-3.5 mr-1" />Arxivlash</button>
+            <Button onClick={() => setPostConfirmation("archive")} variant="warning" size="sm" className="mt-5"><Archive className="h-3.5 w-3.5" />Arxivlash</Button>
           ) : (
-            <button onClick={() => postStatus.mutate({ id: selectedPost.id, isActive: true })} className="mt-4 h-9 rounded-xl border border-emerald-500/30 px-3 text-xs font-semibold text-emerald-600 dark:text-emerald-400"><RotateCcw className="inline h-3.5 w-3.5 mr-1" />Faollashtirish</button>
+            <Button onClick={() => postStatus.mutate({ id: selectedPost.id, isActive: true })} loading={postStatus.isPending} variant="success" size="sm" className="mt-5"><RotateCcw className="h-3.5 w-3.5" />Faollashtirish</Button>
           ))}
-          {selectedPost && canWrite && <button
-            onClick={() => window.confirm("Grafik tarixi bo‘lmagan post butunlay o‘chiriladi. Davom etasizmi?") && deletePost.mutate(selectedPost.id)}
-            className="mt-4 h-9 rounded-xl border border-rose-500/30 px-3 text-xs font-semibold text-rose-600 dark:text-rose-400"
-          ><Trash2 className="inline h-3.5 w-3.5 mr-1" />O‘chirish</button>}
-          <button onClick={() => setShowArchivedPosts((value) => !value)} className="mt-4 h-9 rounded-xl px-3 text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5">
+          {selectedPost && canWrite && <Button onClick={() => setPostConfirmation("delete")} variant="danger" size="sm" className="mt-5"><Trash2 className="h-3.5 w-3.5" />O‘chirish</Button>}
+          <Button onClick={() => setShowArchivedPosts((value) => !value)} variant="ghost" size="sm" className="mt-5">
             {showArchivedPosts ? "Arxivni yashirish" : "Arxivlanganlar"}
-          </button>
+          </Button>
         </div>
 
-        {postFormOpen && <div className="mt-3 flex flex-wrap gap-2 rounded-xl bg-slate-50 dark:bg-white/[0.03] p-3">
-          <input value={postName} onChange={(event) => setPostName(event.target.value)} placeholder="Post nomi" className="h-9 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 px-3 text-xs" />
-          <input value={postCode} onChange={(event) => setPostCode(event.target.value)} placeholder="Post kodi" className="h-9 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 px-3 text-xs" />
-          <button onClick={() => createPost.mutate()} disabled={!postName.trim() || !postCode.trim()} className="h-9 rounded-lg bg-indigo-600 px-4 text-xs font-semibold text-white">Yaratish</button>
-          <button onClick={() => setPostFormOpen(false)} className="h-9 px-3 text-xs"><X className="h-4 w-4" /></button>
+        {postFormOpen && <div className="ui-surface-muted mt-3 grid gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] sm:items-end">
+          <Field label="Post nomi"><Input value={postName} onChange={(event) => setPostName(event.target.value)} placeholder="Masalan: Ona va bola 1" className="text-xs" /></Field>
+          <Field label="Post kodi"><Input value={postCode} onChange={(event) => setPostCode(event.target.value)} placeholder="ONA_VA_BOLA_1" className="text-xs" /></Field>
+          <Button onClick={() => createPost.mutate()} loading={createPost.isPending} disabled={!postName.trim() || !postCode.trim()} size="sm">Yaratish</Button>
+          <Button onClick={() => setPostFormOpen(false)} variant="ghost" size="icon" aria-label="Post formasini yopish"><X className="h-4 w-4" /></Button>
         </div>}
 
-        {shiftFormOpen && <div className="mt-3 flex flex-wrap items-end gap-2 rounded-xl bg-slate-50 dark:bg-white/[0.03] p-3">
-          <label className="space-y-1 text-[10px] font-semibold text-slate-500"><span>Smena nomi</span><input value={shiftName} onChange={(event) => setShiftName(event.target.value)} placeholder="Kunduzgi 12 soat" className="block h-9 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 px-3 text-xs text-slate-900 dark:text-white" /></label>
-          <label className="space-y-1 text-[10px] font-semibold text-slate-500"><span>Turi</span><select value={shiftType} onChange={(event) => setShiftType(event.target.value)} className="block h-9 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 px-3 text-xs text-slate-900 dark:text-white"><option value="DAYTIME">Kunduzgi</option><option value="NIGHTTIME">Tungi</option><option value="CUSTOM">Maxsus</option></select></label>
-          <label className="space-y-1 text-[10px] font-semibold text-slate-500"><span>Boshlanishi</span><input type="time" value={shiftStartTime} onChange={(event) => setShiftStartTime(event.target.value)} className="block h-9 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 px-3 text-xs text-slate-900 dark:text-white" /></label>
-          <label className="space-y-1 text-[10px] font-semibold text-slate-500"><span>Tugashi</span><input type="time" value={shiftEndTime} onChange={(event) => setShiftEndTime(event.target.value)} className="block h-9 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 px-3 text-xs text-slate-900 dark:text-white" /></label>
-          <div className="h-9 rounded-lg bg-indigo-500/10 px-3 py-2 text-xs font-semibold text-indigo-600 dark:text-indigo-300">{calculateShiftHours(shiftStartTime, shiftEndTime)} soat</div>
-          <button onClick={() => createShift.mutate()} disabled={!shiftName.trim() || !shiftStartTime || !shiftEndTime || createShift.isPending} className="h-9 rounded-lg bg-indigo-600 px-4 text-xs font-semibold text-white disabled:opacity-50">Yaratish</button>
-          <button onClick={() => setShiftFormOpen(false)} className="h-9 px-3 text-xs"><X className="h-4 w-4" /></button>
+        {shiftFormOpen && <div className="ui-surface-muted mt-3 grid gap-3 p-3 sm:grid-cols-2 xl:grid-cols-[minmax(12rem,1fr)_10rem_9rem_9rem_auto_auto_auto] xl:items-end">
+          <Field label="Smena nomi"><Input value={shiftName} onChange={(event) => setShiftName(event.target.value)} placeholder="Kunduzgi 12 soat" className="text-xs" /></Field>
+          <Field label="Turi"><Select value={shiftType} onChange={(event) => setShiftType(event.target.value)} className="text-xs"><option value="DAYTIME">Kunduzgi</option><option value="NIGHTTIME">Tungi</option><option value="CUSTOM">Maxsus</option></Select></Field>
+          <Field label="Boshlanishi"><Input type="time" value={shiftStartTime} onChange={(event) => setShiftStartTime(event.target.value)} className="text-xs" /></Field>
+          <Field label="Tugashi"><Input type="time" value={shiftEndTime} onChange={(event) => setShiftEndTime(event.target.value)} className="text-xs" /></Field>
+          <div className="flex min-h-10 items-center justify-center rounded-xl border border-indigo-500/20 bg-indigo-500/10 px-3 text-xs font-semibold text-indigo-700 dark:text-indigo-300">{calculateShiftHours(shiftStartTime, shiftEndTime)} soat</div>
+          <Button onClick={() => createShift.mutate()} loading={createShift.isPending} disabled={!shiftName.trim() || !shiftStartTime || !shiftEndTime} size="sm">Yaratish</Button>
+          <Button onClick={() => setShiftFormOpen(false)} variant="ghost" size="icon" aria-label="Smena formasini yopish"><X className="h-4 w-4" /></Button>
         </div>}
-      </div>
+      </Surface>
 
       {detail && <>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -412,32 +416,31 @@ export function PostSchedulePlanner({
             ["Post normasi", formatMinutes(targetMinutes)],
             ["Rejalashtirilgan", formatMinutes(displayedPlannedMinutes)],
             [displayedExcessMinutes ? "Oshib ketgan" : "Qolgan", formatMinutes(displayedExcessMinutes || displayedRemainingMinutes)],
-          ].map(([label, value]) => <div key={label} className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-4"><p className="text-[11px] text-slate-500">{label}</p><p className="mt-1 font-bold">{value}</p></div>)}
+          ].map(([label, value]) => <Surface key={label} className="p-4"><p className="text-[11px] font-medium text-[var(--text-muted)]">{label}</p><p className="mt-1 font-bold text-[var(--text-primary)]">{value}</p></Surface>)}
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {isDraft && canWrite && <button onClick={() => savePlan.mutate()} disabled={savePlan.isPending} className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white"><Save className="inline h-4 w-4 mr-1" />Saqlash</button>}
-          {isDraft && canWrite && <button onClick={() => statusMutation.mutate("submit")} className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white"><Send className="inline h-4 w-4 mr-1" />Tasdiqlashga yuborish</button>}
-          {detail.status === "SUBMITTED" && canApprove && <button onClick={() => statusMutation.mutate("approve")} className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white"><Check className="inline h-4 w-4 mr-1" />Tasdiqlash</button>}
-          {detail.status === "SUBMITTED" && canApprove && <button onClick={() => statusMutation.mutate("reject")} className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-semibold text-white">Rad etish</button>}
-          <button onClick={downloadExcel} className="rounded-xl border border-slate-200 dark:border-white/10 px-4 py-2 text-xs font-semibold"><Download className="inline h-4 w-4 mr-1" />Excel</button>
+          {isDraft && canWrite && <Button onClick={() => savePlan.mutate()} loading={savePlan.isPending} size="sm"><Save className="h-4 w-4" />Saqlash</Button>}
+          {isDraft && canWrite && <Button onClick={() => statusMutation.mutate({ action: "submit" })} loading={statusMutation.isPending} variant="success" size="sm"><Send className="h-4 w-4" />Tasdiqlashga yuborish</Button>}
+          {detail.status === "SUBMITTED" && canApprove && <Button onClick={() => statusMutation.mutate({ action: "approve" })} loading={statusMutation.isPending} variant="success" size="sm"><Check className="h-4 w-4" />Tasdiqlash</Button>}
+          {detail.status === "SUBMITTED" && canApprove && <Button onClick={() => setRejectPlanOpen(true)} variant="danger" size="sm">Rad etish</Button>}
+          <Button onClick={downloadExcel} variant="secondary" size="sm"><Download className="h-4 w-4" />Excel</Button>
         </div>
 
-        <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 shadow-xl">
-          <div className="overflow-auto max-h-[65vh]">
+        <TableShell>
             <table className="border-collapse text-[11px] min-w-max">
-              <thead className="sticky top-0 z-20 bg-slate-100 dark:bg-slate-900">
-                <tr><th className="sticky left-0 z-30 min-w-56 border p-2 bg-slate-100 dark:bg-slate-900 text-left">Xodim</th>{days.map((day) => <th key={day.date} className={cn("w-20 min-w-20 border p-1", day.carryIn && "bg-amber-100 dark:bg-amber-500/10")}>{day.label}</th>)}</tr>
+              <thead className="ui-table-head sticky top-0 z-20">
+                <tr><th className="ui-table-head sticky left-0 z-30 min-w-56 border border-[var(--border)] p-2 text-left">Xodim</th>{days.map((day) => <th key={day.date} className={cn("w-20 min-w-20 border border-[var(--border)] p-1", day.carryIn && "bg-amber-100 dark:bg-amber-500/10")}>{day.label}</th>)}</tr>
               </thead>
               <tbody>
-                {employees.map((employee) => <tr key={employee.id}>
-                  <td className="sticky left-0 z-10 border bg-white dark:bg-slate-900 p-2"><p className="font-semibold">{employee.fullName}</p><p className="text-[9px] text-slate-500">{employee.position?.name}</p></td>
+                {employees.map((employee) => <tr key={employee.id} className="table-row-hover">
+                  <td className="sticky left-0 z-10 border border-[var(--border)] bg-[var(--bg-card)] p-2"><p className="font-semibold text-[var(--text-primary)]">{employee.fullName}</p><p className="text-[9px] text-[var(--text-muted)]">{employee.position?.name}</p></td>
                   {days.map((day) => {
                     const key = `${employee.id}:${day.date}`;
                     const selectedValue = cells[key] ?? "";
                     const selectedShift = shiftsById.get(selectedValue);
-                    return <td key={day.date} className={cn("border p-1 align-top", day.carryIn && "bg-amber-50 dark:bg-amber-500/5")}>
-                      <select value={selectedValue} disabled={!isDraft || !canWrite} onChange={(event) => setCells((current) => ({ ...current, [key]: event.target.value }))} className="h-7 w-full rounded border-0 bg-transparent text-[10px] focus:ring-1 focus:ring-indigo-500">
+                    return <td key={day.date} className={cn("border border-[var(--border)] p-1 align-top", day.carryIn && "bg-amber-50 dark:bg-amber-500/5")}>
+                      <select aria-label={`${employee.fullName}, ${day.label}-kun`} value={selectedValue} disabled={!isDraft || !canWrite} onChange={(event) => setCells((current) => ({ ...current, [key]: event.target.value }))} className="h-8 w-full rounded-lg border border-transparent bg-transparent px-1 text-[10px] text-[var(--text-primary)] hover:border-[var(--border)] focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/30 disabled:opacity-70">
                         <option value="">—</option>
                         {shifts.map((shift) => <option key={shift.id} value={shift.id}>{shift.name} {shift.startTime}-{shift.endTime}</option>)}
                         {STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
@@ -455,21 +458,52 @@ export function PostSchedulePlanner({
                 </tr>)}
               </tbody>
             </table>
-          </div>
           <div className="border-t border-slate-200 dark:border-slate-800 px-4 py-3 text-[11px] text-slate-500"><FileSpreadsheet className="inline h-4 w-4 mr-1" />← ustuni oy boshidagi tungi smenaning oldingi kundan kirib keladigan qismini hisoblash uchun.</div>
-        </div>
+        </TableShell>
 
         {detail.status === "APPROVED" && <ScheduleChangePanel detail={detail} employees={employees} targetHospitalId={targetHospitalId} userRole={userRole} />}
       </>}
 
-      {!postsLoading && departmentId && !posts.length && <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 bg-white/50 dark:bg-slate-900/40 p-10 text-center">
-        <FileSpreadsheet className="mx-auto h-8 w-8 text-slate-400" />
-        <h3 className="mt-3 font-semibold text-slate-900 dark:text-white">Bu bo‘limda hali post yaratilmagan</h3>
-        <p className="mt-1 text-sm text-slate-500">Avval navbatchilik posti yarating, keyin shu post uchun oylik reja tuzing.</p>
-        {canWrite && <button onClick={() => setPostFormOpen(true)} className="mt-4 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white"><Plus className="mr-1 inline h-4 w-4" />Birinchi postni yaratish</button>}
-      </div>}
+      {postsLoading && <StatePanel kind="loading" title="Postlar yuklanmoqda" description="Bo‘limning navbatchilik postlari olinmoqda." />}
+      {!postsLoading && departmentId && !posts.length && <StatePanel title="Bu bo‘limda hali post yaratilmagan" description="Avval navbatchilik posti yarating, keyin shu post uchun oylik reja tuzing." icon={FileSpreadsheet} actionLabel={canWrite ? "Birinchi postni yaratish" : undefined} onAction={canWrite ? () => setPostFormOpen(true) : undefined} />}
       {selectedPost && !selectedPost.isActive && <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-300">Bu post arxivlangan. Eski grafiklar ko‘rish uchun saqlanadi, yangi oylik reja yaratish uchun postni qayta faollashtiring.</div>}
-      {!detailLoading && postId && !plans.length && <div className="rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 p-10 text-center text-sm text-slate-500">Bu post uchun {month}/{year} grafigi hali yaratilmagan.</div>}
+      {detailLoading && planId && <StatePanel kind="loading" title="Post grafigi yuklanmoqda" />}
+      {!detailLoading && postId && !plans.length && <StatePanel title="Oylik grafik hali yaratilmagan" description={`Bu post uchun ${month}/${year} grafigi mavjud emas.`} />}
+
+      <ConfirmDialog
+        open={postConfirmation === "archive"}
+        onClose={() => setPostConfirmation(null)}
+        onConfirm={() => selectedPost && postStatus.mutate({ id: selectedPost.id, isActive: false })}
+        title="Post arxivlansinmi?"
+        description="Post yangi rejalarda ko‘rinmaydi, ammo avvalgi grafik va tasdiq tarixi saqlanadi."
+        confirmLabel="Arxivlash"
+        tone="warning"
+        loading={postStatus.isPending}
+      />
+      <ConfirmDialog
+        open={postConfirmation === "delete"}
+        onClose={() => setPostConfirmation(null)}
+        onConfirm={() => selectedPost && deletePost.mutate(selectedPost.id)}
+        title="Post butunlay o‘chirilsinmi?"
+        description="Faqat grafik tarixi bo‘lmagan post o‘chiriladi. Tarix mavjud bo‘lsa tizim amalni rad etadi."
+        confirmLabel="O‘chirish"
+        tone="danger"
+        loading={deletePost.isPending}
+      />
+      <PromptDialog
+        open={rejectPlanOpen}
+        onClose={() => { setRejectPlanOpen(false); setRejectPlanReason(""); }}
+        onConfirm={(reason) => statusMutation.mutate({ action: "reject", reason })}
+        title="Grafikni rad etish"
+        description="Rad etish sababi audit tarixida va mas’ul xodimga ko‘rinadi."
+        label="Rad etish sababi"
+        value={rejectPlanReason}
+        onValueChange={setRejectPlanReason}
+        placeholder="Aniq sababni kiriting"
+        confirmLabel="Rad etish"
+        tone="danger"
+        loading={statusMutation.isPending}
+      />
     </div>
   );
 }
@@ -484,6 +518,8 @@ function ScheduleChangePanel({ detail, employees, targetHospitalId, userRole }: 
   const [counterpartEntryId, setCounterpartEntryId] = useState("");
   const [absenceEntryType, setAbsenceEntryType] = useState("SICK");
   const [reason, setReason] = useState("");
+  const [rejectRequestId, setRejectRequestId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["post-schedule-plan"] });
   const create = useMutation({
@@ -498,40 +534,54 @@ function ScheduleChangePanel({ detail, employees, targetHospitalId, userRole }: 
     onSuccess: () => { toast.success("Smena o‘zgarishi yuborildi"); setReason(""); refresh(); },
     onError: (error) => toast.error(getErrorMessage(error, "So‘rov yuborilmadi")),
   });
-  const act = async (action: "accept" | "approve" | "reject", id: string) => {
+  const act = async (action: "accept" | "approve" | "reject", id: string, note?: string) => {
     try {
       if (action === "accept") await schedulePlanningApi.acceptChange(id, params);
       if (action === "approve") await schedulePlanningApi.approveChange(id, params);
       if (action === "reject") {
-        const note = window.prompt("Rad etish sababini kiriting")?.trim();
-        if (!note) return;
-        await schedulePlanningApi.rejectChange(id, note, params);
+        if (!note?.trim()) return;
+        await schedulePlanningApi.rejectChange(id, note.trim(), params);
       }
       toast.success("So‘rov holati yangilandi");
+      setRejectRequestId(null);
+      setRejectReason("");
       refresh();
     } catch (error) {
       toast.error(getErrorMessage(error, "Amal bajarilmadi"));
     }
   };
 
-  return <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-4 space-y-4">
+  return <Surface className="space-y-4 p-4">
     <div><h3 className="font-bold">Tasdiqlangan grafikdagi o‘zgarish</h3><p className="text-xs text-slate-500">Bazaviy grafik va tasdiq tarixi o‘zgarmaydi. Rahbar tasdiqlagan o‘zgarish amaldagi grafik va ish soatiga qo‘llanadi.</p></div>
     <div className="grid gap-2 md:grid-cols-6">
-      <select value={type} onChange={(event) => setType(event.target.value)} className="h-9 rounded-lg border bg-transparent px-2 text-xs"><option value="SUBSTITUTION">O‘rnini bosish</option><option value="SWAP">O‘zaro almashish</option><option value="ABSENCE">Ishga chiqmaslik</option></select>
-      <select value={primaryEntryId} onChange={(event) => setPrimaryEntryId(event.target.value)} className="h-9 rounded-lg border bg-transparent px-2 text-xs"><option value="">Asosiy smena</option>{workingEntries.map((entry: any) => <option key={entry.id} value={entry.id}>{entry.employee.fullName} — {dayjs(entry.workDate).format("DD.MM")}</option>)}</select>
-      {type === "SUBSTITUTION" && <select value={replacementEmployeeId} onChange={(event) => setReplacementEmployeeId(event.target.value)} className="h-9 rounded-lg border bg-transparent px-2 text-xs"><option value="">O‘rnini bosuvchi</option>{employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.fullName}</option>)}</select>}
-      {type === "SWAP" && <select value={counterpartEntryId} onChange={(event) => setCounterpartEntryId(event.target.value)} className="h-9 rounded-lg border bg-transparent px-2 text-xs"><option value="">Ikkinchi smena</option>{workingEntries.filter((entry: any) => entry.id !== primaryEntryId).map((entry: any) => <option key={entry.id} value={entry.id}>{entry.employee.fullName} — {dayjs(entry.workDate).format("DD.MM")}</option>)}</select>}
+      <Select aria-label="O‘zgarish turi" value={type} onChange={(event) => setType(event.target.value)} className="text-xs"><option value="SUBSTITUTION">O‘rnini bosish</option><option value="SWAP">O‘zaro almashish</option><option value="ABSENCE">Ishga chiqmaslik</option></Select>
+      <Select aria-label="Asosiy smena" value={primaryEntryId} onChange={(event) => setPrimaryEntryId(event.target.value)} className="text-xs"><option value="">Asosiy smena</option>{workingEntries.map((entry: any) => <option key={entry.id} value={entry.id}>{entry.employee.fullName} — {dayjs(entry.workDate).format("DD.MM")}</option>)}</Select>
+      {type === "SUBSTITUTION" && <Select aria-label="O‘rnini bosuvchi" value={replacementEmployeeId} onChange={(event) => setReplacementEmployeeId(event.target.value)} className="text-xs"><option value="">O‘rnini bosuvchi</option>{employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.fullName}</option>)}</Select>}
+      {type === "SWAP" && <Select aria-label="Ikkinchi smena" value={counterpartEntryId} onChange={(event) => setCounterpartEntryId(event.target.value)} className="text-xs"><option value="">Ikkinchi smena</option>{workingEntries.filter((entry: any) => entry.id !== primaryEntryId).map((entry: any) => <option key={entry.id} value={entry.id}>{entry.employee.fullName} — {dayjs(entry.workDate).format("DD.MM")}</option>)}</Select>}
       {type === "ABSENCE" && <div className="hidden md:block" />}
-      {type !== "SWAP" ? <select value={absenceEntryType} onChange={(event) => setAbsenceEntryType(event.target.value)} className="h-9 rounded-lg border bg-transparent px-2 text-xs"><option value="SICK">Kasallik</option><option value="DAY_OFF">Dam / uzrli kun</option><option value="VACATION">Mehnat ta’tili</option><option value="MATERNITY_LEAVE">Tug‘ruq ta’tili</option><option value="TRAINING">Malaka oshirish</option><option value="OTHER_ABSENCE">Boshqa sabab</option></select> : <div className="hidden md:block" />}
-      <input value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Sabab" className="h-9 rounded-lg border bg-transparent px-2 text-xs" />
-      <button onClick={() => create.mutate()} disabled={!primaryEntryId || !reason.trim() || (type === "SUBSTITUTION" && !replacementEmployeeId) || (type === "SWAP" && !counterpartEntryId)} className="h-9 rounded-lg bg-indigo-600 px-3 text-xs font-semibold text-white">So‘rov yuborish</button>
+      {type !== "SWAP" ? <Select aria-label="Yo‘qlik sababi" value={absenceEntryType} onChange={(event) => setAbsenceEntryType(event.target.value)} className="text-xs"><option value="SICK">Kasallik</option><option value="DAY_OFF">Dam / uzrli kun</option><option value="VACATION">Mehnat ta’tili</option><option value="MATERNITY_LEAVE">Tug‘ruq ta’tili</option><option value="TRAINING">Malaka oshirish</option><option value="OTHER_ABSENCE">Boshqa sabab</option></Select> : <div className="hidden md:block" />}
+      <Input value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Sabab" className="text-xs" />
+      <Button onClick={() => create.mutate()} loading={create.isPending} disabled={!primaryEntryId || !reason.trim() || (type === "SUBSTITUTION" && !replacementEmployeeId) || (type === "SWAP" && !counterpartEntryId)} size="sm">So‘rov yuborish</Button>
     </div>
     <div className="space-y-2">
       {(detail.changeRequests ?? []).map((request: any) => <div key={request.id} className="flex flex-wrap items-center gap-2 rounded-xl bg-slate-50 dark:bg-white/[0.03] p-3 text-xs">
         <span className="font-semibold">{request.type}</span><span>{request.primaryEntry.employee.fullName}</span><span className="text-slate-500">{request.reason}</span><span className="ml-auto rounded-full bg-slate-200 dark:bg-white/10 px-2 py-1 font-semibold">{request.status}</span>
-        {request.status === "REQUESTED" && <button onClick={() => act("accept", request.id)} className="rounded-lg border px-2 py-1">Qabul qilish</button>}
-        {["REQUESTED", "ACCEPTED"].includes(request.status) && ADMIN_ROLES.includes(userRole ?? "") && <><button onClick={() => act("approve", request.id)} className="rounded-lg bg-emerald-600 px-2 py-1 text-white">Tasdiqlash</button><button onClick={() => act("reject", request.id)} className="rounded-lg bg-rose-600 px-2 py-1 text-white">Rad etish</button></>}
+        {request.status === "REQUESTED" && <Button onClick={() => act("accept", request.id)} variant="secondary" size="sm">Qabul qilish</Button>}
+        {["REQUESTED", "ACCEPTED"].includes(request.status) && ADMIN_ROLES.includes(userRole ?? "") && <><Button onClick={() => act("approve", request.id)} variant="success" size="sm">Tasdiqlash</Button><Button onClick={() => setRejectRequestId(request.id)} variant="danger" size="sm">Rad etish</Button></>}
       </div>)}
     </div>
-  </div>;
+    <PromptDialog
+      open={Boolean(rejectRequestId)}
+      onClose={() => { setRejectRequestId(null); setRejectReason(""); }}
+      onConfirm={(note) => rejectRequestId && act("reject", rejectRequestId, note)}
+      title="Smena o‘zgarishini rad etish"
+      description="Sabab so‘rov yuborgan xodimga ko‘rinadi va audit tarixida saqlanadi."
+      label="Rad etish sababi"
+      value={rejectReason}
+      onValueChange={setRejectReason}
+      placeholder="Aniq sababni kiriting"
+      confirmLabel="Rad etish"
+      tone="danger"
+    />
+  </Surface>;
 }

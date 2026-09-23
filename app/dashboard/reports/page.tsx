@@ -12,6 +12,7 @@ import dayjs from "dayjs";
 import isoWeek from "dayjs/plugin/isoWeek";
 import { useAuthStore } from "@/stores/auth";
 import { isSuperLike } from "@/lib/utils";
+import { Button, Field, Select, Input, Surface, StatePanel } from "@/components/ui";
 dayjs.extend(isoWeek);
 
 type ReportCard = {
@@ -37,7 +38,7 @@ export default function ReportsPage() {
   );
   const [loading, setLoading] = useState<string | null>(null);
 
-  const { data: departments = [] } = useQuery({
+  const { data: departments = [], isError: departmentsError, isFetching: departmentsFetching, refetch: refetchDepartments } = useQuery({
     queryKey: ["departments", targetHospitalId],
     queryFn: () => departmentsApi.list(params),
   });
@@ -91,49 +92,56 @@ export default function ReportsPage() {
   ];
 
   return (
-    <div>
+    <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
       <Topbar title="Hisobotlar" subtitle="Excel formatida yuklab olish" />
 
       <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
         {/* ── Filters ── */}
-        <div className="card p-4">
+        <Surface className="p-4 sm:p-5">
           <h3 className="text-sm font-medium text-[var(--text-primary)] mb-3">Filtr parametrlari</h3>
-          <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-3">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs text-[var(--text-muted)]">Oy</label>
-              <select value={month} onChange={(e) => setMonth(Number(e.target.value))} className="input-field">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <Field label="Oy">
+              <Select value={month} onChange={(e) => setMonth(Number(e.target.value))}>
                 {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
                   <option key={m} value={m}>{dayjs().month(m - 1).format("MMMM")}</option>
                 ))}
-              </select>
-            </div>
+              </Select>
+            </Field>
 
-            <div className="flex flex-col gap-1">
-              <label className="text-xs text-[var(--text-muted)]">Yil</label>
-              <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="input-field">
+            <Field label="Yil">
+              <Select value={year} onChange={(e) => setYear(Number(e.target.value))}>
                 {[2024, 2025, 2026, 2027].map((y) => <option key={y} value={y}>{y}</option>)}
-              </select>
-            </div>
+              </Select>
+            </Field>
 
-            <div className="flex flex-col gap-1">
-              <label className="text-xs text-[var(--text-muted)]">Hafta boshlanishi</label>
-              <input type="date" value={weekStart} onChange={(e) => setWeekStart(e.target.value)} className="input-field" />
-            </div>
+            <Field label="Hafta boshlanishi">
+              <Input type="date" value={weekStart} onChange={(e) => setWeekStart(e.target.value)} />
+            </Field>
 
-            <div className="flex flex-col gap-1">
-              <label className="text-xs text-[var(--text-muted)]">Bo&apos;lim</label>
-              <select value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)} className="input-field">
+            <Field label="Bo‘lim">
+              <Select disabled={departmentsError} value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)}>
                 <option value="">Barcha bo&apos;limlar</option>
                 {(departments as any[]).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
-            </div>
+              </Select>
+            </Field>
           </div>
-        </div>
+          {departmentsError && (
+            <StatePanel
+              kind="error"
+              title="Bo‘limlarni yuklab bo‘lmadi"
+              description="Hisobot filtrlari uchun bo‘limlar ro‘yxati olinmadi."
+              actionLabel="Qayta urinish"
+              onAction={() => void refetchDepartments()}
+              actionLoading={departmentsFetching}
+              className="mt-4 min-h-28"
+            />
+          )}
+        </Surface>
 
         {/* ── Report Cards ── */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           {reports.map((r) => (
-            <div key={r.title} className="card p-5 flex flex-col gap-4">
+            <Surface key={r.title} className="flex flex-col gap-4 p-5">
               <div className="flex items-start gap-4">
                 <div className={`p-3 rounded-xl ${r.iconBg} flex-shrink-0`}>
                   <r.icon className="w-5 h-5 text-white" />
@@ -149,32 +157,21 @@ export default function ReportsPage() {
                 <span className="text-xs text-[var(--text-muted)] font-mono truncate flex-1">{r.filename}</span>
               </div>
 
-              <button
+              <Button
                 onClick={() => download(r.title, r.action, r.filename)}
-                disabled={loading === r.title}
-                className="btn-primary w-full"
+                loading={loading === r.title}
+                loadingLabel="Yuklanmoqda..."
+                className="mt-auto w-full"
               >
-                {loading === r.title ? (
-                  <span className="flex items-center gap-2">
-                    <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                    Yuklanmoqda...
-                  </span>
-                ) : (
-                  <>
-                    <Download className="w-4 h-4" />
-                    Excel yuklab olish
-                  </>
-                )}
-              </button>
-            </div>
+                <Download className="w-4 h-4" />
+                Excel yuklab olish
+              </Button>
+            </Surface>
           ))}
         </div>
 
         {/* ── Info box ── */}
-        <div className="card p-4 flex items-start gap-3">
+        <Surface tone="muted" className="flex items-start gap-3 p-4">
           <BarChart3 className="w-5 h-5 text-indigo-400 flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-medium text-[var(--text-primary)]">Hisobotlar haqida</p>
@@ -184,7 +181,7 @@ export default function ReportsPage() {
               Maosh hisoboti payroll hali yaratilmagan bo&apos;lsa ham tanlangan oy davomatidan joriy hisobni ko&apos;rsatadi.
             </p>
           </div>
-        </div>
+        </Surface>
       </div>
     </div>
   );

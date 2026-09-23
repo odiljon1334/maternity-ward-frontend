@@ -14,6 +14,7 @@ import {
   Plus, Edit2, Trash2, Settings2,
 } from "lucide-react";
 import Hls from "hls.js";
+import { useConfirmation } from "@/components/ui";
 
 // ─── HLS Video Player ─────────────────────────────────────────────────────────
 function HlsPlayer({ url, autoPlay = true, className = "", onError }: {
@@ -187,7 +188,7 @@ function CameraTile({ cam, onExpand, onEdit, onDelete, onToggle, isSuper }: {
               <button onClick={() => onToggle(cam.id, !cam.isActive)} className={cn("p-1 rounded text-[var(--text-muted)] transition-colors", cam.isActive ? "hover:text-amber-400 hover:bg-amber-500/10" : "hover:text-emerald-400 hover:bg-emerald-500/10")}>
                 <Settings2 className="w-4 h-4" />
               </button>
-              <button onClick={() => confirm("Kamerani o'chirishni tasdiqlaysizmi?") && onDelete(cam.id)} className="p-1 rounded hover:bg-red-500/20 text-[var(--text-muted)] hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+              <button onClick={() => onDelete(cam.id)} className="p-1 rounded hover:bg-red-500/20 text-[var(--text-muted)] hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
             </>
           )}
         </div>
@@ -271,6 +272,7 @@ const GRID_OPTIONS = [{ cols: 1 }, { cols: 2 }, { cols: 3 }, { cols: 4 }];
 export default function CamerasPage() {
   const { user, selectedHospital } = useAuthStore();
   const qc = useQueryClient();
+  const { confirm } = useConfirmation();
   const isPlatformManager = isSuperLike(user?.role);
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
   const isAssistantAdmin = user?.role === "ASSISTANT_ADMIN";
@@ -382,7 +384,15 @@ export default function CamerasPage() {
                 isSuper={isPlatformManager}
                 onExpand={setFullscreenCam}
                 onEdit={(c) => setModal({ open: true, camera: c })}
-                onDelete={(id) => deleteMut.mutate({ id, hospitalId: cam.hospitalId })}
+                onDelete={async (id) => {
+                  const approved = await confirm({
+                    title: "Kamera o‘chirilsinmi?",
+                    description: `${cam.name} kamerasi ro‘yxatdan o‘chiriladi. Video qurilmaning o‘zi o‘zgarmaydi.`,
+                    confirmLabel: "O‘chirish",
+                    tone: "danger",
+                  });
+                  if (approved) deleteMut.mutate({ id, hospitalId: cam.hospitalId });
+                }}
                 onToggle={(id, isActive) => toggleMut.mutate({ id, isActive, hospitalId: cam.hospitalId })}
               />
             ))}

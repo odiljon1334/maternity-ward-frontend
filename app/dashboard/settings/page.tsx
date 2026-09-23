@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { usePushNotification } from "@/hooks/usePushNotification";
 import { cn, formatTerminalConnectivity, isSuperLike } from "@/lib/utils";
+import { useConfirmation } from "@/components/ui";
 
 // ─────────────────────────────────────────────
 // SHARED: Inline Edit Row
@@ -62,6 +63,7 @@ function EditableRow({
 // ─────────────────────────────────────────────
 function DepartmentsPanel({ targetHospitalId }: { targetHospitalId?: string }) {
   const qc = useQueryClient();
+  const { confirm } = useConfirmation();
   const [adding, setAdding] = useState(false);
   const { register, handleSubmit, reset } = useForm<{ name: string; code: string }>();
   const params = targetHospitalId ? { targetHospitalId } : undefined;
@@ -127,7 +129,12 @@ function DepartmentsPanel({ targetHospitalId }: { targetHospitalId?: string }) {
             key={d.id}
             value={d.name}
             onSave={(name) => updateMut.mutate({ id: d.id, name })}
-            onDelete={() => confirm("O'chirishni tasdiqlaysizmi?") && deleteMut.mutate(d.id)}
+            onDelete={() => void confirm({
+              title: "Bo‘lim o‘chirilsinmi?",
+              description: `${d.name} bo‘limi xodimlar yoki grafiklarda ishlatilsa, tizim o‘chirishni rad etishi mumkin.`,
+              confirmLabel: "O‘chirish",
+              tone: "danger",
+            }).then((approved) => approved && deleteMut.mutate(d.id))}
           />
         ))}
         {!isLoading && (departments as any[]).length === 0 && (
@@ -143,6 +150,7 @@ function DepartmentsPanel({ targetHospitalId }: { targetHospitalId?: string }) {
 // ─────────────────────────────────────────────
 function PositionsPanel({ targetHospitalId }: { targetHospitalId?: string }) {
   const qc = useQueryClient();
+  const { confirm } = useConfirmation();
   const [adding, setAdding] = useState(false);
   const { register, handleSubmit, reset } = useForm<{ name: string }>();
   const params = targetHospitalId ? { targetHospitalId } : undefined;
@@ -203,7 +211,12 @@ function PositionsPanel({ targetHospitalId }: { targetHospitalId?: string }) {
             key={p.id}
             value={p.name}
             onSave={(name) => updateMut.mutate({ id: p.id, name })}
-            onDelete={() => confirm("O'chirishni tasdiqlaysizmi?") && deleteMut.mutate(p.id)}
+            onDelete={() => void confirm({
+              title: "Lavozim o‘chirilsinmi?",
+              description: `${p.name} lavozimi xodimlarda ishlatilsa, tizim o‘chirishni rad etishi mumkin.`,
+              confirmLabel: "O‘chirish",
+              tone: "danger",
+            }).then((approved) => approved && deleteMut.mutate(p.id))}
           />
         ))}
         {!isLoading && (positions as any[]).length === 0 && (
@@ -385,6 +398,7 @@ function HospitalBrandingPanel() {
 // SUPER_ADMIN/ASSISTANT_ADMIN — tanlangan shifoxona)
 // ─────────────────────────────────────────────
 function TerminalsPanel({ hospitalId }: { hospitalId?: string }) {
+  const { confirm } = useConfirmation();
   const qc = useQueryClient();
   const [addMode, setAddMode] = useState(false);
   const [name, setName] = useState("");
@@ -444,7 +458,13 @@ function TerminalsPanel({ hospitalId }: { hospitalId?: string }) {
 
   const handleSync = async () => {
     if (!hospitalId) return;
-    if (!confirm("Barcha xodimlarni terminallarga yuklaysizmi?")) return;
+    const approved = await confirm({
+      title: "Terminal sinxronizatsiyasi boshlansinmi?",
+      description: "Muassasadagi barcha faol xodimlar terminallarga yuboriladi. Jarayon qurilmalar soniga qarab vaqt olishi mumkin.",
+      confirmLabel: "Sinxronlash",
+      tone: "warning",
+    });
+    if (!approved) return;
     setSyncing(true);
     setSyncResult(null);
     try {
@@ -530,7 +550,12 @@ function TerminalsPanel({ hospitalId }: { hospitalId?: string }) {
                   {t.isActive ? "Faol" : "Nofaol"}
                 </button>
                 <button
-                  onClick={() => confirm(`"${t.name}" terminalini o'chirasizmi?`) && deleteMut.mutate(t.id)}
+                  onClick={() => void confirm({
+                    title: "Terminal o‘chirilsinmi?",
+                    description: `${t.name} terminali tizim ro‘yxatidan o‘chiriladi.`,
+                    confirmLabel: "O‘chirish",
+                    tone: "danger",
+                  }).then((approved) => approved && deleteMut.mutate(t.id))}
                   disabled={deleteMut.isPending}
                   className="btn-ghost p-1.5 text-red-400 hover:bg-red-500/10"
                 >

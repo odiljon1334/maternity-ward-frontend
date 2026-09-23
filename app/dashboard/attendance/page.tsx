@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import dayjs from "dayjs";
 import isoWeek from "dayjs/plugin/isoWeek";
+import { Button, Input, Select, StatePanel, Surface, TableShell } from "@/components/ui";
 
 dayjs.extend(isoWeek);
 
@@ -95,7 +96,7 @@ export default function AttendancePage() {
 
   // ── Queries ──────────────────────────────────────────────────────────────────
 
-  const { data: records = [], isLoading } = useQuery({
+  const { data: records = [], isLoading, isError, isFetching, refetch } = useQuery({
     queryKey: ["attendance-daily", date, deptFilter, targetHospitalId],
     queryFn:  () => attendanceApi.daily({ date, departmentId: deptFilter || undefined, targetHospitalId }),
     staleTime: 60_000,
@@ -213,19 +214,19 @@ export default function AttendancePage() {
   // ─────────────────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#090a0f] text-slate-800 dark:text-slate-100 p-4 lg:p-6 space-y-5 font-sans transition-colors duration-200">
+    <div className="min-h-screen space-y-5 bg-[var(--bg-primary)] p-4 font-sans text-[var(--text-primary)] transition-colors duration-200 lg:p-6">
       <Topbar title="Davomat Monitoringi" subtitle="Xodimlarning kunlik davomat va smena hisoboti" />
 
       {/* Weekend Banner */}
       {weekend && (
-        <div className="flex items-center gap-3 bg-violet-500/10 border border-violet-500/20 text-violet-700 dark:text-violet-300 rounded-xl px-4 py-3 text-sm font-medium">
+        <Surface tone="muted" className="flex items-center gap-3 border-violet-500/20 bg-violet-500/10 px-4 py-3 text-sm font-medium text-violet-700 dark:text-violet-300">
           <Palmtree className="w-4 h-4 flex-shrink-0" />
           <span>
             {dayjs(date).day() === 6 ? "Shanba" : "Yakshanba"}.
             Holat grafik bo&apos;yicha aniqlanadi — grafigida ish kuni bo&apos;lganlargina
             &quot;Kelmadi&quot; deb belgilanadi.
           </span>
-        </div>
+        </Surface>
       )}
 
       {/* KPI Cards */}
@@ -283,7 +284,7 @@ export default function AttendancePage() {
       </div>
 
       {/* Davomat ko'rsatkichi — alohida full-width card */}
-      <div className="bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 p-3.5 rounded-xl shadow-sm flex items-center gap-4">
+      <Surface className="flex items-center gap-4 p-3.5">
         <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
           Davomat ko&apos;rsatkichi
           <span className="ml-1.5 text-slate-400 dark:text-slate-500">
@@ -299,18 +300,18 @@ export default function AttendancePage() {
         <span className="text-sm font-bold font-mono text-indigo-600 dark:text-indigo-400 w-10 text-right">
           {summary.rate}%
         </span>
-      </div>
+      </Surface>
 
       {/* Filters Toolbar */}
-      <div className="bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 p-4 rounded-xl shadow-sm space-y-3">
+      <Surface className="space-y-3 p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
 
           {/* Date Selector */}
           <div className="flex items-center gap-2">
             <div className="flex items-center bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-1">
-              <button onClick={handlePrevDay} className="p-1.5 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 rounded transition">
+              <Button onClick={handlePrevDay} variant="ghost" size="icon" className="h-8 w-8" aria-label="Oldingi kun">
                 <ChevronLeft className="w-4 h-4" />
-              </button>
+              </Button>
               <div className="flex items-center gap-2 px-3">
                 <Calendar className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                 <input
@@ -320,40 +321,42 @@ export default function AttendancePage() {
                   className="bg-transparent text-xs font-mono font-semibold text-slate-800 dark:text-slate-200 outline-none cursor-pointer"
                 />
               </div>
-              <button onClick={handleNextDay} className="p-1.5 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800 rounded transition">
+              <Button onClick={handleNextDay} variant="ghost" size="icon" className="h-8 w-8" aria-label="Keyingi kun">
                 <ChevronRight className="w-4 h-4" />
-              </button>
+              </Button>
             </div>
             {date !== dayjs().format("YYYY-MM-DD") && (
-              <button
+              <Button
                 onClick={() => setDate(dayjs().format("YYYY-MM-DD"))}
-                className="text-xs font-medium bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 px-3 py-2 rounded-lg transition"
+                variant="secondary"
+                size="sm"
               >
                 Bugun
-              </button>
+              </Button>
             )}
           </div>
 
           {/* Search */}
           <div className="relative flex-1 min-w-[200px] max-w-md">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
+            <Input
               type="text"
               placeholder="Xodim ismi yoki lavozimi..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-indigo-500 text-slate-800 dark:text-slate-200 text-xs rounded-lg pl-9 pr-3 py-2 outline-none transition"
+              className="pl-9 text-xs"
             />
           </div>
 
           {/* Reset */}
           {(searchQuery || deptFilter || statusFilter !== "ALL" || shiftFilter !== "ALL") && (
-            <button
+            <Button
               onClick={handleResetFilters}
-              className="flex items-center gap-1.5 text-xs text-rose-600 dark:text-rose-400 hover:text-rose-700 bg-rose-500/10 hover:bg-rose-500/20 px-3 py-2 rounded-lg border border-rose-500/20 transition"
+              variant="danger"
+              size="sm"
             >
               <RotateCcw className="w-3.5 h-3.5" /> Filtrni tozash
-            </button>
+            </Button>
           )}
         </div>
 
@@ -409,10 +412,10 @@ export default function AttendancePage() {
   </div>
 
   {/* Department Filter — full width */}
-  <select
+  <Select
     value={deptFilter}
     onChange={e => setDeptFilter(e.target.value)}
-    className="w-full bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-300 text-xs rounded-lg px-2.5 py-1.5 outline-none focus:border-indigo-500 transition"
+    className="w-full text-xs"
   >
     <option value="">Barcha bo&apos;limlar</option>
     {departments.map((d: any) => (
@@ -420,17 +423,26 @@ export default function AttendancePage() {
         {d.name}
       </option>
     ))}
-  </select>
+  </Select>
 </div>
-      </div>
+      </Surface>
 
       {/* Main Table */}
-      <div className="bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
+      {isError ? (
+        <StatePanel
+          kind="error"
+          title="Davomat ma’lumotlarini yuklab bo‘lmadi"
+          description="Avvalgi ma’lumot o‘zgarmadi. Aloqani tekshirib, qayta urinib ko‘ring."
+          actionLabel="Qayta urinish"
+          onAction={() => void refetch()}
+          actionLoading={isFetching}
+        />
+      ) : <TableShell maxHeight="none">
         {/* Jadval — faqat sm: dan yuqorida. Mobilda kartochkalar ko'rsatiladi
             (ichki vertikal scroll o'rniga sahifaning o'zi scroll bo'ladi) */}
         <div className="hidden sm:block overflow-x-auto overflow-y-auto max-h-[calc(100vh-380px)]">
           <table className="w-full text-left text-xs">
-            <thead className="sticky top-0 bg-slate-100/95 dark:bg-slate-950/95 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase font-semibold tracking-wider z-20">
+            <thead className="ui-table-head sticky top-0 z-20 border-b border-[var(--border)] uppercase font-semibold tracking-wider">
               <tr>
                 <th className="px-4 py-3">Xodim</th>
                 <th className="px-4 py-3">Bo&apos;lim / Lavozim</th>
@@ -724,7 +736,7 @@ export default function AttendancePage() {
           <span>Ko&apos;rsatilmoqda: {visibleRecords.length} / {filteredRecords.length} xodim</span>
           <span>Avtomatik yangilanish: Har 1 daqiqada</span>
         </div>
-      </div>
+      </TableShell>}
     </div>
   );
 }
@@ -745,7 +757,7 @@ function KpiCard({
   suffix?:    string;
 }) {
   return (
-    <div className="bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 p-3.5 rounded-xl shadow-sm">
+    <Surface className="p-3.5">
       <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs mb-1">
         <span>{label}</span>
         {icon}
@@ -754,6 +766,6 @@ function KpiCard({
         <p className={cn("text-xl font-bold font-mono", valueClass)}>{value}</p>
         {suffix && <span className="text-[10px] text-slate-400 dark:text-slate-500">{suffix}</span>}
       </div>
-    </div>
+    </Surface>
   );
 }

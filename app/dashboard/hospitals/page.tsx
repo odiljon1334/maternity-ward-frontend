@@ -14,6 +14,7 @@ import {
   Cpu, Wifi, WifiOff, RefreshCw,
 } from "lucide-react";
 import { formatTerminalConnectivity } from "@/lib/utils";
+import { useConfirmation } from "@/components/ui";
 
 // ── Hospital Form Modal ─────────────────────────
 type HospForm = { name: string; code: string; address?: string; phone?: string };
@@ -249,6 +250,7 @@ function TerminalModal({ open, onClose, hospital }: {
   open: boolean; onClose: () => void; hospital: any;
 }) {
   const qc = useQueryClient();
+  const { confirm } = useConfirmation();
   const [addMode, setAddMode] = useState(false);
   const [name, setName] = useState("");
   const [devIndex, setDevIndex] = useState("");
@@ -298,7 +300,13 @@ function TerminalModal({ open, onClose, hospital }: {
   });
 
   const handleSync = async () => {
-    if (!confirm(`"${hospital?.name}" muassasasidagi barcha xodimlarni terminallarga yuklaysizmi?`)) return;
+    const approved = await confirm({
+      title: "Terminal sinxronizatsiyasi boshlansinmi?",
+      description: `“${hospital?.name}” muassasasidagi barcha faol xodimlar terminallarga yuboriladi. Jarayon tugaguncha oynani yopmang.`,
+      confirmLabel: "Sinxronlash",
+      tone: "warning",
+    });
+    if (!approved) return;
     setSyncing(true);
     setSyncResult(null);
     try {
@@ -311,6 +319,16 @@ function TerminalModal({ open, onClose, hospital }: {
     } finally {
       setSyncing(false);
     }
+  };
+
+  const handleDeleteTerminal = async (terminal: any) => {
+    const approved = await confirm({
+      title: "Terminal o‘chirilsinmi?",
+      description: `“${terminal.name}” terminali muassasadan uziladi. Terminal qurilmasidagi mavjud ma’lumotlar avtomatik o‘chirilmaydi.`,
+      confirmLabel: "O‘chirish",
+      tone: "danger",
+    });
+    if (approved) deleteMut.mutate(terminal.id);
   };
 
   if (!open) return null;
@@ -360,7 +378,7 @@ function TerminalModal({ open, onClose, hospital }: {
                       {formatTerminalConnectivity(t)}
                     </p>
                   </div>
-                  <button onClick={() => deleteMut.mutate(t.id)} disabled={deleteMut.isPending} className="btn-ghost p-1.5 text-red-400 hover:bg-red-500/10">
+                  <button onClick={() => void handleDeleteTerminal(t)} disabled={deleteMut.isPending} className="btn-ghost p-1.5 text-red-400 hover:bg-red-500/10">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -425,6 +443,7 @@ function TerminalModal({ open, onClose, hospital }: {
 // ── Main Page ──────────────────────────────────
 export default function HospitalsPage() {
   const qc = useQueryClient();
+  const { confirm } = useConfirmation();
   const { user, setSelectedHospital } = useAuthStore();
   const [, startTransition] = useTransition();
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
@@ -524,7 +543,13 @@ export default function HospitalsPage() {
   }, [setSelectedHospital, startTransition]);
 
   const handleResetTelegram = useCallback(async (h: any) => {
-    if (!confirm(`"${h.name}" muassasasining Telegram obunalarini o'chirasizmi?`)) return;
+    const approved = await confirm({
+      title: "Telegram obunalari uzilsinmi?",
+      description: `“${h.name}” muassasasiga tegishli Telegram obunalari bekor qilinadi. Foydalanuvchilar qayta ulanishi kerak bo‘ladi.`,
+      confirmLabel: "Obunalarni uzish",
+      tone: "danger",
+    });
+    if (!approved) return;
     try {
       const res = await hospitalsApi.resetTelegramSubs(h.id);
       toast.success(res?.message || "Telegram obunalar o'chirildi");
@@ -532,7 +557,7 @@ export default function HospitalsPage() {
     } catch (e: any) {
       toast.error(e?.response?.data?.message || "Xatolik");
     }
-  }, [qc]);
+  }, [confirm, qc]);
 
   const handleEnrollPic = useCallback(async (h: any) => {
     setDownloading(h.id);
@@ -547,10 +572,16 @@ export default function HospitalsPage() {
     }
   }, []);
 
-  const handleDelete = useCallback((h: any) => {
-    if (!confirm(`"${h.name}" ni o'chirishni tasdiqlaysizmi?\n\nDIQQAT: Barcha xodimlar, jadvallar va maosh ma'lumotlari ham o'chadi!`)) return;
+  const handleDelete = useCallback(async (h: any) => {
+    const approved = await confirm({
+      title: "Muassasa butunlay o‘chirilsinmi?",
+      description: `“${h.name}” bilan birga uning barcha xodimlari, grafiklari va maosh ma’lumotlari o‘chadi. Bu amalni ortga qaytarib bo‘lmaydi.`,
+      confirmLabel: "Butunlay o‘chirish",
+      tone: "danger",
+    });
+    if (!approved) return;
     deleteMutation.mutate(h.id);
-  }, [deleteMutation]);
+  }, [confirm, deleteMutation]);
 
   return (
     <div>
@@ -683,12 +714,19 @@ export default function HospitalsPage() {
                         className="input-field h-9 py-1.5 text-xs"
                         value={h.schedulePlanningMode || "STANDARD"}
                         disabled={planningModeMutation.isPending}
-                        onChange={(event) => {
+                        onChange={async (event) => {
                           const mode = event.target.value as "STANDARD" | "POST_COVERAGE";
-                          const message = mode === "POST_COVERAGE"
-                            ? `"${h.name}" uchun 24/7 post bo‘yicha oylik grafikni yoqasizmi? Bu rejim faqat tug‘ruqxona/postlar uchun ishlatilishi kerak.`
-                            : `"${h.name}" uchun oddiy grafik rejimiga qaytasizmi? Avvalgi post rejalari o‘chmaydi, lekin modul yopiladi.`;
-                          if (!confirm(message)) return;
+                          const approved = await confirm({
+                            title: mode === "POST_COVERAGE"
+                              ? "24/7 post grafigi yoqilsinmi?"
+                              : "Oddiy grafik rejimiga qaytilsinmi?",
+                            description: mode === "POST_COVERAGE"
+                              ? `“${h.name}” uchun post bo‘yicha oylik rejalashtirish ochiladi. Bu rejim tug‘ruqxona va uzluksiz postlar uchun mo‘ljallangan.`
+                              : `“${h.name}” uchun oddiy grafik rejimi tiklanadi. Mavjud post rejalari o‘chmaydi, faqat post moduli yashiriladi.`,
+                            confirmLabel: "Rejimni o‘zgartirish",
+                            tone: "warning",
+                          });
+                          if (!approved) return;
                           planningModeMutation.mutate({ id: h.id, mode });
                         }}
                       >
@@ -761,7 +799,7 @@ export default function HospitalsPage() {
                           <span className="text-base leading-none">✈️</span>
                         </button>
                         <button
-                          onClick={() => handleDelete(h)}
+                          onClick={() => void handleDelete(h)}
                           disabled={deleteMutation.isPending}
                           className="btn-ghost text-xs px-3 text-red-400 hover:bg-red-500/10 justify-center"
                         >

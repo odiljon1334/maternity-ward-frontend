@@ -8,9 +8,10 @@ import { formatMoney, formatMinutes, cn, isSuperLike, getInitials, getAvatarColo
 import {
   Download, RefreshCw, CheckCircle, ChevronLeft, ChevronRight,
   TrendingDown, TrendingUp, DollarSign, Users, Clock,
-  AlertTriangle, Info, X, Calculator, FileText,
+  AlertTriangle, Info, FileText,
 } from "lucide-react";
 import dayjs from "dayjs";
+import { Button, Dialog, Select, StatePanel, Surface, TableShell } from "@/components/ui";
 
 const payrollDeductions = (r: any) =>
   Number(r.absenceDeduction || 0) +
@@ -48,8 +49,6 @@ function PayrollPreviewModal({
   deptName?: string;
   records: any[];
 }) {
-  if (!open) return null;
-
   const hasExisting  = records.length > 0;
   const totalNet     = records.reduce((s, r) => s + Number(r.netSalary      || 0), 0);
   const totalDeduct  = records.reduce((s, r) => s + payrollDeductions(r), 0);
@@ -57,21 +56,23 @@ function PayrollPreviewModal({
   const monthLabel   = dayjs().month(month - 1).format("MMMM");
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center sheet-safe justify-center p-0 sm:p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative card w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-indigo-600/20">
-              <Calculator className="w-4 h-4 text-indigo-400" />
-            </div>
-            <h2 className="font-semibold text-[var(--text-primary)]">Maosh hisoblash</h2>
-          </div>
-          <button onClick={onClose} className="btn-ghost p-1.5"><X className="w-4 h-4" /></button>
-        </div>
-
-        <div className="p-5 space-y-4">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Maosh hisoblash"
+      description="Davomat va tasdiqlangan tuzatishlar asosida tanlangan davr qayta hisoblanadi."
+      className="sm:max-w-md"
+      footer={(
+        <>
+          <Button onClick={onClose} variant="secondary" disabled={isPending}>Bekor qilish</Button>
+          <Button onClick={onConfirm} loading={isPending} loadingLabel="Hisoblanmoqda...">
+            <RefreshCw className="w-4 h-4" />
+            Ha, hisoblash
+          </Button>
+        </>
+      )}
+    >
+        <div className="space-y-4">
           {/* Period info */}
           <div className="flex flex-wrap gap-2">
             <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--bg-hover)] text-sm font-medium text-[var(--text-primary)]">
@@ -131,21 +132,7 @@ function PayrollPreviewModal({
             Davomat va jadval ma'lumotlari asosida maosh qayta hisoblanadi.
           </p>
         </div>
-
-        {/* Footer buttons */}
-        <div className="flex gap-3 px-5 pb-5">
-          <button onClick={onClose} className="btn-secondary flex-1">Bekor</button>
-          <button
-            onClick={onConfirm}
-            disabled={isPending}
-            className="btn-primary flex-1 gap-2"
-          >
-            <RefreshCw className={cn("w-4 h-4", isPending && "animate-spin")} />
-            {isPending ? "Hisoblanmoqda..." : "Ha, hisoblash"}
-          </button>
-        </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }
 
@@ -162,7 +149,7 @@ export default function PayrollPage() {
   const [showPreview, setShowPreview] = useState(false);
   const LIMIT = 15;
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, isFetching, refetch } = useQuery({
     queryKey: ["payroll", month, year, deptFilter, page, targetHospitalId],
     queryFn: () => payrollApi.list({ month, year, departmentId: deptFilter || undefined, targetHospitalId }),
     staleTime: 5 * 60_000, // 5 daqiqa — hisoblangandan so'ng o'zgarmaydi
@@ -221,13 +208,14 @@ export default function PayrollPage() {
   const totalBonus  = records.reduce((s, r) => s + payrollBonuses(r), 0);
 
   return (
-    <div>
+    <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
       <Topbar title="Maosh" subtitle={`${year} yil, ${dayjs().month(month - 1).format("MMMM")}`} />
 
       <div className="p-4 lg:p-6 space-y-4 lg:space-y-5">
         {/* ── Toolbar ── */}
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <select
+        <Surface className="flex flex-wrap items-center gap-2 p-3 sm:gap-3">
+          <Select
+            aria-label="Oy"
             value={month}
             onChange={(e) => { setMonth(Number(e.target.value)); setPage(1); }}
             className="input-field flex-1 sm:flex-none sm:w-36"
@@ -235,40 +223,43 @@ export default function PayrollPage() {
             {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
               <option key={m} value={m}>{dayjs().month(m - 1).format("MMMM")}</option>
             ))}
-          </select>
+          </Select>
 
-          <select
+          <Select
+            aria-label="Yil"
             value={year}
             onChange={(e) => { setYear(Number(e.target.value)); setPage(1); }}
             className="input-field w-20 sm:w-24"
           >
             {[2024, 2025, 2026, 2027].map((y) => <option key={y} value={y}>{y}</option>)}
-          </select>
+          </Select>
 
-          <select
+          <Select
+            aria-label="Bo‘lim"
             value={deptFilter}
             onChange={(e) => { setDeptFilter(e.target.value); setPage(1); }}
             className="input-field w-full sm:w-44"
           >
             <option value="">Barcha bo'limlar</option>
             {(departments as any[]).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-          </select>
+          </Select>
 
           <div className="flex items-center gap-2 ml-auto">
-            <button onClick={handleExcel} className="btn-secondary gap-1.5 text-xs sm:text-sm">
+            <Button onClick={handleExcel} variant="secondary" size="sm">
               <Download className="w-4 h-4" />
               <span className="hidden sm:inline">Excel</span>
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => setShowPreview(true)}
-              disabled={generateMutation.isPending}
-              className="btn-primary gap-1.5 text-xs sm:text-sm"
+              loading={generateMutation.isPending}
+              loadingLabel="Hisoblanmoqda..."
+              size="sm"
             >
-              <RefreshCw className={cn("w-4 h-4", generateMutation.isPending && "animate-spin")} />
-              {generateMutation.isPending ? "Hisoblanmoqda..." : "Hisoblash"}
-            </button>
+              <RefreshCw className="w-4 h-4" />
+              Hisoblash
+            </Button>
           </div>
-        </div>
+        </Surface>
 
         {/* ── Summary cards ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
@@ -278,7 +269,7 @@ export default function PayrollPage() {
             { label: "Jami kesimlar",    value: formatMoney(totalDeduct), icon: TrendingDown, color: "bg-red-600" },
             { label: "Jami bonuslar",    value: formatMoney(totalBonus),  icon: TrendingUp,   color: "bg-violet-600" },
           ].map((s) => (
-            <div key={s.label} className="card p-3 sm:p-4 flex items-center gap-3 sm:gap-4">
+            <Surface key={s.label} className="flex items-center gap-3 p-3 sm:gap-4 sm:p-4">
               <div className={`p-2 sm:p-2.5 rounded-xl ${s.color} flex-shrink-0`}>
                 <s.icon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </div>
@@ -286,14 +277,25 @@ export default function PayrollPage() {
                 <p className="text-xs text-[var(--text-muted)] truncate">{s.label}</p>
                 <p className="text-sm sm:text-lg font-bold text-[var(--text-primary)] truncate">{s.value}</p>
               </div>
-            </div>
+            </Surface>
           ))}
         </div>
 
+        {isError && (
+          <StatePanel
+            kind="error"
+            title="Maosh ma’lumotlarini yuklab bo‘lmadi"
+            description="Hisob-kitoblar o‘zgartirilmadi. Aloqani tekshirib, qayta urinib ko‘ring."
+            actionLabel="Qayta urinish"
+            onAction={() => void refetch()}
+            actionLoading={isFetching}
+          />
+        )}
+
         {/* ── Mobile card view ── */}
-        <div className="sm:hidden space-y-3">
+        {!isError && <div className="sm:hidden space-y-3">
           {isLoading && [...Array(4)].map((_, i) => (
-            <div key={i} className="card p-4 animate-pulse space-y-3">
+            <Surface key={i} className="animate-pulse space-y-3 p-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-[var(--bg-hover)]" />
                 <div className="flex-1 space-y-2">
@@ -301,20 +303,17 @@ export default function PayrollPage() {
                   <div className="h-3 rounded bg-[var(--bg-hover)] w-1/3" />
                 </div>
               </div>
-            </div>
+            </Surface>
           ))}
           {!isLoading && records.length === 0 && (
-            <div className="card p-8 text-center text-[var(--text-muted)] text-sm">
-              <p>Maosh ma'lumotlari topilmadi</p>
-              <p className="text-xs mt-1">"Hisoblash" tugmasini bosing</p>
-            </div>
+            <StatePanel title="Maosh ma’lumotlari topilmadi" description="Hisoblash tugmasini bosib, tanlangan davr uchun maoshlarni yarating." />
           )}
           {!isLoading && records.map((r: any) => {
             const deductions = payrollDeductions(r);
             const bonuses = payrollBonuses(r);
             const st = STATUS_MAP[r.status] || { label: r.status, cls: "badge-gray" };
             return (
-              <div key={r.id} className="card p-4">
+              <Surface key={r.id} className="p-4">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="flex-shrink-0">
                     {r.employee?.photoUrl
@@ -364,32 +363,34 @@ export default function PayrollPage() {
 
                 <div className="mt-3 flex gap-2">
                   {r.status === "DRAFT" && (
-                    <button
+                    <Button
                       onClick={() => approveMutation.mutate(r.id)}
-                      disabled={approveMutation.isPending}
-                      className="flex-1 flex items-center justify-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 py-2 border border-indigo-500/30 rounded-lg hover:bg-indigo-500/10 transition-colors"
+                      loading={approveMutation.isPending}
+                      variant="secondary"
+                      size="sm"
+                      className="flex-1 text-indigo-500"
                     >
                       <CheckCircle className="w-3.5 h-3.5" /> Tasdiqlash
-                    </button>
+                    </Button>
                   )}
-                  <button
+                  <Button
                     onClick={() => handlePayslip(r.employee.id, r.employee.fullName)}
-                    disabled={payslipLoading === r.employee.id}
-                    className="flex-1 flex items-center justify-center gap-1.5 text-xs text-rose-400 hover:text-rose-300 py-2 border border-rose-500/30 rounded-lg hover:bg-rose-500/10 transition-colors"
+                    loading={payslipLoading === r.employee.id}
+                    variant="secondary"
+                    size="sm"
+                    className="flex-1 text-rose-500"
                   >
-                    {payslipLoading === r.employee.id
-                      ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      : <FileText className="w-3.5 h-3.5" />}
+                    <FileText className="w-3.5 h-3.5" />
                     PDF varaqasi
-                  </button>
+                  </Button>
                 </div>
-              </div>
+              </Surface>
             );
           })}
-        </div>
+        </div>}
 
         {/* ── Desktop table ── */}
-        <div className="hidden sm:block card overflow-hidden">
+        {!isError && <TableShell className="hidden sm:block" maxHeight="none">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -455,25 +456,27 @@ export default function PayrollPage() {
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-2">
                           {r.status === "DRAFT" && (
-                            <button
+                            <Button
                               onClick={() => approveMutation.mutate(r.id)}
-                              disabled={approveMutation.isPending}
-                              className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 whitespace-nowrap"
+                              loading={approveMutation.isPending}
+                              variant="ghost"
+                              size="sm"
+                              className="whitespace-nowrap text-indigo-500"
                             >
                               <CheckCircle className="w-3.5 h-3.5" /> Tasdiqlash
-                            </button>
+                            </Button>
                           )}
-                          <button
+                          <Button
                             onClick={() => handlePayslip(r.employee.id, r.employee.fullName)}
-                            disabled={payslipLoading === r.employee.id}
+                            loading={payslipLoading === r.employee.id}
+                            variant="ghost"
+                            size="sm"
                             title="PDF Maosh varaqasi"
-                            className="flex items-center gap-1 text-xs text-rose-400 hover:text-rose-300 whitespace-nowrap"
+                            className="whitespace-nowrap text-rose-500"
                           >
-                            {payslipLoading === r.employee.id
-                              ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                              : <FileText className="w-3.5 h-3.5" />}
+                            <FileText className="w-3.5 h-3.5" />
                             PDF
-                          </button>
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -496,30 +499,30 @@ export default function PayrollPage() {
             <div className="flex items-center justify-between px-5 py-3 border-t border-[var(--border)]">
               <p className="text-xs text-[var(--text-muted)]">{(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} / {total}</p>
               <div className="flex items-center gap-1">
-                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="btn-ghost p-1.5 disabled:opacity-30">
+                <Button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} variant="ghost" size="icon" className="h-8 w-8" aria-label="Oldingi sahifa">
                   <ChevronLeft className="w-4 h-4" />
-                </button>
+                </Button>
                 <span className="text-xs text-[var(--text-muted)] px-2">{page} / {totalPages}</span>
-                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="btn-ghost p-1.5 disabled:opacity-30">
+                <Button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} variant="ghost" size="icon" className="h-8 w-8" aria-label="Keyingi sahifa">
                   <ChevronRight className="w-4 h-4" />
-                </button>
+                </Button>
               </div>
             </div>
           )}
-        </div>
+        </TableShell>}
 
         {/* Mobile pagination */}
         {totalPages > 1 && (
           <div className="flex sm:hidden items-center justify-between">
             <p className="text-xs text-[var(--text-muted)]">{(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} / {total}</p>
             <div className="flex items-center gap-1">
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="btn-ghost p-2 disabled:opacity-30">
+              <Button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} variant="ghost" size="icon" aria-label="Oldingi sahifa">
                 <ChevronLeft className="w-4 h-4" />
-              </button>
+              </Button>
               <span className="text-xs text-[var(--text-muted)] px-2">{page}/{totalPages}</span>
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="btn-ghost p-2 disabled:opacity-30">
+              <Button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} variant="ghost" size="icon" aria-label="Keyingi sahifa">
                 <ChevronRight className="w-4 h-4" />
-              </button>
+              </Button>
             </div>
           </div>
         )}
