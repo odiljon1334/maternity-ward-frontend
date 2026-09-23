@@ -351,6 +351,14 @@ export const attendanceApi = {
 
 // ─── Location ─────────────────────────────────
 export const locationApi = {
+  trackingSession: () =>
+    api.get("/location/tracking-session").then((r) => r.data.data as {
+      active: boolean;
+      checkIn: string | null;
+      expectedCheckOut: string | null;
+      reason: "EMPLOYEE_NOT_FOUND" | "SHIFT_ENDED" | "NOT_CHECKED_IN" | null;
+      heartbeatMs: number;
+    }),
   sendLive: (opts: { latitude: number; longitude: number; accuracy: number; battery?: number }) =>
     api.post("/location/live", opts).then((r) => r.data.data as {
       ok: boolean;

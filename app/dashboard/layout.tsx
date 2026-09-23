@@ -9,6 +9,7 @@ import { EmailVerificationReminder } from "@/components/dashboard/EmailVerificat
 import { useAuthStore } from "@/stores/auth";
 import { MobileMenuContext } from "@/contexts/mobile-menu";
 import { ConfirmationProvider } from "@/components/ui";
+import { LiveLocationTracker } from "@/components/location/LiveLocationTracker";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router   = useRouter();
@@ -61,6 +62,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <BottomNav />
         <InstallPrompt />
         <PushNotificationBanner />
+        <LiveLocationTracker />
       </div>
       </ConfirmationProvider>
     </MobileMenuContext.Provider>

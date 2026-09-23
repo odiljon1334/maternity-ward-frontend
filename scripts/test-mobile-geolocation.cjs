@@ -8,6 +8,7 @@ const ts = require("typescript");
 
 const root = path.resolve(__dirname, "..");
 const helperPath = path.join(root, "lib", "mobile-geolocation.ts");
+const liveTrackerPath = path.join(root, "lib", "live-location-tracker.ts");
 
 function loadTypeScriptModule(filePath) {
   if (!fs.existsSync(filePath)) {
@@ -192,6 +193,68 @@ async function run() {
     pageSource,
     /createAccurateLocationRequest/,
     "check-in sahifasi sinovdan o'tgan mobil geolocation oqimidan foydalanishi kerak",
+  );
+
+  const { createLiveLocationTracker } = loadTypeScriptModule(liveTrackerPath);
+  {
+    let watchSuccess;
+    let heartbeat;
+    let clearedWatchId = null;
+    let clearedIntervalId = null;
+    const sent = [];
+    const geolocation = {
+      getCurrentPosition(success) {
+        success(position(15));
+      },
+      watchPosition(success) {
+        watchSuccess = success;
+        return 73;
+      },
+      clearWatch(id) {
+        clearedWatchId = id;
+      },
+    };
+
+    const tracker = createLiveLocationTracker({
+      geolocation,
+      onPoint: async (point) => {
+        sent.push(point);
+        return { stopTracking: false };
+      },
+      setIntervalFn: (callback) => {
+        heartbeat = callback;
+        return 81;
+      },
+      clearIntervalFn: (id) => {
+        clearedIntervalId = id;
+      },
+      now: () => 1_000,
+    });
+
+    tracker.start();
+    watchSuccess(position(12));
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(sent.length, 1, "watchPosition birinchi GPS nuqtasini yuborishi kerak");
+
+    heartbeat();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(sent.length, 2, "heartbeat xodim qimirlamasa ham online holatini yangilashi kerak");
+
+    tracker.stop();
+    assert.equal(clearedWatchId, 73, "kuzatuv tugaganda GPS watch to'xtashi kerak");
+    assert.equal(clearedIntervalId, 81, "kuzatuv tugaganda heartbeat to'xtashi kerak");
+  }
+
+  const layoutSource = fs.readFileSync(path.join(root, "app", "dashboard", "layout.tsx"), "utf8");
+  assert.match(
+    layoutSource,
+    /LiveLocationTracker/,
+    "GPS kuzatuvi bitta sahifaga emas, butun dashboard layoutiga o'rnatilishi kerak",
+  );
+  assert.doesNotMatch(
+    pageSource,
+    /function useLiveTracking/,
+    "check-in sahifasidagi eski lokal tracker dublikat so'rov yubormasligi kerak",
   );
 
   console.log("mobile geolocation tests: OK");

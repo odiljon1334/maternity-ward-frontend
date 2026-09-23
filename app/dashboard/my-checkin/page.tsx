@@ -5,7 +5,6 @@
 
 import { useRef, useState, useCallback, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { locationApi } from "@/lib/api";
 import {
   Camera, MapPin, CheckCircle2, XCircle, Loader2,
   RefreshCw, AlertTriangle, Clock, LogIn, LogOut, Building2, Sparkles, User,
@@ -342,105 +341,6 @@ function useGPS() {
   return { coords, loading, error, locate };
 }
 
-// ─── Live location tracking ───────────────────────────────────────────────────
-function useLiveTracking(
-  isCheckedIn: boolean,
-  isCheckedOut: boolean,
-  expectedCheckOut: string | null | undefined,
-) {
-  // Serverdan "stopTracking" signali kelsa — mahalliy holatni ham to'xtatamiz,
-  // shunda useEffect qayta o'ynamaguncha (masalan sahifa fokusga qaytmaguncha)
-  // ortiqcha so'rov yuborilmaydi.
-  const stoppedRef = useRef(false);
-
-  // sendLocation ref orqali — har safar yangi coords oladi
-  const sendLocationRef = useRef<() => Promise<void>>();
-
-  sendLocationRef.current = async () => {
-    if (!isCheckedIn || isCheckedOut || stoppedRef.current) return;
-
-    // Ish vaqti tugagan bo'lsa — GPS so'ramasdan to'xtatamiz (asosiy himoya
-    // serverda, lekin bu yerda ham tekshirish keraksiz so'rovlarning oldini oladi)
-    if (expectedCheckOut && new Date() > new Date(expectedCheckOut)) {
-      stoppedRef.current = true;
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        try {
-          let battery: number | undefined;
-          if ('getBattery' in navigator) {
-            const bat = await (navigator as any).getBattery();
-            battery = Math.round(bat.level * 100);
-          }
-          const res = await locationApi.sendLive({
-            latitude:  pos.coords.latitude,
-            longitude: pos.coords.longitude,
-            accuracy:  pos.coords.accuracy,
-            battery,
-          });
-          // Server "ish vaqti tugadi / check-out qilingan" deb topsa —
-          // kuzatishni shu yerda ham to'xtatamiz (eski PWA keshi bo'lsa ham xavfsiz)
-          if (res?.stopTracking) {
-            stoppedRef.current = true;
-          }
-        } catch {
-          // Silent fail
-        }
-      },
-      () => {},
-      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 30_000 },
-    );
-  };
-
-  useEffect(() => {
-    stoppedRef.current = false;
-
-    if (!isCheckedIn || isCheckedOut) return;
-
-    if (expectedCheckOut && new Date() > new Date(expectedCheckOut)) {
-      stoppedRef.current = true;
-      return;
-    }
-
-    // Darhol bir marta yuborish
-    sendLocationRef.current?.();
-
-    // Visibility change — sahifa ko'rinib qolganda darhol yuborish
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        sendLocationRef.current?.();
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    // 3 daqiqada bir marta
-    const interval = setInterval(() => {
-      sendLocationRef.current?.();
-    }, 3 * 60 * 1000);
-
-    // Ish vaqti tugashi bilan — check-out qilinmagan bo'lsa ham kuzatishni
-    // darhol to'xtatish (keyingi 3-daqiqalik tikni kutmasdan)
-    let stopTimer: ReturnType<typeof setTimeout> | null = null;
-    if (expectedCheckOut) {
-      const msUntilEnd = new Date(expectedCheckOut).getTime() - Date.now();
-      if (msUntilEnd > 0) {
-        stopTimer = setTimeout(() => {
-          stoppedRef.current = true;
-          clearInterval(interval);
-        }, msUntilEnd);
-      }
-    }
-
-    return () => {
-      clearInterval(interval);
-      if (stopTimer) clearTimeout(stopTimer);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [isCheckedIn, isCheckedOut, expectedCheckOut]);
-}
-
 // ─── Today status card (Profil sahifasidagi kabi gradientli va bezakli card) ────
 function TodayCard({ record }: { record: any }) {
   const status = STATUS_MAP[record.status] ?? { label: record.status, cls: "bg-slate-500/20 text-slate-400 border-slate-500/30" };
@@ -584,6 +484,7 @@ export default function MyCheckinPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["my-attendance-today"] });
       qc.invalidateQueries({ queryKey: ["my-attendance"] });
+      qc.invalidateQueries({ queryKey: ["live-location-tracking-session"] });
       setShowEarlyWarning(false);
       setFaceVerification("success");
       navigator.vibrate?.(45);
@@ -622,7 +523,6 @@ const savePositionGps = useCallback(async () => {
   const isCheckedIn  = !!data?.checkIn;
   const isCheckedOut = !!data?.checkOut;
   const isComplete   = isCheckedIn && isCheckedOut;
-  useLiveTracking(isCheckedIn, isCheckedOut, data?.expectedCheckOut);
   const actionLabel  = isCheckedIn ? "Check-out" : "Check-in";
   const ActionIcon   = isCheckedIn ? LogOut : LogIn;
   const actionColor  = isCheckedIn ? "bg-red-600 hover:bg-red-700 shadow-red-600/25" : "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/25";
