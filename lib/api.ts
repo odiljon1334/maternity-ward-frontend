@@ -556,7 +556,39 @@ export const telegramApi = {
         createdAt: string;
       }[];
     }[]),
+
+  // HR botga ulanish ruxsati (allowlist). DIRECTOR/ADMIN uchun backend
+  // hospitalId'ni JWT'dan oladi; SUPER_ADMIN/ASSISTANT_ADMIN tanlangan
+  // muassasani yuboradi.
+  botAccess: (hospitalId?: string) =>
+    api
+      .get("/telegram/bot-access", { params: hospitalId ? { hospitalId } : undefined })
+      .then((r) => r.data.data as TelegramBotAccessList),
+  setBotAccess: (employeeId: string, enabled: boolean, hospitalId?: string) =>
+    api
+      .put(`/telegram/bot-access/${employeeId}`, { enabled, ...(hospitalId ? { hospitalId } : {}) })
+      .then((r) => r.data.data),
+  revokeBotChat: (subscriptionId: string, hospitalId?: string) =>
+    api
+      .delete(`/telegram/bot-access/subscriptions/${subscriptionId}`, {
+        params: hospitalId ? { hospitalId } : undefined,
+      })
+      .then((r) => r.data.data),
 };
+
+export interface TelegramBotAccessList {
+  limit: number;
+  granted: {
+    employeeId: string;
+    fullName: string;
+    position: string | null;
+    phone: string | null;
+    hasValidPhone: boolean;
+    isFired: boolean;
+    linkedChats: { id: string; username: string | null; createdAt: string }[];
+  }[];
+  legacyChats: { id: string; username: string | null; createdAt: string }[];
+}
 
 // ─── Notifications ──────────────────────────────
 export const notificationsApi = {

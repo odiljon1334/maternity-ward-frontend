@@ -14,6 +14,7 @@ import {
 import { usePushNotification } from "@/hooks/usePushNotification";
 import { cn, formatTerminalConnectivity, isSuperLike } from "@/lib/utils";
 import { useConfirmation } from "@/components/ui";
+import { TelegramBotAccessPanel } from "@/components/settings/TelegramBotAccessPanel";
 
 // ─────────────────────────────────────────────
 // SHARED: Inline Edit Row
@@ -264,6 +265,14 @@ export default function SettingsPage() {
   // (backend `/hospitals/me`, `/hospitals/me/logo` ham shu ikki rolga ochiq).
   const canManageBranding = user?.role === "DIRECTOR" || user?.role === "ADMIN";
 
+  // HR Telegram bot ruxsati — DIRECTOR/ADMIN o'z muassasasi uchun,
+  // SUPER_ADMIN/ASSISTANT_ADMIN tanlangan muassasa uchun.
+  const botAccessHospitalId = isSuperLike(user?.role)
+    ? targetHospitalId
+    : canManageBranding
+      ? (user?.hospitalId || undefined)
+      : undefined;
+
   return (
     <div>
       <Topbar title="Sozlamalar" subtitle="Bo'lim va lavozim boshqaruvi" />
@@ -275,6 +284,12 @@ export default function SettingsPage() {
           <PositionsPanel targetHospitalId={targetHospitalId} />
         </div>
         {canManageTerminals && <TerminalsPanel hospitalId={terminalsHospitalId} />}
+        {botAccessHospitalId && (
+          <TelegramBotAccessPanel
+            hospitalId={botAccessHospitalId}
+            sendHospitalId={isSuperLike(user?.role)}
+          />
+        )}
         <PushNotificationsPanel />
       </div>
     </div>
