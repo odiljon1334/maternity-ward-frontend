@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:live-map": "bash scripts/test-live-map-layout.sh"
+    "test:live-map": "bash scripts/test-live-map-layout.sh",
+    "test:mobile-geolocation": "node scripts/test-mobile-geolocation.cjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",

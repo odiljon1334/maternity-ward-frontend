@@ -13,6 +13,15 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { attendanceApi, photoUrl } from "@/lib/api";
+import {
+  createAccurateLocationRequest,
+  detectLocationPlatform,
+  getLocationIssueContent,
+  type AccurateLocationRequest,
+  type LocationIssue,
+  type LocationIssueContent,
+  type LocationPlatform,
+} from "@/lib/mobile-geolocation";
 import { useAuthStore } from "@/stores/auth";
 import { Topbar } from "@/components/layout/Topbar";
 import { YMaps, Map, Placemark } from "@pbe/react-yandex-maps";
@@ -32,6 +41,41 @@ const STATUS_MAP: Record<string, { label: string; cls: string }> = {
 function fmt(date?: string | Date | null) {
   if (!date) return "—";
   return dayjs(date).format("HH:mm");
+}
+
+function LocationIssueAlert({
+  issue,
+  onRetry,
+}: {
+  issue: LocationIssueContent;
+  onRetry: () => void;
+}) {
+  return (
+    <div
+      className="rounded-2xl border border-rose-500/35 bg-rose-500/10 p-3.5 text-xs text-rose-200"
+      role="alert"
+    >
+      <div className="flex items-start gap-2">
+        <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-rose-400" />
+        <div className="min-w-0 space-y-1.5">
+          <p className="font-extrabold text-rose-300">{issue.title}</p>
+          <p className="font-medium leading-5 text-rose-200/90">{issue.message}</p>
+          <ol className="list-decimal space-y-1 pl-4 text-rose-100/80">
+            {issue.details.map((detail) => <li key={detail}>{detail}</li>)}
+          </ol>
+          {issue.canRetry && (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="mt-1 rounded-xl border border-rose-400/40 bg-rose-500/15 px-3 py-2 font-bold text-rose-100 transition hover:bg-rose-500/25"
+            >
+              Qayta urinish
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ─── Face verification feedback ──────────────────────────────────────────────
@@ -238,19 +282,13 @@ const GPS_MAX_WAIT_MS = 25_000;
 function useGPS() {
   const [coords,  setCoords]  = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState<string | null>(null);
-  const watchRef = useRef<number | null>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [issue, setIssue] = useState<LocationIssue | null>(null);
+  const [platform, setPlatform] = useState<LocationPlatform>("other");
+  const requestRef = useRef<AccurateLocationRequest | null>(null);
 
   const stop = useCallback(() => {
-    if (watchRef.current !== null) {
-      navigator.geolocation.clearWatch(watchRef.current);
-      watchRef.current = null;
-    }
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
+    requestRef.current?.stop();
+    requestRef.current = null;
   }, []);
 
   /**
@@ -260,65 +298,47 @@ function useGPS() {
    * 10–40 soniya kerak. Shu sabab xodim ish joyida turgan bo'lsa ham har safar
    * bir xil "uzoqroq" nuqta yozilardi.
    *
-   * Endi watchPosition ishlatiladi: koordinata aniqlashgani sari yangilanadi,
-   * eng aniqi saqlanadi va yetarli aniqlikka yetganda to'xtaydi.
+   * Permission dialogi mobil PWA'da barqaror chiqishi uchun foydalanuvchi
+   * bosgan zahoti getCurrentPosition chaqiriladi. Birinchi koordinatadan keyin
+   * watchPosition aniqlikni yaxshilaydi va maqsadga yetganda to'xtaydi.
    */
   const locate = useCallback(() => {
-    if (!navigator.geolocation) {
-      setError("Brauzeringiz GPS ni qo'llab-quvvatlamaydi");
+    stop();
+    setCoords(null);
+    setIssue(null);
+
+    const standalone =
+      window.matchMedia?.("(display-mode: standalone)").matches === true ||
+      (navigator as Navigator & { standalone?: boolean }).standalone === true;
+    setPlatform(detectLocationPlatform(navigator.userAgent, standalone));
+
+    if (!window.isSecureContext) {
+      setIssue("secure-context-required");
+      setLoading(false);
       return;
     }
-    stop();
-    setLoading(true);
-    setError(null);
-    setCoords(null);
-
-    let best: { lat: number; lng: number; accuracy: number } | null = null;
-
-    watchRef.current = navigator.geolocation.watchPosition(
-      (pos) => {
-        const next = {
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          accuracy: pos.coords.accuracy,
-        };
-        // Faqat aniqroq o'lchov qabul qilinadi
-        if (!best || next.accuracy < best.accuracy) {
-          best = next;
-          setCoords(next);
-        }
-        if (next.accuracy <= GPS_TARGET_ACCURACY_M) {
-          stop();
-          setLoading(false);
-        }
-      },
-      (err) => {
-        stop();
-        setLoading(false);
-        if (!best) {
-          setError(
-            err.code === err.PERMISSION_DENIED
-              ? "Joylashuvga ruxsat berilmagan. Brauzer sozlamalaridan ruxsat bering."
-              : "GPS joylashuvini aniqlab bo'lmadi. Ochiq joyga chiqib qayta urinib ko'ring.",
-          );
-        }
-      },
-      { enableHighAccuracy: true, timeout: GPS_MAX_WAIT_MS, maximumAge: 0 },
-    );
-
-    // Belgilangan vaqt tugasa — eng aniq o'lchov bilan to'xtaymiz
-    timerRef.current = setTimeout(() => {
-      stop();
+    if (!navigator.geolocation) {
+      setIssue("unsupported");
       setLoading(false);
-      if (!best) {
-        setError("GPS signal topilmadi. Ochiq joyga chiqib qayta urinib ko'ring.");
-      }
-    }, GPS_MAX_WAIT_MS);
+      return;
+    }
+
+    setLoading(true);
+
+    requestRef.current = createAccurateLocationRequest({
+      geolocation: navigator.geolocation,
+      targetAccuracyM: GPS_TARGET_ACCURACY_M,
+      maxWaitMs: GPS_MAX_WAIT_MS,
+      onPosition: setCoords,
+      onIssue: setIssue,
+      onFinished: () => setLoading(false),
+    });
   }, [stop]);
 
   // Sahifadan chiqilganda kuzatuvni to'xtatamiz
   useEffect(() => stop, [stop]);
 
+  const error = issue ? getLocationIssueContent(issue, platform) : null;
   return { coords, loading, error, locate };
 }
 
@@ -749,9 +769,7 @@ const savePositionGps = useCallback(async () => {
                   </div>
                 )}
                 {gps.error && (
-                  <p className="text-xs text-red-400 flex items-start gap-1.5 font-medium">
-                    <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" /> {gps.error}
-                  </p>
+                  <LocationIssueAlert issue={gps.error} onRetry={gps.locate} />
                 )}
               </div>
             )}
@@ -875,10 +893,7 @@ const savePositionGps = useCallback(async () => {
               )}
 
               {gps.error && (
-                <p className="text-xs text-red-400 flex items-start gap-1.5 font-medium">
-                  <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-                  {gps.error}
-                </p>
+                <LocationIssueAlert issue={gps.error} onRetry={gps.locate} />
               )}
 
               <button
