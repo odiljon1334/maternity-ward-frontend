@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildLiveMapMarkerLayout, getEmployeePositionLabel } from "../lib/live-map-layout";
+import {
+  buildLiveMapMarkerLayout,
+  getEmployeePositionLabel,
+  getLiveTrackingStatus,
+} from "../lib/live-map-layout";
 
 test("bir xil joydagi xodim markerlari bir-birini yopmaydi", () => {
   const layout = buildLiveMapMarkerLayout([
@@ -59,4 +63,28 @@ test("marker labeli lavozimni, u bo‘lmasa tushunarli fallbackni ko‘rsatadi",
     "25-maktab hamshirasi",
   );
   assert.equal(getEmployeePositionLabel({ positionName: null }), "Lavozim ko‘rsatilmagan");
+});
+
+test("10 daqiqadan eski GPS faol xodimni online deb ko‘rsatmaydi", () => {
+  const now = new Date("2026-09-23T08:30:00.000Z").getTime();
+
+  assert.equal(
+    getLiveTrackingStatus(
+      { createdAt: "2026-09-23T08:19:00.000Z", isOutside: false },
+      now,
+    ),
+    "SIGNAL_LOST",
+  );
+});
+
+test("yangi GPS nuqtasi geofence tashqarisida bo‘lsa OUTSIDE qaytaradi", () => {
+  const now = new Date("2026-09-23T08:30:00.000Z").getTime();
+
+  assert.equal(
+    getLiveTrackingStatus(
+      { createdAt: "2026-09-23T08:29:00.000Z", isOutside: true },
+      now,
+    ),
+    "OUTSIDE",
+  );
 });

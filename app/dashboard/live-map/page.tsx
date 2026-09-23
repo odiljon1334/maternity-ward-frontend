@@ -21,6 +21,10 @@ import {
   Layers3,
 } from "lucide-react";
 import { API_ORIGIN } from "@/lib/api";
+import {
+  getLiveTrackingStatus,
+  type LiveTrackingStatus,
+} from "@/lib/live-map-layout";
 import dynamic from "next/dynamic";
 
 const MapWithNoSSR = dynamic(
@@ -60,6 +64,9 @@ export interface EmployeeMarker {
   checkOut: string | null;
   attendanceStatus: string | null;
   isOutside?: boolean;
+  isStale?: boolean;
+  trackingStatus?: LiveTrackingStatus;
+  staleAfterMinutes?: number;
 }
 
 // ─────────────────────────────────────────────
@@ -425,13 +432,30 @@ export default function LiveMapPage() {
   // DATA
   // ─────────────────────────────────────────
 
-  const markerList = useMemo(
-    () =>
-      Array.from(
-        markers.values()
-      ),
-    [markers]
-  );
+  const markerList = useMemo(() => {
+    const statusOrder: Record<LiveTrackingStatus, number> = {
+      OUTSIDE: 0,
+      SIGNAL_LOST: 1,
+      ONLINE: 2,
+    };
+
+    return Array.from(markers.values()).sort((left, right) => {
+      const statusDifference =
+        statusOrder[getLiveTrackingStatus(left, now)] -
+        statusOrder[getLiveTrackingStatus(right, now)];
+
+      return statusDifference || left.name.localeCompare(right.name);
+    });
+  }, [markers, now]);
+
+  const outsideCount = markerList.filter(
+    (employee) => getLiveTrackingStatus(employee, now) === "OUTSIDE"
+  ).length;
+  const signalLostCount = markerList.filter(
+    (employee) => getLiveTrackingStatus(employee, now) === "SIGNAL_LOST"
+  ).length;
+  const onlineCount = markerList.length - outsideCount - signalLostCount;
+  const warningCount = outsideCount + signalLostCount;
 
   const selectedFromMarkers =
     selectedUser
@@ -446,8 +470,9 @@ export default function LiveMapPage() {
         null
     );
 
-  // Force re-render for relative time
-  void now;
+  const selectedTrackingStatus = selectedFromMarkers
+    ? getLiveTrackingStatus(selectedFromMarkers, now)
+    : null;
 
   // ─────────────────────────────────────────
   // RENDER
@@ -482,7 +507,8 @@ export default function LiveMapPage() {
             </h1>
 
             <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-              {markerList.length} ta xodim online
+              {onlineCount} online
+              {warningCount > 0 ? ` • ${warningCount} ogohlantirish` : ""}
             </p>
           </div>
 
@@ -504,6 +530,24 @@ export default function LiveMapPage() {
               : "Uzilgan"}
           </div>
         </div>
+
+        {warningCount > 0 && (
+          <div className="rounded-2xl border border-amber-400/25 bg-amber-500/10 px-3.5 py-3 shadow-sm">
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-400" />
+              <div>
+                <p className="text-xs font-black text-amber-300">
+                  Kuzatuv ogohlantirishlari
+                </p>
+                <p className="mt-1 text-[10px] leading-4 text-[var(--text-muted)]">
+                  {outsideCount > 0 ? `${outsideCount} xodim ish joyidan tashqarida.` : ""}
+                  {outsideCount > 0 && signalLostCount > 0 ? " " : ""}
+                  {signalLostCount > 0 ? `${signalLostCount} xodimdan GPS signali kelmayapti.` : ""}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Employee list */}
 
@@ -527,6 +571,9 @@ export default function LiveMapPage() {
                   getBatteryColor(
                     emp.battery
                   );
+                const trackingStatus = getLiveTrackingStatus(emp, now);
+                const isOutside = trackingStatus === "OUTSIDE";
+                const isSignalLost = trackingStatus === "SIGNAL_LOST";
 
                 return (
                   <button
@@ -540,7 +587,15 @@ export default function LiveMapPage() {
                     }
                     className={`group relative flex w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 ${
                       isSelected
-                        ? "border-indigo-400/40 bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
+                        ? isOutside
+                          ? "border-red-400/50 bg-red-500/20 text-white shadow-md shadow-red-500/10"
+                          : isSignalLost
+                            ? "border-amber-400/50 bg-amber-500/15 text-white shadow-md shadow-amber-500/10"
+                            : "border-indigo-400/40 bg-indigo-600 text-white shadow-md shadow-indigo-500/20"
+                        : isOutside
+                          ? "border-red-400/30 bg-red-500/10 hover:bg-red-500/15"
+                          : isSignalLost
+                            ? "border-amber-400/25 bg-amber-500/[0.08] hover:bg-amber-500/10"
                         : "border-transparent bg-[var(--bg-secondary)] hover:border-[var(--border-hover)] hover:bg-[var(--bg-hover)]"
                     }`}
                   >
@@ -580,10 +635,18 @@ export default function LiveMapPage() {
                         )}
                       </div>
 
-                      {/* online dot */}
-
-                      <span className="absolute -right-1 -bottom-1 w-3 h-3 rounded-full bg-green-400 border-2 border-[var(--bg-card)]">
-                        <span className="absolute inset-0 rounded-full bg-green-400 animate-ping opacity-60" />
+                      <span
+                        className={`absolute -right-1 -bottom-1 h-3 w-3 rounded-full border-2 border-[var(--bg-card)] ${
+                          isOutside
+                            ? "bg-red-400"
+                            : isSignalLost
+                              ? "bg-amber-400"
+                              : "bg-green-400"
+                        }`}
+                      >
+                        {!isSignalLost && (
+                          <span className={`absolute inset-0 rounded-full animate-ping opacity-60 ${isOutside ? "bg-red-400" : "bg-green-400"}`} />
+                        )}
                       </span>
                     </div>
 
@@ -625,20 +688,28 @@ export default function LiveMapPage() {
 
                         <span
                           className={`text-[10px] flex items-center gap-0.5 font-bold ${
-                            emp.isOutside
+                            isOutside
                               ? "text-red-400"
+                              : isSignalLost
+                              ? "text-amber-400"
                               : isSelected
                               ? "text-indigo-200"
                               : "text-[var(--text-muted)]"
                           }`}
                         >
-                          {emp.isOutside ? (
+                          {isOutside ? (
                             <AlertTriangle className="w-3 h-3" />
+                          ) : isSignalLost ? (
+                            <WifiOff className="w-3 h-3" />
                           ) : (
                             <Navigation className="w-3 h-3" />
                           )}
 
-                          {emp.distance !==
+                          {isSignalLost
+                            ? "GPS signali uzildi"
+                            : isOutside
+                            ? `Tashqarida${emp.distance != null ? ` • ${emp.distance}m` : ""}`
+                            : emp.distance !==
                             null &&
                           emp.distance !==
                             undefined
@@ -694,7 +765,8 @@ export default function LiveMapPage() {
             </p>
 
             <p className="text-[9px] text-white/45 mt-1">
-              {markerList.length} xodim online
+              {onlineCount} online
+              {warningCount > 0 ? ` • ${warningCount} ogohlantirish` : ""}
             </p>
           </div>
         </div>
@@ -732,6 +804,9 @@ export default function LiveMapPage() {
                 const isSelected =
                   selectedFromMarkers?.userId ===
                   emp.userId;
+                const trackingStatus = getLiveTrackingStatus(emp, now);
+                const isOutside = trackingStatus === "OUTSIDE";
+                const isSignalLost = trackingStatus === "SIGNAL_LOST";
 
                 return (
                   <button
@@ -790,8 +865,18 @@ export default function LiveMapPage() {
                         )}
                       </div>
 
-                      <span className="absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 rounded-full bg-green-400 border-2 border-[#15151f]">
-                        <span className="absolute inset-0 rounded-full bg-green-400 animate-ping opacity-50" />
+                      <span
+                        className={`absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 rounded-full border-2 border-[#15151f] ${
+                          isOutside
+                            ? "bg-red-400"
+                            : isSignalLost
+                              ? "bg-amber-400"
+                              : "bg-green-400"
+                        }`}
+                      >
+                        {!isSignalLost && (
+                          <span className={`absolute inset-0 rounded-full animate-ping opacity-50 ${isOutside ? "bg-red-400" : "bg-green-400"}`} />
+                        )}
                       </span>
                     </div>
 
@@ -803,8 +888,12 @@ export default function LiveMapPage() {
                       </p>
 
                       <div className="flex items-center gap-1 mt-0.5">
-                        <span className="max-w-[82px] truncate text-[9px] text-white/65">
-                          {emp.positionName || "Online"}
+                        <span className={`max-w-[82px] truncate text-[9px] ${isOutside ? "text-red-200" : isSignalLost ? "text-amber-200" : "text-white/65"}`}>
+                          {isOutside
+                            ? "Tashqarida"
+                            : isSignalLost
+                              ? "Signal uzildi"
+                              : emp.positionName || "Online"}
                         </span>
 
                         {emp.battery !==
@@ -917,10 +1006,18 @@ export default function LiveMapPage() {
                     )}
                   </div>
 
-                  {/* online */}
-
-                  <span className="absolute bottom-0 right-0 w-4 h-4 rounded-full bg-green-400 border-[3px] border-[#15151f]">
-                    <span className="absolute inset-0 rounded-full bg-green-400 animate-ping opacity-60" />
+                  <span
+                    className={`absolute bottom-0 right-0 w-4 h-4 rounded-full border-[3px] border-[#15151f] ${
+                      selectedTrackingStatus === "OUTSIDE"
+                        ? "bg-red-400"
+                        : selectedTrackingStatus === "SIGNAL_LOST"
+                          ? "bg-amber-400"
+                          : "bg-green-400"
+                    }`}
+                  >
+                    {selectedTrackingStatus !== "SIGNAL_LOST" && (
+                      <span className={`absolute inset-0 rounded-full animate-ping opacity-60 ${selectedTrackingStatus === "OUTSIDE" ? "bg-red-400" : "bg-green-400"}`} />
+                    )}
                   </span>
                 </div>
 
@@ -938,9 +1035,21 @@ export default function LiveMapPage() {
                   </p>
 
                   <div className="flex items-center gap-2 mt-1">
-                    <span className="inline-flex items-center gap-1 text-[10px] md:text-[11px] font-bold text-green-400">
-                      <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                      Online
+                    <span
+                      className={`inline-flex items-center gap-1 text-[10px] md:text-[11px] font-bold ${
+                        selectedTrackingStatus === "OUTSIDE"
+                          ? "text-red-400"
+                          : selectedTrackingStatus === "SIGNAL_LOST"
+                            ? "text-amber-400"
+                            : "text-green-400"
+                      }`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${selectedTrackingStatus === "OUTSIDE" ? "bg-red-400 animate-pulse" : selectedTrackingStatus === "SIGNAL_LOST" ? "bg-amber-400" : "bg-green-400 animate-pulse"}`} />
+                      {selectedTrackingStatus === "OUTSIDE"
+                        ? "Ish joyidan tashqarida"
+                        : selectedTrackingStatus === "SIGNAL_LOST"
+                          ? "GPS signali uzilgan"
+                          : "Online"}
                     </span>
 
                     <span className="text-white/20">
@@ -985,6 +1094,28 @@ export default function LiveMapPage() {
                   <X className="w-4 h-4" />
                 </button>
               </div>
+
+              {selectedTrackingStatus !== "ONLINE" && (
+                <div className={`mt-3 flex items-start gap-2.5 rounded-2xl border px-3 py-2.5 md:mt-4 ${selectedTrackingStatus === "OUTSIDE" ? "border-red-400/20 bg-red-500/10" : "border-amber-400/20 bg-amber-500/10"}`}>
+                  {selectedTrackingStatus === "OUTSIDE" ? (
+                    <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-400" />
+                  ) : (
+                    <WifiOff className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-400" />
+                  )}
+                  <div>
+                    <p className={`text-[10px] font-black md:text-xs ${selectedTrackingStatus === "OUTSIDE" ? "text-red-300" : "text-amber-300"}`}>
+                      {selectedTrackingStatus === "OUTSIDE"
+                        ? "Xodim ish hududidan tashqarida"
+                        : "Xodimdan yangi GPS ma’lumoti kelmayapti"}
+                    </p>
+                    <p className="mt-1 text-[9px] leading-4 text-white/50 md:text-[10px]">
+                      {selectedTrackingStatus === "OUTSIDE"
+                        ? `Oxirgi aniqlangan masofa: ${selectedFromMarkers.distance ?? "—"} metr.`
+                        : `Oxirgi signal ${getRelativeTime(selectedFromMarkers.createdAt)} kelgan. Bu holat xodim ketganini tasdiqlamaydi.`}
+                    </p>
+                  </div>
+                </div>
+              )}
 
               <div className="mt-3 grid gap-1.5 rounded-2xl border border-white/[0.07] bg-white/[0.04] p-3 md:mt-4">
                 <div className="flex items-start gap-2.5">
@@ -1033,9 +1164,13 @@ export default function LiveMapPage() {
                   )}
                 </span>
 
-                <span className="ml-auto flex-shrink-0 flex items-center gap-1 text-[9px] text-green-400">
-                  <span className="w-1 h-1 rounded-full bg-green-400 animate-pulse" />
-                  LIVE
+                <span className={`ml-auto flex-shrink-0 flex items-center gap-1 text-[9px] ${selectedTrackingStatus === "OUTSIDE" ? "text-red-400" : selectedTrackingStatus === "SIGNAL_LOST" ? "text-amber-400" : "text-green-400"}`}>
+                  <span className={`w-1 h-1 rounded-full ${selectedTrackingStatus === "OUTSIDE" ? "bg-red-400 animate-pulse" : selectedTrackingStatus === "SIGNAL_LOST" ? "bg-amber-400" : "bg-green-400 animate-pulse"}`} />
+                  {selectedTrackingStatus === "OUTSIDE"
+                    ? "TASHQARIDA"
+                    : selectedTrackingStatus === "SIGNAL_LOST"
+                      ? "SIGNAL YO‘Q"
+                      : "LIVE"}
                 </span>
               </div>
 

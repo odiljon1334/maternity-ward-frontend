@@ -16,6 +16,45 @@ export type EmployeeWorkplaceInfo = {
   hospitalName?: string | null;
 };
 
+export type LiveTrackingStatus = "ONLINE" | "OUTSIDE" | "SIGNAL_LOST";
+
+export type LiveTrackingStatusInput = {
+  createdAt: string | number | Date;
+  isOutside?: boolean;
+  isStale?: boolean;
+  trackingStatus?: LiveTrackingStatus;
+  staleAfterMinutes?: number;
+};
+
+export const DEFAULT_LIVE_LOCATION_STALE_MINUTES = 10;
+
+/** Server statusini hurmat qiladi va ochiq sahifada eskirgan signalni aniqlaydi. */
+export function getLiveTrackingStatus(
+  location: LiveTrackingStatusInput,
+  now = Date.now(),
+): LiveTrackingStatus {
+  const staleAfterMinutes = Number.isFinite(location.staleAfterMinutes)
+    ? Math.min(60, Math.max(3, location.staleAfterMinutes as number))
+    : DEFAULT_LIVE_LOCATION_STALE_MINUTES;
+  const createdAt = new Date(location.createdAt).getTime();
+  const isLocallyStale =
+    !Number.isFinite(createdAt) || now - createdAt > staleAfterMinutes * 60_000;
+
+  if (
+    location.isStale ||
+    location.trackingStatus === "SIGNAL_LOST" ||
+    isLocallyStale
+  ) {
+    return "SIGNAL_LOST";
+  }
+
+  if (location.isOutside || location.trackingStatus === "OUTSIDE") {
+    return "OUTSIDE";
+  }
+
+  return "ONLINE";
+}
+
 export function getEmployeePositionLabel(info: EmployeeWorkplaceInfo) {
   return info.positionName?.trim() || "Lavozim ko‘rsatilmagan";
 }

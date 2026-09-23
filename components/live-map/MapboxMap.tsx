@@ -11,7 +11,11 @@ import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 
 import type { EmployeeMarker } from "@/app/dashboard/live-map/page";
-import { buildLiveMapMarkerLayout, getEmployeePositionLabel } from "@/lib/live-map-layout";
+import {
+  buildLiveMapMarkerLayout,
+  getEmployeePositionLabel,
+  getLiveTrackingStatus,
+} from "@/lib/live-map-layout";
 import type { LiveMapMarkerLayout } from "@/lib/live-map-layout";
 
 mapboxgl.accessToken =
@@ -528,6 +532,8 @@ function updateMarkerElement(
 ) {
   element.style.zIndex = selected ? "1000" : "1";
   element.dataset.selected = selected ? "true" : "false";
+  const trackingStatus = getLiveTrackingStatus(emp);
+  element.dataset.trackingStatus = trackingStatus;
   element.setAttribute("aria-pressed", selected ? "true" : "false");
   element.setAttribute("aria-label", `${emp.name} joylashuvini ko‘rish`);
   const colors = [
@@ -546,7 +552,11 @@ function updateMarkerElement(
     colors.length;
 
   const color =
-    colors[colorIndex];
+    trackingStatus === "OUTSIDE"
+      ? "#EF4444"
+      : trackingStatus === "SIGNAL_LOST"
+        ? "#F59E0B"
+        : colors[colorIndex];
 
   const image =
     element.querySelector(
@@ -590,13 +600,17 @@ function updateMarkerElement(
     halo.setAttribute(
       "stroke",
       selected
-        ? "#22c55e"
+        ? trackingStatus === "OUTSIDE"
+          ? "#EF4444"
+          : trackingStatus === "SIGNAL_LOST"
+            ? "#F59E0B"
+            : "#22c55e"
         : color
     );
 
     halo.setAttribute(
       "opacity",
-      selected
+      selected || trackingStatus !== "ONLINE"
         ? "0.8"
         : "0.35"
     );
