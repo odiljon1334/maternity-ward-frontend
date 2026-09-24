@@ -492,7 +492,7 @@ export default function MyCheckinPage() {
   const [steps, setSteps] = useState<{ photoKb: number | null; uploadedMs: number | null; startedAt: number }>({
     photoKb: null, uploadedMs: null, startedAt: 0,
   });
-  const [lastResult, setLastResult] = useState<{ siteName: string | null; faceChecked: boolean } | null>(null);
+  const [lastResult, setLastResult] = useState<{ siteName: string | null; faceChecked: boolean; facePending: boolean } | null>(null);
 
   // Ruxsatlar oldin berilgan bo'lsa — hech narsa bosmasdan ishga tushadi
   useEffect(() => {
@@ -526,8 +526,12 @@ export default function MyCheckinPage() {
         selfie: vars.selfie,
         onUploaded: () => setSteps((s) => ({ ...s, uploadedMs: Date.now() - s.startedAt })),
       }),
-    onSuccess: async (_res, vars) => {
-      setLastResult({ siteName: geo.match?.name ?? null, faceChecked: !!vars.selfie && verifyMode === "in" });
+    onSuccess: async (res: any) => {
+      setLastResult({
+        siteName: geo.match?.name ?? null,
+        faceChecked: !!res?.attendance?.faceVerified,
+        facePending: !!res?.attendance?.faceCheckPending,
+      });
       navigator.vibrate?.(45);
       qc.invalidateQueries({ queryKey: ["my-attendance"] });
       qc.invalidateQueries({ queryKey: ["live-location-tracking-session"] });
@@ -613,6 +617,7 @@ export default function MyCheckinPage() {
             record={data}
             siteName={siteName}
             faceChecked={lastResult?.faceChecked || !!data?.faceVerified}
+            facePending={!data?.faceVerified && (lastResult?.facePending || !!data?.faceCheckPending)}
             shiftEndLabel={today.shiftEnd}
             leaveAllowedAt={leaveAllowedAt}
             now={now}
@@ -1011,12 +1016,14 @@ function VerifyBottom({
 
 // ─── Keldingiz / kun yakunlandi ───────────────────────────────────────────────
 function ResultView({
-  kind, record, siteName, faceChecked, shiftEndLabel, leaveAllowedAt, now,
+  kind, record, siteName, faceChecked, facePending, shiftEndLabel, leaveAllowedAt, now,
 }: {
   kind: "success" | "done";
   record: any;
   siteName: string | null;
   faceChecked: boolean;
+  /** Yuz xizmati ishlamagan — check-in qabul qilingan, keyinroq tekshiriladi */
+  facePending: boolean;
   shiftEndLabel: string | null;
   leaveAllowedAt: dayjs.Dayjs | null;
   now: dayjs.Dayjs;
@@ -1054,6 +1061,9 @@ function ResultView({
                 ? <Chip tone="amber" icon={<Clock3 className="h-4 w-4" />}>{late} daq kechikish</Chip>
                 : <Chip tone="teal" icon={<Clock3 className="h-4 w-4" />}>Kechikish yo&apos;q</Chip>}
               {faceChecked && <Chip tone="teal" icon={<ShieldCheck className="h-4 w-4" />}>Yuz tasdiqlandi</Chip>}
+              {!faceChecked && facePending && (
+                <Chip tone="amber" icon={<Clock3 className="h-4 w-4" />}>Yuz keyinroq tekshiriladi</Chip>
+              )}
             </>
           )}
         </div>
