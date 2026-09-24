@@ -9,7 +9,7 @@ import { useAuthStore } from "@/stores/auth";
 import { useForm } from "react-hook-form";
 import {
   Building2, Briefcase, Plus, Edit2, Trash2, X, Check, Bell, BellOff,
-  Cpu, Wifi, WifiOff, RefreshCw, ImageUp,
+  Cpu, Wifi, WifiOff, RefreshCw, ImageUp, MapPin, Send, Network,
 } from "lucide-react";
 import { usePushNotification } from "@/hooks/usePushNotification";
 import { cn, formatTerminalConnectivity, isSuperLike } from "@/lib/utils";
@@ -276,28 +276,121 @@ export default function SettingsPage() {
       ? (user?.hospitalId || undefined)
       : undefined;
 
+  const canManageLocation = canManageBranding || (isSuperLike(user?.role) && !!targetHospitalId);
+
+  // Bo'limlar alohida tablarga ajratilgan (ilgari hammasi bitta uzun sahifada
+  // edi). Faqat ruxsat berilganlari ko'rsatiladi; ?tab= orqali to'g'ridan
+  // ochiladi (masalan xodim sahifasidan "Yangi ish joyi qo'shish").
+  const tabs: SettingsTab[] = [
+    ...(canManageBranding ? [{ key: "general", label: "Muassasa", icon: <ImageUp className="h-4 w-4" /> }] : []),
+    { key: "structure", label: "Bo'limlar va lavozimlar", icon: <Network className="h-4 w-4" /> },
+    ...(canManageLocation ? [{ key: "location", label: "Joylashuv (GPS)", icon: <MapPin className="h-4 w-4" /> }] : []),
+    ...(canManageTerminals ? [{ key: "terminals", label: "Terminallar", icon: <Cpu className="h-4 w-4" /> }] : []),
+    ...(botAccessHospitalId ? [{ key: "telegram", label: "Telegram bot", icon: <Send className="h-4 w-4" /> }] : []),
+    { key: "notifications", label: "Bildirishnomalar", icon: <Bell className="h-4 w-4" /> },
+  ];
+
+  return (
+    <SettingsTabs tabs={tabs}>
+      {(active) => (
+        <>
+          {active === "general" && canManageBranding && <HospitalBrandingPanel />}
+          {active === "structure" && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-5">
+              <DepartmentsPanel targetHospitalId={targetHospitalId} />
+              <PositionsPanel targetHospitalId={targetHospitalId} />
+            </div>
+          )}
+          {active === "location" && canManageLocation && (
+            <>
+              {canManageBranding && <GeofencePanel />}
+              <WorkSitesPanel targetHospitalId={isSuperLike(user?.role) ? targetHospitalId : undefined} />
+            </>
+          )}
+          {active === "terminals" && canManageTerminals && <TerminalsPanel hospitalId={terminalsHospitalId} />}
+          {active === "telegram" && botAccessHospitalId && (
+            <TelegramBotAccessPanel
+              hospitalId={botAccessHospitalId}
+              sendHospitalId={isSuperLike(user?.role)}
+            />
+          )}
+          {active === "notifications" && <PushNotificationsPanel />}
+        </>
+      )}
+    </SettingsTabs>
+  );
+}
+
+type SettingsTab = { key: string; label: string; icon: React.ReactNode };
+
+function SettingsTabs({
+  tabs,
+  children,
+}: {
+  tabs: SettingsTab[];
+  children: (active: string) => React.ReactNode;
+}) {
+  const [active, setActive] = useState<string>(tabs[0]?.key ?? "structure");
+
+  // URL'dagi ?tab= (to'g'ridan-to'g'ri havola) — birinchi yuklanishda
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get("tab");
+    if (t && tabs.some((x) => x.key === t)) setActive(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Rol o'zgarib tab yo'qolsa — birinchisiga qaytish
+  const current = tabs.some((t) => t.key === active) ? active : tabs[0]?.key;
+
+  const select = (key: string) => {
+    setActive(key);
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", key);
+    window.history.replaceState(null, "", url.toString());
+  };
+
+  const activeTab = tabs.find((t) => t.key === current);
+
+  // Mobilda faol tab ko'rinadigan joyga suriladi (?tab= bilan ochilganda ham)
+  const tabBarRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    tabBarRef.current
+      ?.querySelector<HTMLElement>('[aria-selected="true"]')
+      ?.scrollIntoView({ block: "nearest", inline: "center" });
+  }, [current]);
+
   return (
     <div>
-      <Topbar title="Sozlamalar" subtitle="Bo'lim va lavozim boshqaruvi" />
-
+      <Topbar title="Sozlamalar" subtitle={activeTab?.label ?? ""} />
       <div className="p-4 lg:p-6 space-y-4 lg:space-y-5">
-        {canManageBranding && <HospitalBrandingPanel />}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-5">
-          <DepartmentsPanel targetHospitalId={targetHospitalId} />
-          <PositionsPanel targetHospitalId={targetHospitalId} />
+        <div
+          ref={tabBarRef}
+          role="tablist"
+          aria-label="Sozlamalar bo'limlari"
+          className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 lg:mx-0 lg:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={t.key === current}
+              onClick={() => select(t.key)}
+              className={cn(
+                "flex flex-shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border px-3.5 py-2 text-xs font-semibold transition-colors",
+                t.key === current
+                  ? "border-indigo-500 bg-indigo-600 text-white shadow-sm"
+                  : "border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)]",
+              )}
+            >
+              {t.icon}
+              {t.label}
+            </button>
+          ))}
         </div>
-        {canManageBranding && <GeofencePanel />}
-        {(canManageBranding || (isSuperLike(user?.role) && targetHospitalId)) && (
-          <WorkSitesPanel targetHospitalId={isSuperLike(user?.role) ? targetHospitalId : undefined} />
-        )}
-        {canManageTerminals && <TerminalsPanel hospitalId={terminalsHospitalId} />}
-        {botAccessHospitalId && (
-          <TelegramBotAccessPanel
-            hospitalId={botAccessHospitalId}
-            sendHospitalId={isSuperLike(user?.role)}
-          />
-        )}
-        <PushNotificationsPanel />
+        <div role="tabpanel" className="space-y-4 lg:space-y-5">
+          {current ? children(current) : null}
+        </div>
       </div>
     </div>
   );

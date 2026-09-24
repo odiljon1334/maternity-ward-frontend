@@ -20,6 +20,7 @@ import dayjs from "dayjs";
 import { useForm } from "react-hook-form";
 import { ArchivedBioModal } from "@/components/employees/ArchivedBioModal";
 import { useConfirmation } from "@/components/ui";
+import { WorkSiteChips } from "@/components/employees/EmployeeWorkSites";
 
 const LIMIT = 20;
 
@@ -636,14 +637,13 @@ function FireModal({
 
 // ── Memoized table row ────────────────────────────
 const EmpRow = memo(function EmpRow({
-  emp, lunchLate, onLeave, onEdit, onFire, onDelete, onResetGps, onPhoto, uploadingId, router, selected, onSelect,
+  emp, lunchLate, onLeave, onEdit, onFire, onDelete, onPhoto, uploadingId, router, selected, onSelect,
 }: {
   emp: any;
   lunchLate?: number;
   onLeave: any;
   onEdit: (emp: any) => void;
   onDelete: (id: string) => void;
-  onResetGps: (emp: any) => void;
   onFire: (emp: any) => void;
   onPhoto: (id: string) => void;
   uploadingId: string | null;
@@ -707,6 +707,12 @@ const EmpRow = memo(function EmpRow({
             </div>
             <p className="text-xs text-[var(--text-muted)] font-medium mt-0.5">{emp.phone || "—"}</p>
           </button>
+          <WorkSiteChips
+            sites={emp.workSites}
+            legacy={emp.gpsLat != null && emp.gpsLng != null}
+            href={`/dashboard/employees/${emp.id}?tab=gps`}
+            compact
+          />
         </div>
       </td>
       <td className="px-5 py-3.5 font-bold text-[var(--text-primary)]">{emp.department?.name || "—"}</td>
@@ -733,14 +739,6 @@ const EmpRow = memo(function EmpRow({
               className="px-2.5 py-1 rounded-lg text-xs font-bold text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300 hover:bg-orange-500/10 transition-colors"
               title="Ishdan bo'shatish">
               Bo&apos;shatish
-            </button>
-          )}
-          {(emp.gpsLat != null || emp.gpsLng != null) && (
-            <button
-              onClick={() => onResetGps(emp)}
-              className="px-2.5 py-1 rounded-lg text-xs font-bold text-sky-600 dark:text-sky-400 hover:text-sky-800 dark:hover:text-sky-300 hover:bg-sky-500/10 transition-colors"
-              title="Xodimning shaxsiy GPS markazini tozalash">
-              📍 GPS
             </button>
           )}
           <button
@@ -988,28 +986,6 @@ export default function EmployeesPage() {
     onError: (e: any) => toast.error(e?.response?.data?.message || "O'chirishda xatolik"),
   });
 
-  // ── GPS reset mutation ──
-const resetGpsMutation = useMutation({
-  mutationFn: (empId: string) => attendanceApi.resetEmployeeGps(empId),
-  onSuccess: (_, empId) => {
-    // Cache'dagi xodimning gpsLat/gpsLng ni null ga tushuramiz
-    qc.setQueriesData({ queryKey: ["employees"] }, (old: any) => {
-      if (!old?.pages) return old;
-      return {
-        ...old,
-        pages: old.pages.map((page: any) => ({
-          ...page,
-          data: page.data.map((e: any) =>
-            e.id === empId ? { ...e, gpsLat: null, gpsLng: null } : e
-          ),
-        })),
-      };
-    });
-    toast.success("Xodimning shaxsiy GPS markazi tozalandi — endi muassasa markazi ishlatiladi");
-  },
-  onError: (e: any) => toast.error(e?.response?.data?.message || "GPS reset xatoligi"),
-});
-
   const bulkDeleteMutation = useMutation({
     mutationFn: () => employeesApi.bulkDelete(selectedIds, params),
     onSuccess: () => {
@@ -1031,16 +1007,6 @@ const resetGpsMutation = useMutation({
     },
     onError: (e: any) => toast.error(e?.response?.data?.message || "Xatolik"),
   });
-
-  const handleResetGps = async (emp: any) => {
-    const approved = await confirm({
-      title: "GPS joylashuvi tozalansinmi?",
-      description: `${emp.fullName}ning shaxsiy ish joyi markazi o‘chiriladi. Shundan keyin u muassasa markazi (Sozlamalar → Check-in hududi) bo‘yicha tekshiriladi.`,
-      confirmLabel: "GPS’ni tozalash",
-      tone: "warning",
-    });
-    if (approved) resetGpsMutation.mutate(emp.id);
-  };
 
   const handleDeleteEmployee = async (id: string) => {
     const approved = await confirm({
@@ -1406,9 +1372,18 @@ const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
                 }
               </div>
 
+              <div className="mt-2 pl-[3.25rem] empty:hidden">
+                <WorkSiteChips
+                  sites={emp.workSites}
+                  legacy={emp.gpsLat != null && emp.gpsLng != null}
+                  href={`/dashboard/employees/${emp.id}?tab=gps`}
+                  compact
+                />
+              </div>
+
               <div className="flex items-center gap-3 mt-3 pt-3 border-t border-[var(--border)]">
                 <span className="font-mono text-xs font-semibold text-[var(--text-muted)]">{emp.employeeNo || "—"}</span>
-                <span className="text-xs font-bold text-[var(--text-primary)]">{formatMoney(emp.baseSalary)}</span>
+                <span className="text-xs font-bold text-[var(--text-primary)] whitespace-nowrap">{formatMoney(emp.baseSalary)}</span>
                 <div className="ml-auto flex items-center gap-1">
                   <button
                     onClick={() => { setEditEmp(emp); setModalOpen(true); }}
@@ -1422,15 +1397,6 @@ const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
                       className="text-orange-600 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300 px-2 py-1 rounded text-xs font-bold"
                     >
                       Bo&apos;shatish
-                    </button>
-                  )}
-                  {(emp.gpsLat != null || emp.gpsLng != null) && (
-                    <button
-                      onClick={() => handleResetGps(emp)}
-                      className="text-sky-600 dark:text-sky-400 hover:text-sky-800 dark:hover:text-sky-300 px-2 py-1 rounded text-xs font-bold"
-                      title="Xodimning shaxsiy GPS markazini tozalash"
-                    >
-                      📍 GPS
                     </button>
                   )}
                   <button
@@ -1493,7 +1459,6 @@ const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
                     onLeave={onLeaveMap.get(emp.id)}
                     onEdit={(e) => { setEditEmp(e); setModalOpen(true); }}
                     onDelete={(id) => void handleDeleteEmployee(id)}
-                    onResetGps={handleResetGps} 
                     onFire={(e) => { setFireEmp(e); setFireModalOpen(true); }}
                     onPhoto={handlePhotoClick}
                     uploadingId={uploadingEmpId}

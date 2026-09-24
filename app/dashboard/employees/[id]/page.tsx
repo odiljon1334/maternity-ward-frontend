@@ -4,12 +4,14 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { employeesApi, attendanceApi, payrollApi, photoUrl as buildPhotoUrl } from "@/lib/api";
+import { useAuthStore } from "@/stores/auth";
+import { EmployeeWorkSitesPanel, WorkSiteChips } from "@/components/employees/EmployeeWorkSites";
 import { Topbar } from "@/components/layout/Topbar";
 import { getInitials, getAvatarColor, formatMoney, formatMinutes, cn } from "@/lib/utils";
 import {
   ArrowLeft, Phone, Hash, Briefcase, Building2, Calendar,
   Clock, TrendingUp, DollarSign, AlertTriangle, XCircle, Coffee, 
-  ChevronLeft, ChevronRight, UserCheck, Zap
+  ChevronLeft, ChevronRight, UserCheck, Zap, MapPin
 } from "lucide-react";
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
@@ -681,7 +683,15 @@ function SalaryTab({ employeeId, baseSalary }: { employeeId: string; baseSalary:
 export default function EmployeeProfilePage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const [tab, setTab] = useState<"attendance" | "salary">("attendance");
+  const [tab, setTab] = useState<"attendance" | "salary" | "gps">("attendance");
+  const { user } = useAuthStore();
+  const canManageGps = ["DIRECTOR", "ADMIN", "SUPER_ADMIN", "ASSISTANT_ADMIN"].includes(String(user?.role));
+
+  // Ro'yxatdagi ish joyi belgisidan kelinsa (?tab=gps) — darhol GPS bo'limi
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get("tab");
+    if (t === "gps" || t === "salary") setTab(t);
+  }, []);
 
   const { data: employee, isLoading: empLoading } = useQuery({
     queryKey: ["employee", id],
@@ -819,6 +829,11 @@ export default function EmployeeProfilePage() {
                       <Hash className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" /> Terminal ID: {employee.employeeNo}
                     </span>
                   )}
+                  <WorkSiteChips
+                    sites={employee.workSites}
+                    legacy={employee.gpsLat != null && employee.gpsLng != null}
+                    href={`/dashboard/employees/${employee.id}?tab=gps`}
+                  />
                 </div>
               </div>
             </div>
@@ -865,7 +880,7 @@ export default function EmployeeProfilePage() {
 
       {/* Tab Controls */}
       <div className="space-y-5">
-        <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-950/60 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-800/80 w-fit">
+        <div className={cn("grid sm:flex items-center gap-1 sm:gap-2 bg-slate-100 dark:bg-slate-950/60 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-800/80 w-full sm:w-fit [&>button]:justify-center [&>button]:whitespace-nowrap [&>button]:px-2 sm:[&>button]:px-5", canManageGps ? "grid-cols-3" : "grid-cols-2")}>
           <button 
             onClick={() => setTab("attendance")}
             className={cn(
@@ -888,11 +903,27 @@ export default function EmployeeProfilePage() {
           >
             <DollarSign className="w-4 h-4" /> Maosh Hisobi
           </button>
+          {canManageGps && (
+            <button
+              onClick={() => setTab("gps")}
+              className={cn(
+                "flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold transition-all",
+                tab === "gps"
+                  ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/30"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+              )}
+            >
+              <MapPin className="w-4 h-4" /> <span className="sm:hidden">GPS</span><span className="hidden sm:inline">GPS / Ish joylari</span>
+            </button>
+          )}
         </div>
 
         {/* Tab Views */}
         {tab === "attendance" && <AttendanceTab employeeId={id} />}
         {tab === "salary"     && <SalaryTab employeeId={id} baseSalary={Number(employee.baseSalary) || 0} />}
+        {tab === "gps"        && (
+          <EmployeeWorkSitesPanel employeeId={id} hospitalId={employee.hospitalId} canManage={canManageGps} />
+        )}
       </div>
     </div>
   );

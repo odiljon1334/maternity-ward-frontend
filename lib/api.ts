@@ -799,6 +799,14 @@ export interface WorkSite {
   employeeCount: number;
 }
 
+export interface EmployeeSites {
+  employeeId: string;
+  fullName: string;
+  sites: (Omit<WorkSite, "hospitalId" | "employeeCount"> & { assigned: boolean })[];
+  hospitalCenter: { lat: number; lng: number; radius: number | null } | null;
+  legacyCenter: { lat: number; lng: number; radius: number | null } | null;
+}
+
 export interface LegacyCenter {
   employeeId: string;
   fullName: string;
@@ -835,6 +843,15 @@ export const workSitesApi = {
       .then((r) => r.data.data as { id: string; fullName: string; position: string | null }[]),
   setEmployees: (id: string, employeeIds: string[], targetHospitalId?: string) =>
     api.put(`/work-sites/${id}/employees`, { employeeIds }, { params: { targetHospitalId } }).then((r) => r.data.data),
+  /** Xodim sahifasi: muassasaning barcha ish joylari (assigned belgisi bilan) */
+  employeeSites: (employeeId: string, targetHospitalId?: string) =>
+    api
+      .get(`/work-sites/employee/${employeeId}`, { params: { targetHospitalId } })
+      .then((r) => r.data.data as EmployeeSites),
+  setEmployeeSites: (employeeId: string, workSiteIds: string[], targetHospitalId?: string) =>
+    api
+      .put(`/work-sites/employee/${employeeId}`, { workSiteIds }, { params: { targetHospitalId } })
+      .then((r) => r.data.data),
   legacyCenters: (targetHospitalId?: string) =>
     api.get("/work-sites/legacy-centers", { params: { targetHospitalId } }).then((r) => r.data.data as LegacyCenter[]),
   approveLegacy: (employeeId: string, data: { name: string; radius?: number }, targetHospitalId?: string) =>
