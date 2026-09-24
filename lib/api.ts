@@ -311,11 +311,16 @@ export const attendanceApi = {
     api.post("/attendance/manual-checkin", data).then((r) => r.data.data),
   my: (params?: { month?: number; year?: number }) =>
     api.get("/attendance/my", { params }).then((r) => r.data.data ?? r.data),
+  /** Xodimning hozirgi holati (server qaror qiladi: kelish / ketish / yakunlangan) */
+  selfToday: () =>
+    api.get("/attendance/self/today").then((r) => (r.data.data ?? r.data) as SelfToday),
   selfCheckIn: (opts: {
     gpsLat?: number;
     gpsLng?: number;
     gpsAccuracy?: number;
     selfie?: File | null;
+    /** Ekrandagi amal — server boshqacha hisoblasa 409 qaytaradi */
+    expectedAction?: "CHECK_IN" | "CHECK_OUT";
     /** Fayl serverga to'liq yetib borganda (javobdan oldin) chaqiriladi */
     onUploaded?: () => void;
   }) => {
@@ -324,6 +329,7 @@ export const attendanceApi = {
     if (opts.gpsLng      != null) form.append("gpsLng",      String(opts.gpsLng));
     if (opts.gpsAccuracy != null) form.append("gpsAccuracy", String(opts.gpsAccuracy));
     if (opts.selfie)               form.append("selfie",      opts.selfie);
+    if (opts.expectedAction)       form.append("expectedAction", opts.expectedAction);
     let uploaded = false;
     return api.post("/attendance/self-checkin", form, {
       headers: { "Content-Type": "multipart/form-data" },
@@ -831,6 +837,40 @@ export const workSitesApi = {
   /** Xodimning o'zi uchun: check-in qilish mumkin bo'lgan barcha markazlar */
   my: () => api.get("/work-sites/my").then((r) => r.data.data as MyGeoCenter[]),
 };
+
+export interface SelfToday {
+  action: "CHECK_IN" | "CHECK_OUT" | "DONE";
+  dayOff: boolean;
+  overnight: boolean;
+  workDate: string;
+  serverTime: string;
+  record: {
+    id: string;
+    workDate: string;
+    checkIn: string | null;
+    checkOut: string | null;
+    status: string;
+    lateMinutes: number;
+    earlyLeaveMin: number | null;
+    overtimeMinutes: number | null;
+    netWorkMin: number | null;
+    expectedCheckIn: string | null;
+    expectedCheckOut: string | null;
+    faceVerified: boolean;
+    faceCheckPending: boolean;
+    gpsVerified: boolean;
+    checkInSource: string | null;
+    checkInWorkSiteId: string | null;
+  } | null;
+  schedule: {
+    status: string;
+    shift: { name: string; startTime: string; endTime: string; isOvernight: boolean; graceMinutes: number } | null;
+  } | null;
+  expectedCheckIn: string | null;
+  expectedCheckOut: string | null;
+  shiftName: string | null;
+  graceMinutes: number;
+}
 
 export interface PlaceResult {
   name: string;

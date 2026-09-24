@@ -40,7 +40,8 @@ import {
   type LocationPlatform,
 } from "@/lib/mobile-geolocation";
 import { useAuthStore } from "@/stores/auth";
-import { useEmployeeToday } from "@/hooks/useEmployeeToday";
+import { useEmployeeToday, SELF_TODAY_KEY } from "@/hooks/useEmployeeToday";
+import { tzTime } from "@/lib/time";
 import { Topbar } from "@/components/layout/Topbar";
 import dayjs from "dayjs";
 import "dayjs/locale/uz-latn";
@@ -60,7 +61,7 @@ const UZ_WEEKDAYS = ["Yakshanba", "Dushanba", "Seshanba", "Chorshanba", "Payshan
 const UZ_MONTHS = ["yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avgust", "sentabr", "oktabr", "noyabr", "dekabr"];
 
 function fmt(date?: string | Date | null) {
-  return date ? dayjs(date).format("HH:mm") : "—";
+  return date ? tzTime(date).format("HH:mm") : "—";
 }
 function fmtDistance(m: number) {
   if (m < 1000) return `${Math.max(0, Math.round(m))} m`;
@@ -85,13 +86,6 @@ function firstName(fullName?: string | null) {
 function initials(fullName?: string | null) {
   const parts = (fullName ?? "").trim().split(/\s+/).filter(Boolean);
   return ((parts[1]?.[0] ?? "") + (parts[0]?.[0] ?? "")).toUpperCase() || "?";
-}
-/** "HH:mm" → bugungi sana bilan dayjs; tungi smenada tugash ertasi kunga o'tadi */
-function todayAt(hhmm: string, after?: dayjs.Dayjs) {
-  const [h, m] = hhmm.split(":").map(Number);
-  let d = dayjs().hour(h).minute(m).second(0).millisecond(0);
-  if (after && d.isBefore(after)) d = d.add(1, "day");
-  return d;
 }
 function distanceM(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
   const R = 6_371_000;
@@ -125,6 +119,8 @@ function useCamera() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  /** Har stop()/unmount'da oshadi — kechikib kelgan getUserMedia oqimi tashlanadi */
+  const genRef = useRef(0);
   const [active, setActive] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -139,9 +135,11 @@ function useCamera() {
   useEffect(() => { if (active) attach(); }, [active, attach]);
 
   const stop = useCallback(() => {
+    genRef.current++;
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     setActive(false);
+    setStarting(false);
   }, []);
 
   const start = useCallback(async () => {
@@ -152,11 +150,18 @@ function useCamera() {
       return;
     }
     setStarting(true);
+    const gen = ++genRef.current;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "user", width: { ideal: 720 }, height: { ideal: 720 } },
         audio: false,
       });
+      // Kutish paytida sahifa yopilgan yoki kamera o'chirilgan — oqim darhol
+      // to'xtatiladi (aks holda kamera chirog'i yonib qolardi)
+      if (gen !== genRef.current) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
       streamRef.current = stream;
       // iOS ilova fonga o'tganda oqim uziladi — "Boshlash" qayta ko'rinadi
       stream.getVideoTracks().forEach((t) => {
@@ -164,9 +169,11 @@ function useCamera() {
       });
       setActive(true);
     } catch {
-      setError("Kameraga ruxsat berilmadi. Telefon sozlamalarida ushbu sayt uchun kamerani yoqing.");
+      if (gen === genRef.current) {
+        setError("Kameraga ruxsat berilmadi. Telefon sozlamalarida ushbu sayt uchun kamerani yoqing.");
+      }
     } finally {
-      setStarting(false);
+      if (gen === genRef.current) setStarting(false);
     }
   }, [attach]);
 
@@ -448,9 +455,9 @@ export default function MyCheckinPage() {
   const gps = useGPS();
   const { user } = useAuthStore();
 
-  const [now, setNow] = useState(() => dayjs());
+  const [now, setNow] = useState(() => tzTime());
   useEffect(() => {
-    const id = setInterval(() => setNow(dayjs()), 20_000);
+    const id = setInterval(() => setNow(tzTime()), 20_000);
     return () => clearInterval(id);
   }, []);
 
@@ -471,18 +478,20 @@ export default function MyCheckinPage() {
   const isComplete = isCheckedIn && isCheckedOut;
   const mode: "in" | "out" = isCheckedIn ? "out" : "in";
 
-  const minutesSinceCheckIn = isCheckedIn ? Math.max(0, now.diff(dayjs(data.checkIn), "minute")) : 0;
+  const minutesSinceCheckIn = isCheckedIn ? Math.max(0, now.diff(tzTime(data.checkIn), "minute")) : 0;
   const tooEarlyToLeave = isCheckedIn && !isCheckedOut && minutesSinceCheckIn < MIN_WORK_MINUTES;
-  const leaveAllowedAt = isCheckedIn ? dayjs(data.checkIn).add(MIN_WORK_MINUTES, "minute") : null;
+  const leaveAllowedAt = isCheckedIn ? tzTime(data.checkIn).add(MIN_WORK_MINUTES, "minute") : null;
 
-  const shiftStart = today.shiftStart ? todayAt(today.shiftStart) : null;
-  const shiftEnd = today.shiftEnd ? todayAt(today.shiftEnd, shiftStart ?? undefined) : null;
-  const graceMin: number = today.schedule?.shift?.graceMinutes ?? 0;
+  // Smena vaqtlari serverdan mutlaq vaqt sifatida keladi (tungi smenada
+  // ketish ertasi kuni) — telefon vaqt zonasiga bog'liq emas
+  const shiftStart = today.expectedCheckIn ? tzTime(today.expectedCheckIn) : null;
+  const shiftEnd = today.expectedCheckOut ? tzTime(today.expectedCheckOut) : null;
+  const graceMin: number = today.graceMinutes;
   const runningLate = !isCheckedIn && !!shiftStart && now.isAfter(shiftStart.add(graceMin, "minute"));
   const isEarlyLeave = isCheckedIn && !isCheckedOut && !!shiftEnd && now.isBefore(shiftEnd);
 
   /** Kamera va GPS faqat belgilash mumkin bo'lganda yoqiladi (batareya) */
-  const wantsLive = !isLoading && !isComplete && !tooEarlyToLeave;
+  const wantsLive = !isLoading && !today.isError && !isComplete && !tooEarlyToLeave;
 
   const [verify, setVerify] = useState<VerifyState>("idle");
   const [verifyMode, setVerifyMode] = useState<"in" | "out">("in");
@@ -512,37 +521,75 @@ export default function MyCheckinPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wantsLive]);
 
+  // Ilova fonga o'tganda kamera o'chiriladi (batareya; iOS fonda oqimni
+  // "muzlatib" qo'yadi va qaytganda qora kadr chiqadi), qaytganda qayta yoqiladi
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.hidden) {
+        cam.stop();
+        return;
+      }
+      if (!wantsLive || verify !== "idle") return;
+      void queryPermission("camera").then((p) => {
+        if (p === "granted" && !document.hidden) void cam.start();
+      });
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wantsLive, verify]);
+
   const startAll = () => {
     if (!gps.coords && !gps.loading) gps.locate();
     if (!cam.active) void cam.start();
   };
 
+  /** Tugma ikki marta bosilmasin: surat olinayotgan paytda ham (mutation hali boshlanmagan) */
+  const submittingRef = useRef(false);
+
   const mutation = useMutation({
-    mutationFn: (vars: { selfie: File | null }) =>
+    mutationFn: (vars: { selfie: File | null; expectedAction: "CHECK_IN" | "CHECK_OUT" }) =>
       attendanceApi.selfCheckIn({
         gpsLat: gps.coords?.lat,
         gpsLng: gps.coords?.lng,
         gpsAccuracy: gps.coords?.accuracy,
         selfie: vars.selfie,
+        expectedAction: vars.expectedAction,
         onUploaded: () => setSteps((s) => ({ ...s, uploadedMs: Date.now() - s.startedAt })),
       }),
-    onSuccess: async (res: any) => {
+    onSuccess: (res: any) => {
       setLastResult({
         siteName: geo.match?.name ?? null,
         faceChecked: !!res?.attendance?.faceVerified,
         facePending: !!res?.attendance?.faceCheckPending,
       });
       navigator.vibrate?.(45);
-      qc.invalidateQueries({ queryKey: ["my-attendance"] });
-      qc.invalidateQueries({ queryKey: ["live-location-tracking-session"] });
-      // Yangi holat kelmaguncha "tekshirilmoqda" ekrani turadi — aks holda
-      // bir lahzaga eski (kelish) ekrani ko'rinib qoladi
-      await qc.invalidateQueries({ queryKey: ["my-attendance-today"] }).catch(() => {});
+      // Javobdagi yozuv darhol keshga yoziladi — keyingi so'rov muvaffaqiyatsiz
+      // bo'lsa ham ekran eski (kelish) holatiga qaytmaydi
+      qc.setQueryData(SELF_TODAY_KEY, (old: any) =>
+        old
+          ? {
+              ...old,
+              action: res?.action === "CHECK_IN" ? "CHECK_OUT" : "DONE",
+              dayOff: false,
+              record: { ...(old.record ?? {}), ...(res?.attendance ?? {}) },
+            }
+          : old,
+      );
+      void qc.invalidateQueries({ queryKey: SELF_TODAY_KEY });
+      void qc.invalidateQueries({ queryKey: ["my-attendance"] });
+      void qc.invalidateQueries({ queryKey: ["live-location-tracking-session"] });
       setVerify("idle");
     },
     onError: (error: any) => {
       setVerifyError(apiMessage(error, "Tekshiruvni yakunlab bo'lmadi. Internetni tekshirib, qayta urinib ko'ring."));
       setVerify("error");
+      // Server javobi kechikkan bo'lsa ham yozuv saqlangan bo'lishi mumkin —
+      // holat serverdan qayta olinadi (qayta urinish eski holat bilan ketmasin)
+      void qc.invalidateQueries({ queryKey: SELF_TODAY_KEY });
+    },
+    onSettled: () => {
+      submittingRef.current = false;
     },
   });
 
@@ -551,12 +598,13 @@ export default function MyCheckinPage() {
   const canPress = !mutation.isPending && wantsLive && geoReady && (!cameraRequired || cam.active);
 
   const submit = async (confirmedEarly = false) => {
-    if (mutation.isPending) return;
-    if (!canPress && verify !== "error") return;
+    if (submittingRef.current || mutation.isPending) return;
+    if (!canPress) return;
     if (mode === "out" && isEarlyLeave && !confirmedEarly) {
       setShowEarlyWarning(true);
       return;
     }
+    submittingRef.current = true;
     setShowEarlyWarning(false);
     setCaptureError(null);
 
@@ -566,24 +614,27 @@ export default function MyCheckinPage() {
       if (shot.error && cameraRequired) {
         setCaptureError(shot.error);
         setVerify("idle");
+        submittingRef.current = false;
         return;
       }
       selfie = shot.file;
     } else if (cameraRequired) {
       setCaptureError("Kamera yoqilmagan. Avval kamerani yoqing.");
       setVerify("idle");
+      submittingRef.current = false;
       return;
     }
     setVerifyMode(mode);
     setVerifyError(null);
     setSteps({ photoKb: selfie ? Math.max(1, Math.round(selfie.size / 1024)) : null, uploadedMs: null, startedAt: Date.now() });
     setVerify("verifying");
-    mutation.mutate({ selfie });
+    mutation.mutate({ selfie, expectedAction: mode === "in" ? "CHECK_IN" : "CHECK_OUT" });
   };
 
   // ── Qaysi ekran ──
-  const view: "loading" | "verify" | "success" | "done" | "outside" | "live" =
+  const view: "loading" | "error" | "verify" | "success" | "done" | "outside" | "live" =
     isLoading ? "loading"
+    : today.isError && verify === "idle" ? "error"
     : verify !== "idle" ? "verify"
     : isComplete ? "done"
     : tooEarlyToLeave ? "success"
@@ -611,6 +662,18 @@ export default function MyCheckinPage() {
           </div>
         )}
 
+        {view === "error" && (
+          <div className="mx-5 mt-3.5 flex flex-1 flex-col items-center justify-center gap-3 rounded-[28px] bg-[var(--ci-card)] px-6 py-10 text-center" role="alert">
+            <AlertTriangle className="h-8 w-8 text-[var(--ci-rose-ink)]" />
+            <p className="text-sm font-semibold text-[var(--ci-ink)]">
+              Bugungi holatni yuklab bo&apos;lmadi. Internetni tekshiring.
+            </p>
+            <SecondaryButton onClick={() => void today.refetch()} icon={<RefreshCw className="h-[18px] w-[18px]" />}>
+              Qayta yuklash
+            </SecondaryButton>
+          </div>
+        )}
+
         {(view === "success" || view === "done") && (
           <ResultView
             kind={view}
@@ -632,9 +695,13 @@ export default function MyCheckinPage() {
             ) : mode === "in" ? (
               <ShiftCard
                 label="Bugungi smena"
-                value={today.shiftStart && today.shiftEnd ? `${today.shiftStart} – ${today.shiftEnd}` : "Grafik belgilanmagan"}
-                pill={
+                value={
                   today.state === "off" ? "Dam olish kuni"
+                  : today.shiftStart && today.shiftEnd ? `${today.shiftStart} – ${today.shiftEnd}`
+                  : "Grafik belgilanmagan"
+                }
+                pill={
+                  today.state === "off" ? "Grafik bo'yicha"
                   : runningLate ? "Kechikyapsiz"
                   : "Kelish kutilmoqda"
                 }
@@ -654,8 +721,8 @@ export default function MyCheckinPage() {
                 value={fmtDuration(minutesSinceCheckIn)}
                 pill="Ishda"
                 pillTone="orange"
-                progress={shiftStart && shiftEnd ? (now.diff(dayjs(data.checkIn), "minute") / Math.max(1, shiftEnd.diff(shiftStart, "minute"))) * 100 : 100}
-                left={`Keldi ${fmt(data.checkIn)}`}
+                progress={shiftStart && shiftEnd ? (now.diff(tzTime(data?.checkIn), "minute") / Math.max(1, shiftEnd.diff(shiftStart, "minute"))) * 100 : 100}
+                left={`Keldi ${fmt(data?.checkIn)}`}
                 right={`Hozir ${now.format("HH:mm")}`}
               />
             )}
@@ -737,7 +804,13 @@ export default function MyCheckinPage() {
                 mode={verifyMode}
                 steps={steps}
                 accuracy={gps.coords?.accuracy ?? null}
-                onRetry={() => { mutation.reset(); void submit(true); }}
+                onRetry={() => {
+                  // Avval holat serverdan yangilanadi: javob kechikkan bo'lsa
+                  // yozuv allaqachon saqlangan bo'lishi mumkin — ko'r-ko'rona
+                  // qayta yuborilmaydi, xodim yangilangan ekranda qayta bosadi
+                  mutation.reset();
+                  void today.refetch().finally(() => setVerify("idle"));
+                }}
                 onBack={() => { mutation.reset(); setVerify("idle"); }}
               />
             ) : (
@@ -1030,7 +1103,7 @@ function ResultView({
 }) {
   const done = kind === "done";
   const late = record?.lateMinutes ?? 0;
-  const worked = done ? Math.max(0, dayjs(record.checkOut).diff(dayjs(record.checkIn), "minute")) : 0;
+  const worked = done ? Math.max(0, tzTime(record.checkOut).diff(tzTime(record.checkIn), "minute")) : 0;
   const early = record?.status === "EARLY_LEAVE" || record?.status === "LATE_EARLY";
 
   return (

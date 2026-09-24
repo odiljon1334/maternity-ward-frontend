@@ -1,68 +1,56 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import dayjs from "dayjs";
-import { attendanceApi, schedulesApi } from "@/lib/api";
+import { attendanceApi, type SelfToday } from "@/lib/api";
+import { tzTime } from "@/lib/time";
 
 /** Kun holati: kelish kutilmoqda / ishda / yakunlandi / grafik bo'yicha dam olish */
 export type TodayState = "in" | "out" | "done" | "off";
 
-const OFF_STATUSES = new Set([
-  "DAY_OFF", "SICK", "VACATION", "HOLIDAY", "MATERNITY_LEAVE", "OTHER_ABSENCE",
-]);
+export const SELF_TODAY_KEY = ["self-today"] as const;
 
 /**
- * Xodimning bugungi davomat yozuvi va grafigi.
+ * Xodimning hozirgi holati — qarorni SERVER qiladi (GET /attendance/self/today):
+ * qaysi amal kutilmoqda, joriy yozuv va smena vaqtlari.
  *
- * Kalitlar `my-attendance` va `my-schedule` sahifalari bilan bir xil —
- * pastki menyu, check-in sahifasi va o'sha sahifalar bitta keshdan o'qiydi.
+ * Ilgari holat telefonda oylik ro'yxatdan "bugungi sana" bo'yicha topilardi:
+ * tungi smena yarim tundan o'tganda, telefon boshqa vaqt zonasida bo'lsa yoki
+ * xodim terminal orqali kelgan bo'lsa (kesh eskirgan) — noto'g'ri tugma
+ * ko'rinardi. Endi ilova oynaga qaytganda va har daqiqada yangilanadi.
  */
 export function useEmployeeToday(enabled = true) {
-  const now = dayjs();
-  const month = now.month() + 1;
-  const year = now.year();
-  const todayStr = now.format("YYYY-MM-DD");
-
-  const attendance = useQuery({
-    queryKey: ["my-attendance-today", month, year],
-    queryFn: () => attendanceApi.my({ month, year }),
-    select: (d: any) =>
-      (d?.records ?? []).find((r: any) => dayjs(r.workDate).format("YYYY-MM-DD") === todayStr) ?? null,
-    staleTime: 30_000,
+  const q = useQuery<SelfToday>({
+    queryKey: SELF_TODAY_KEY,
+    queryFn: () => attendanceApi.selfToday(),
+    staleTime: 15_000,
+    refetchOnWindowFocus: true,
+    refetchInterval: 60_000,
     enabled,
   });
 
-  const schedule = useQuery<any[], Error, any>({
-    queryKey: ["my-schedule", month, year],
-    queryFn: () => schedulesApi.my({ month, year }),
-    select: (rows) =>
-      (rows ?? []).find((s: any) => dayjs(s.date).format("YYYY-MM-DD") === todayStr) ?? null,
-    staleTime: 5 * 60_000,
-    enabled,
-  });
-
-  const record = attendance.data ?? null;
-  const sch = schedule.data ?? null;
-
-  const shiftStart: string | null =
-    record?.expectedCheckIn ? dayjs(record.expectedCheckIn).format("HH:mm")
-    : sch?.status === "WORKING" && sch?.shift?.startTime ? sch.shift.startTime : null;
-  const shiftEnd: string | null =
-    record?.expectedCheckOut ? dayjs(record.expectedCheckOut).format("HH:mm")
-    : sch?.status === "WORKING" && sch?.shift?.endTime ? sch.shift.endTime : null;
+  const d = q.data;
+  const record = d?.record ?? null;
 
   let state: TodayState = "in";
-  if (record?.checkIn && record?.checkOut) state = "done";
-  else if (record?.checkIn) state = "out";
-  else if (sch && OFF_STATUSES.has(sch.status)) state = "off";
+  if (d?.action === "DONE") state = "done";
+  else if (d?.action === "CHECK_OUT") state = "out";
+  else if (d?.dayOff) state = "off";
+
+  const fmt = (v?: string | null) => (v ? tzTime(v).format("HH:mm") : null);
 
   return {
     record,
-    schedule: sch,
+    schedule: d?.schedule ?? null,
     state,
-    shiftStart,
-    shiftEnd,
-    isLoading: attendance.isLoading,
+    /** Kutilgan kelish/ketish — mutlaq vaqt (tungi smenada ketish ertasi kuni) */
+    expectedCheckIn: d?.expectedCheckIn ?? null,
+    expectedCheckOut: d?.expectedCheckOut ?? null,
+    shiftStart: fmt(d?.expectedCheckIn),
+    shiftEnd: fmt(d?.expectedCheckOut),
+    graceMinutes: d?.graceMinutes ?? 0,
+    overnight: !!d?.overnight,
+    isLoading: q.isLoading,
+    isError: q.isError && !d,
+    refetch: q.refetch,
   };
 }

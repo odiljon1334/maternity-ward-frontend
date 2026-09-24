@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTheme } from "next-themes";
 import {
   LayoutDashboard, Users, ClipboardList, CalendarDays, DollarSign, Eye, ScanFace,
@@ -72,7 +72,8 @@ const FAB: Record<TodayState, { bg: string; shadow: string; text: string; icon: 
   in:   { bg: "#4338CA", shadow: "rgba(67,56,202,0.35)",  text: "var(--ci-indigo-text)", icon: "#ffffff", label: "Kelish" },
   out:  { bg: "#C2410C", shadow: "rgba(194,65,12,0.32)",  text: "var(--ci-orange-text)", icon: "#ffffff", label: "Ketish" },
   done: { bg: "#0F766E", shadow: "rgba(15,118,110,0.3)",  text: "var(--ci-teal-text)",   icon: "#ffffff", label: "Tugadi" },
-  off:  { bg: "#D5D8E4", shadow: "rgba(15,18,34,0.08)",   text: "var(--ci-faint)",       icon: "#5B6078", label: "Dam olish" },
+  // Tungi rejimda ham mos: tokenlar .ci ning dark variantidan olinadi
+  off:  { bg: "var(--ci-disabled)", shadow: "rgba(15,18,34,0.08)", text: "var(--ci-faint)", icon: "var(--ci-muted)", label: "Dam olish" },
 };
 
 function TabLink({ href, label, icon, active }: { href: string; label: string; icon: ReactNode; active: boolean }) {
@@ -101,6 +102,24 @@ function EmployeeBottomNav({ pathname }: { pathname: string }) {
   const moreActive = MORE_ITEMS.some((i) => pathname.startsWith(i.href));
 
   useEffect(() => setMoreOpen(false), [pathname]);
+
+  // "Ko'proq" oynasi: Escape bilan yopiladi, fokus ichkariga o'tadi va
+  // yopilganda tugmaga qaytadi (klaviatura va ekran o'quvchilar uchun)
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const moreBtnRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!moreOpen) return;
+    const btn = moreBtnRef.current;
+    sheetRef.current?.querySelector<HTMLElement>("a,button")?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMoreOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      btn?.focus();
+    };
+  }, [moreOpen]);
 
   const iconCls = "h-[23px] w-[23px]";
   return (
@@ -132,6 +151,7 @@ function EmployeeBottomNav({ pathname }: { pathname: string }) {
 
           <TabLink href="/dashboard/my-leaves" label="Ta'til" active={pathname.startsWith("/dashboard/my-leaves")} icon={<Palmtree className={iconCls} />} />
           <button
+            ref={moreBtnRef}
             type="button"
             onClick={() => setMoreOpen((v) => !v)}
             aria-expanded={moreOpen}
@@ -155,7 +175,7 @@ function EmployeeBottomNav({ pathname }: { pathname: string }) {
             onClick={() => setMoreOpen(false)}
             className="absolute inset-0 bg-[rgba(15,18,34,0.45)]"
           />
-          <div className="absolute inset-x-0 bottom-[calc(68px+env(safe-area-inset-bottom))] max-h-[calc(100dvh-140px)] overflow-y-auto rounded-t-[28px] bg-[var(--ci-card)] px-5 pb-9 pt-2.5 text-[var(--ci-ink)]">
+          <div ref={sheetRef} className="absolute inset-x-0 bottom-[calc(68px+env(safe-area-inset-bottom))] max-h-[calc(100dvh-140px)] overflow-y-auto rounded-t-[28px] bg-[var(--ci-card)] px-5 pb-9 pt-2.5 text-[var(--ci-ink)]">
             <div className="mx-auto mb-2.5 h-[5px] w-10 rounded-full bg-[var(--ci-border)]" />
             <p className="mb-0.5 text-[17px] font-extrabold">Ko&apos;proq</p>
             {MORE_ITEMS.map(({ href, label, sub, icon: Icon }) => (
