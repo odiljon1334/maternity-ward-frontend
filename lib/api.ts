@@ -818,9 +818,24 @@ export const workSitesApi = {
       .then((r) => r.data.data as WorkSite),
   rejectLegacy: (employeeId: string, targetHospitalId?: string) =>
     api.post(`/work-sites/legacy-centers/${employeeId}/reject`, {}, { params: { targetHospitalId } }).then((r) => r.data.data),
+  /** Ish joyi manzilini qidirish: nom ("1-maktab Andijon"), koordinata yoki xarita havolasi */
+  placeSearch: (q: string, targetHospitalId?: string) =>
+    api
+      .get("/work-sites/place-search", { params: { q, targetHospitalId } })
+      .then((r) => r.data.data as PlaceResult[]),
   /** Xodimning o'zi uchun: check-in qilish mumkin bo'lgan barcha markazlar */
   my: () => api.get("/work-sites/my").then((r) => r.data.data as MyGeoCenter[]),
 };
+
+export interface PlaceResult {
+  name: string;
+  address: string | null;
+  lat: number;
+  lng: number;
+  source: "COORDS" | "YANDEX_ORG" | "YANDEX_GEO" | "OSM";
+  /** Muassasa markazidan masofa (metr) */
+  distance: number | null;
+}
 
 export interface MyGeoCenter {
   lat: number;

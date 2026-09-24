@@ -324,7 +324,21 @@ function WorkSiteDialog({
             />
           </label>
         </div>
-        <LocationPicker value={point} onChange={setPoint} radius={radiusValid ? radius : undefined} height={280} />
+        <LocationPicker
+          value={point}
+          onChange={setPoint}
+          radius={radiusValid ? radius : undefined}
+          height={280}
+          search={{
+            targetHospitalId,
+            // Nom/manzil bo'sh bo'lsa — topilgan joydan to'ldiriladi
+            onPlace: (p) => {
+              if (p.source === "COORDS") return;
+              if (!name.trim()) setName(p.name.slice(0, 120));
+              if (!address.trim() && p.address) setAddress(p.address.slice(0, 255));
+            },
+          }}
+        />
         <label className="text-xs text-[var(--text-muted)] space-y-1 block max-w-[200px]">
           <span>Radius (m): 50–2000</span>
           <input

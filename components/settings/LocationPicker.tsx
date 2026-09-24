@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Crosshair, Loader2 } from "lucide-react";
+import { Crosshair, Loader2, MapPin, Search, X } from "lucide-react";
+import { workSitesApi, type PlaceResult } from "@/lib/api";
 import { YMaps, Map, Placemark, Circle } from "@pbe/react-yandex-maps";
 import {
   createAccurateLocationRequest,
@@ -31,6 +32,7 @@ export function LocationPicker({
   radius,
   height = 256,
   readOnly = false,
+  search,
 }: {
   value: PickedLocation | null;
   onChange: (next: PickedLocation) => void;
@@ -38,6 +40,12 @@ export function LocationPicker({
   height?: number;
   /** Faqat ko'rsatish — bosish, sudrash va "Hozirgi joyim" o'chiriladi */
   readOnly?: boolean;
+  /** Nomi bo'yicha qidiruv (ish joyi / asosiy bino) */
+  search?: {
+    targetHospitalId?: string;
+    /** Natija tanlanganda — masalan nom/manzil maydonlarini to'ldirish uchun */
+    onPlace?: (place: PlaceResult) => void;
+  };
 }) {
   const [locating, setLocating] = useState(false);
   const requestRef = useRef<AccurateLocationRequest | null>(null);
@@ -69,6 +77,15 @@ export function LocationPicker({
 
   return (
     <div className="space-y-2">
+      {search && !readOnly && (
+        <PlaceSearchBox
+          targetHospitalId={search.targetHospitalId}
+          onPick={(p) => {
+            onChange({ lat: p.lat, lng: p.lng });
+            search.onPlace?.(p);
+          }}
+        />
+      )}
       <div
         className="w-full rounded-xl overflow-hidden border border-[var(--border)] bg-[var(--bg-hover)]"
         style={{ height }}
@@ -147,6 +164,169 @@ export function LocationPicker({
           kerak). Deraza yoniga chiqib kuting yoki nuqtani xaritadan tanlang.
         </p>
       )}
+    </div>
+  );
+}
+
+const SOURCE_LABEL: Record<PlaceResult["source"], string> = {
+  COORDS: "Koordinata",
+  YANDEX_ORG: "Yandex",
+  YANDEX_GEO: "Yandex",
+  OSM: "OpenStreetMap",
+};
+
+function fmtDistance(m: number | null) {
+  if (m == null) return "";
+  return m < 1000 ? `${m} m` : `${(m / 1000).toFixed(m < 10_000 ? 1 : 0)} km`;
+}
+
+/**
+ * Manzil qidiruvi: "1-maktab Andijon", ko'cha manzili, koordinata
+ * ("40.78, 72.34") yoki Yandex/Google xarita havolasi. Tashqi xizmatlarga
+ * yuk tushmasligi uchun har harfda emas — Enter yoki tugma bosilganda qidiriladi.
+ */
+function PlaceSearchBox({
+  targetHospitalId,
+  onPick,
+}: {
+  targetHospitalId?: string;
+  onPick: (place: PlaceResult) => void;
+}) {
+  const [q, setQ] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [results, setResults] = useState<PlaceResult[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const run = async () => {
+    const query = q.trim();
+    if (query.length < 2 || loading) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await workSitesApi.placeSearch(query, targetHospitalId);
+      // Havola/koordinata — bitta aniq nuqta: ro'yxatsiz darhol qo'yiladi
+      if (res.length === 1 && res[0].source === "COORDS") {
+        onPick(res[0]);
+        setResults(null);
+        toast.success("Nuqta xaritaga qo'yildi");
+      } else {
+        setResults(res);
+      }
+    } catch (e) {
+      const msg = (e as { response?: { data?: { message?: string } } })
+        ?.response?.data?.message;
+      setError(
+        msg ?? "Qidiruv ishlamadi. Birozdan so'ng qayta urinib ko'ring.",
+      );
+      setResults(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div>
+      <div className="relative">
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
+            <input
+              type="search"
+              value={q}
+              onChange={(e) => {
+                setQ(e.target.value);
+                if (!e.target.value) setResults(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void run();
+                }
+                if (e.key === "Escape") setResults(null);
+              }}
+              className="input-field !pl-9 text-sm"
+              placeholder="Masalan: 1-maktab Andijon — yoki xarita havolasini qo'ying"
+              aria-label="Manzilni qidirish"
+              autoComplete="off"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => void run()}
+            disabled={loading || q.trim().length < 2}
+            className="btn-secondary py-1.5 px-3 text-xs gap-1.5"
+          >
+            {loading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Search className="h-3.5 w-3.5" />
+            )}
+            Qidirish
+          </button>
+        </div>
+
+        {results && (
+          <div className="absolute inset-x-0 top-full z-20 mt-1 max-h-72 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--bg-card)] shadow-xl">
+            <div className="flex items-center justify-between border-b border-[var(--border)] px-3 py-1.5 text-[11px] text-[var(--text-muted)]">
+              <span>
+                {results.length
+                  ? `${results.length} ta natija — keraklisini tanlang`
+                  : "Hech narsa topilmadi"}
+              </span>
+              <button
+                type="button"
+                onClick={() => setResults(null)}
+                aria-label="Yopish"
+                className="p-1"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            {results.map((r, i) => (
+              <button
+                key={`${r.lat},${r.lng},${i}`}
+                type="button"
+                onClick={() => {
+                  onPick(r);
+                  setResults(null);
+                }}
+                className="flex w-full items-start gap-2.5 px-3 py-2.5 text-left transition hover:bg-[var(--bg-hover)]"
+              >
+                <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-500" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold text-[var(--text-primary)]">
+                    {r.name}
+                  </span>
+                  {r.address && (
+                    <span className="block truncate text-[11px] text-[var(--text-muted)]">
+                      {r.address}
+                    </span>
+                  )}
+                </span>
+                <span className="flex-shrink-0 text-right text-[10px] text-[var(--text-muted)]">
+                  <span className="block font-semibold">
+                    {fmtDistance(r.distance)}
+                  </span>
+                  <span className="block">{SOURCE_LABEL[r.source]}</span>
+                </span>
+              </button>
+            ))}
+            {!results.length && (
+              <p className="px-3 py-3 text-xs leading-5 text-[var(--text-muted)]">
+                Boshqacha yozib ko&apos;ring (masalan &quot;1-son maktab
+                Andijon&quot;) yoki Yandex/Google xaritada joyni topib,{" "}
+                <b>havolasini shu yerga qo&apos;ying</b> — nuqta avtomatik
+                qo&apos;yiladi.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+      {error && <p className="mt-1 text-xs text-rose-400">{error}</p>}
+      <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+        Topilgach belgini xaritada aniq binoga sudrab to&apos;g&apos;rilashingiz
+        mumkin.
+      </p>
     </div>
   );
 }
