@@ -701,6 +701,7 @@ export default function SchedulesPage() {
   isLoading: schedLoading,
   isError: schedError,
   isFetching: schedFetching,
+  isFetchNextPageError: nextPageError,
   refetch: refetchSchedules,
 } = useInfiniteQuery({
   queryKey: [
@@ -740,7 +741,9 @@ export default function SchedulesPage() {
 
   // Infinite scroll hodisasini kuzatish
   useEffect(() => {
-    if (!hasNextPage || isFetchingNextPage) return;
+    // Keyingi sahifa xato bergan bo'lsa to'xtaymiz — aks holda sentinel
+    // ko'rinib turgani uchun har render'da cheksiz so'rov ketardi
+    if (!hasNextPage || isFetchingNextPage || nextPageError) return;
     const el = mobileLoadRef.current;
     if (!el) return;
 
@@ -754,17 +757,22 @@ export default function SchedulesPage() {
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+  }, [hasNextPage, isFetchingNextPage, nextPageError, fetchNextPage]);
 
   // Katta monitorda birinchi porsiya jadvalni to'ldirmasa, scroll bo'lmaydi va
   // onScroll hech qachon ishlamaydi — bunday holatda keyingi sahifani o'zimiz so'raymiz.
   useEffect(() => {
     const el = scrollContainerRef.current;
     if (!el || el.offsetParent === null) return;
-    if (hasNextPage && !isFetchingNextPage && el.scrollHeight <= el.clientHeight + 100) {
+    if (
+      hasNextPage &&
+      !schedFetching &&
+      !nextPageError &&
+      el.scrollHeight <= el.clientHeight + 100
+    ) {
       fetchNextPage();
     }
-  });
+  }, [hasNextPage, schedFetching, nextPageError, fetchNextPage, paginatedData]);
 
   const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
     const { scrollTop, scrollHeight, clientHeight } = event.currentTarget;

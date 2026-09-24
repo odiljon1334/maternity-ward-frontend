@@ -8,6 +8,7 @@
  *  - Kirill/lotin: "Каримова" ↔ "Karimova" (ikkalasi ham lotinga o'giriladi).
  *  - Tutuq belgisi turlari: o' / o‘ / oʻ / o` / o’ → bir xil.
  *  - Katta-kichik harf, ortiqcha bo'shliqlar.
+ *  - Rus uslubidagi lotin: "Yevgeniya", "Khamidov", "Djamshid" (foldTranslit).
  */
 
 const CYR_TO_LAT: Record<string, string> = {
@@ -26,7 +27,21 @@ export function normalizeSearchText(input: string | null | undefined): string {
   s = s.replace(/[ʻʼ‘’`´ʹ]/g, "'");
   // Qidiruvda tutuq belgisini hisobga olmaymiz: "ogil" ham "o'g'il" ni topsin
   s = s.replace(/'/g, "");
+  s = foldTranslit(s);
   return s.replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Rus uslubidagi lotin yozuvi bilan o'zbek lotinini tenglashtiradi (ikkala
+ * tomonga ham qo'llanadi): "Yevgeniya" ↔ "Евгения", "Khamidov" ↔ "Xamidov",
+ * "Djamshid"/"Zhamshid" ↔ "Jamshid", "Tsoy" ↔ "Цой".
+ */
+function foldTranslit(s: string): string {
+  return s
+    .replace(/dzh|dj|zh/g, "j")
+    .replace(/kh/g, "x")
+    .replace(/ye/g, "e")
+    .replace(/ts/g, "s");
 }
 
 /**

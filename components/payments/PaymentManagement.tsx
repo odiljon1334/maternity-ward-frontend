@@ -66,12 +66,6 @@ function coverageText(period: string | null | undefined, months?: number | null)
   return n === 1 ? periodLabel(period) : `${periodLabel(period)} – ${periodLabel(addMonths(period, n - 1))}`;
 }
 
-function currentPeriodValue() {
-  // Toshkent vaqti (UTC+5) bo'yicha joriy oy
-  const d = new Date(Date.now() + 5 * 3600_000);
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
-}
-
 type OverviewItem = {
   id: string;
   name: string;
@@ -112,7 +106,7 @@ type PayForm = {
   payerName: string;
   amount: number;
   type: "MONTHLY" | "ANNUAL" | "OTHER";
-  /** Qaysi oydan boshlab (input type=month → "YYYY-MM") */
+  /** Qaysi oydan boshlab (input type=month → "YYYY-MM"); bo'sh — server tanlaydi */
   period: string;
   note?: string;
 };
@@ -142,18 +136,26 @@ function AddPaymentModal({
       hospitalId: preHospitalId || "",
       type: "MONTHLY",
       amount: preAmount || 0,
-      period: currentPeriodValue(),
+      // Bo'sh — server bot bilan bir xil qoida bo'yicha tanlaydi (eng eski
+      // to'lanmagan oy). Joriy oyni default qilish to'langan oy ustiga
+      // yozib yuborardi.
+      period: "",
     },
   });
   const watchType = watch("type");
   const watchPeriod = watch("period");
 
   const mutation = useMutation({
-    mutationFn: (d: PayForm) => paymentsApi.create(d),
-    onSuccess: () => {
+    mutationFn: (d: PayForm) =>
+      paymentsApi.create({ ...d, period: d.period || undefined }),
+    onSuccess: (res: { period?: string | null; months?: number | null } | undefined) => {
       qc.invalidateQueries({ queryKey: ["payments-overview"] });
       qc.invalidateQueries({ queryKey: ["payments-list"] });
-      toast.success("To'lov qo'shildi");
+      toast.success(
+        res?.period
+          ? `To'lov qo'shildi — ${coverageText(res.period, res.months)}`
+          : "To'lov qo'shildi",
+      );
       reset();
       onClose();
     },
@@ -240,19 +242,27 @@ function AddPaymentModal({
           </div>
           <div>
             <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">
-              Qaysi oy uchun *
+              Qaysi oy uchun
             </label>
             <input
               {...register("period", {
-                required: true,
                 pattern: /^\d{4}-(0[1-9]|1[0-2])$/,
               })}
               type="month"
               className="input-field"
             />
             <p className="mt-1 text-[11px] text-[var(--text-muted)]">
-              Qoplanadi:{" "}
-              <b>{coverageText(watchPeriod, watchType === "ANNUAL" ? 12 : 1)}</b>
+              {watchPeriod ? (
+                <>
+                  Qoplanadi:{" "}
+                  <b>{coverageText(watchPeriod, watchType === "ANNUAL" ? 12 : 1)}</b>
+                </>
+              ) : (
+                <>
+                  Avtomatik: <b>eng eski to&apos;lanmagan oydan</b> (bot bilan bir xil).
+                  Aniq oy kerak bo&apos;lsa — tanlang.
+                </>
+              )}
             </p>
           </div>
           <div>

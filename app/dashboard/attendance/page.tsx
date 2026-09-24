@@ -209,6 +209,17 @@ export default function AttendancePage() {
   );
   const hasMore = visibleCount < filteredRecords.length;
 
+  // Ekran aylansa yoki oyna o'lchami sm chegarasidan o'tsa — boshqa sentinel
+  // ko'rinadi, kuzatuvchi qayta ulanishi kerak
+  const [isWide, setIsWide] = useState<boolean | null>(null);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 640px)");
+    const update = () => setIsWide(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
   useEffect(() => {
     if (!hasMore) return;
     const loadMore = () =>
@@ -225,11 +236,14 @@ export default function AttendancePage() {
       observers.push(io);
     };
     watch(desktopSentinelRef.current, tableScrollRef.current);
-    watch(mobileSentinelRef.current, null);
+    // Mobilda sahifa <main> ichida scroll bo'ladi (window emas) — root sifatida
+    // eng yaqin scroll bo'ladigan ota element olinadi, aks holda rootMargin
+    // ishlamaydi va keyingi porsiya oldindan yuklanmaydi
+    watch(mobileSentinelRef.current, scrollParentOf(mobileSentinelRef.current));
     return () => observers.forEach((io) => io.disconnect());
     // visibleCount o'zgarganda qayta ulanadi: sentinel hali ham ko'rinib
     // tursa (ekran baland) — keyingi porsiya darhol qo'shiladi
-  }, [hasMore, visibleCount, filteredRecords.length]);
+  }, [hasMore, visibleCount, filteredRecords.length, isWide]);
 
   // ─────────────────────────────────────────────────────────────────────────────
 
@@ -803,4 +817,20 @@ function KpiCard({
       </div>
     </Surface>
   );
+}
+
+/**
+ * Haqiqatan scroll bo'layotgan eng yaqin ota element (yo'q bo'lsa — viewport).
+ * overflow:auto bo'lsa ham balandligi kontentga teng (cheklanmagan) o'ralgan
+ * div'lar o'tkazib yuboriladi — aks holda sentinel doim "ko'rinadi" va
+ * hamma yozuvlar birdaniga yuklanadi.
+ */
+function scrollParentOf(el: Element | null): Element | null {
+  let p = el?.parentElement ?? null;
+  while (p && p !== document.body) {
+    const oy = getComputedStyle(p).overflowY;
+    if ((oy === "auto" || oy === "scroll") && p.scrollHeight > p.clientHeight + 1) return p;
+    p = p.parentElement;
+  }
+  return null;
 }

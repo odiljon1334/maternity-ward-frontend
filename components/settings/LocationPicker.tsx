@@ -202,14 +202,41 @@ function PlaceSearchBox({
   const [resolving, setResolving] = useState<number | null>(null);
   const [results, setResults] = useState<PlaceResult[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * Har yangi qidiruv/tahrirda oshadi: kechikib kelgan eski javob (qidiruv
+   * yoki tanlangan joy koordinatasi) yangi holatni buzmasin.
+   */
+  const reqId = useRef(0);
+  const boxRef = useRef<HTMLDivElement>(null);
+
+  // Ro'yxat tashqarida bosilganda yoki Escape bosilganda yopiladi
+  useEffect(() => {
+    if (!results) return;
+    const onDown = (e: MouseEvent | TouchEvent) => {
+      if (!boxRef.current?.contains(e.target as Node)) setResults(null);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setResults(null);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("touchstart", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("touchstart", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [results]);
 
   const run = async () => {
     const query = q.trim();
-    if (query.length < 2 || loading) return;
+    if (query.length < 2 || loading || resolving !== null) return;
+    const id = ++reqId.current;
     setLoading(true);
     setError(null);
     try {
       const res = await workSitesApi.placeSearch(query, targetHospitalId);
+      if (id !== reqId.current) return;
       // Havola/koordinata — bitta aniq nuqta: ro'yxatsiz darhol qo'yiladi
       if (res.length === 1 && res[0].source === "COORDS" && hasCoords(res[0])) {
         onPick(res[0]);
@@ -219,6 +246,7 @@ function PlaceSearchBox({
         setResults(res);
       }
     } catch (e) {
+      if (id !== reqId.current) return;
       const msg = (e as { response?: { data?: { message?: string } } })
         ?.response?.data?.message;
       setError(
@@ -226,7 +254,7 @@ function PlaceSearchBox({
       );
       setResults(null);
     } finally {
-      setLoading(false);
+      if (id === reqId.current) setLoading(false);
     }
   };
 
@@ -238,27 +266,30 @@ function PlaceSearchBox({
       return;
     }
     if (!r.uri) return;
+    const id = ++reqId.current;
     setResolving(i);
     setError(null);
     try {
       const place = await workSitesApi.placeResolve(r.uri, targetHospitalId);
+      if (id !== reqId.current) return; // foydalanuvchi boshqa narsa qidirib ulgurdi
       // Ro'yxatda ko'ringan nom va manzil saqlanadi — foydalanuvchi aynan shuni tanladi
       onPick({ ...place, name: r.name, address: r.address ?? place.address });
       setResults(null);
     } catch (e) {
+      if (id !== reqId.current) return;
       const msg = (e as { response?: { data?: { message?: string } } })
         ?.response?.data?.message;
       setError(
         msg ?? "Joy koordinatasini olib bo'lmadi. Nuqtani xaritadan tanlang.",
       );
     } finally {
-      setResolving(null);
+      if (id === reqId.current) setResolving(null);
     }
   };
 
   return (
     <div>
-      <div className="relative">
+      <div className="relative" ref={boxRef}>
         <div className="flex gap-2">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
@@ -267,7 +298,11 @@ function PlaceSearchBox({
               value={q}
               onChange={(e) => {
                 setQ(e.target.value);
-                if (!e.target.value) setResults(null);
+                // Matn o'zgardi — eski ro'yxat va kutilayotgan javoblar bekor
+                reqId.current++;
+                setResults(null);
+                setLoading(false);
+                setResolving(null);
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -285,7 +320,7 @@ function PlaceSearchBox({
           <button
             type="button"
             onClick={() => void run()}
-            disabled={loading || q.trim().length < 2}
+            disabled={loading || resolving !== null || q.trim().length < 2}
             className="btn-secondary py-1.5 px-3 text-xs gap-1.5"
           >
             {loading ? (
@@ -357,7 +392,11 @@ function PlaceSearchBox({
           </div>
         )}
       </div>
-      {error && <p className="mt-1 text-xs text-rose-400">{error}</p>}
+      {error && (
+        <p className="mt-1 text-xs text-rose-400" role="alert">
+          {error}
+        </p>
+      )}
       <p className="mt-1 text-[11px] text-[var(--text-muted)]">
         Topilgach belgini xaritada aniq binoga sudrab to&apos;g&apos;rilashingiz
         mumkin.
