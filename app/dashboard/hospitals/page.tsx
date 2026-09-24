@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { formatTerminalConnectivity } from "@/lib/utils";
 import { useConfirmation } from "@/components/ui";
+import { TerminalSyncStatus, useTerminalSync } from "@/components/settings/TerminalSync";
 
 // ── Hospital Form Modal ─────────────────────────
 type HospForm = { name: string; code: string; address?: string; phone?: string };
@@ -255,11 +256,8 @@ function TerminalModal({ open, onClose, hospital }: {
   const [name, setName] = useState("");
   const [devIndex, setDevIndex] = useState("");
   const [password, setPassword] = useState("");
-  const [syncing, setSyncing] = useState(false);
-  const [syncResult, setSyncResult] = useState<{
-    total: number; created: number; skipped: number; failed: number;
-    errors: { employeeNo: string; name: string; reason: string }[];
-  } | null>(null);
+  const sync = useTerminalSync(hospital?.id);
+  const syncing = sync.running;
 
   const { data: terminals = [], isLoading } = useQuery({
     queryKey: ["terminals", hospital?.id],
@@ -302,23 +300,12 @@ function TerminalModal({ open, onClose, hospital }: {
   const handleSync = async () => {
     const approved = await confirm({
       title: "Terminal sinxronizatsiyasi boshlansinmi?",
-      description: `“${hospital?.name}” muassasasidagi barcha faol xodimlar terminallarga yuboriladi. Jarayon tugaguncha oynani yopmang.`,
+      description: `“${hospital?.name}” muassasasidagi barcha faol xodimlar terminallarga yuboriladi. Jarayon serverda davom etadi — oynani yopsangiz ham bo‘ladi.`,
       confirmLabel: "Sinxronlash",
       tone: "warning",
     });
     if (!approved) return;
-    setSyncing(true);
-    setSyncResult(null);
-    try {
-      const result: any = await hikvisionApi.syncHospital(hospital.id);
-      const { total, created, skipped, failed, errors } = result;
-      setSyncResult({ total, created, skipped, failed, errors: errors ?? [] });
-      toast.success(`Sync tugadi: ${created} yaratildi, ${skipped} skip, ${failed} xato`);
-    } catch (e: any) {
-      toast.error(e?.response?.data?.message || "Sync xatolik");
-    } finally {
-      setSyncing(false);
-    }
+    sync.start();
   };
 
   const handleDeleteTerminal = async (terminal: any) => {
@@ -346,7 +333,7 @@ function TerminalModal({ open, onClose, hospital }: {
           <div className="flex items-center gap-2">
             <button onClick={handleSync} disabled={syncing || (terminals as any[]).length === 0} className="btn-secondary text-xs gap-1.5">
               <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
-              {syncing ? "Sync..." : "Sync"}
+              {syncing ? "Sinxronlanmoqda…" : "Sync"}
             </button>
             <button onClick={onClose} className="btn-ghost p-1.5"><X className="w-4 h-4" /></button>
           </div>
@@ -386,34 +373,7 @@ function TerminalModal({ open, onClose, hospital }: {
             </div>
           )}
 
-          {syncResult && (
-            <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-hover)] p-4 space-y-3">
-              <p className="text-xs font-semibold text-[var(--text-primary)]">Oxirgi sync natijasi</p>
-              <div className="grid grid-cols-4 gap-2 text-center">
-                {[
-                  { label: "Jami", val: syncResult.total, cls: "bg-[var(--bg-card)]", color: "text-[var(--text-primary)]" },
-                  { label: "Yangi", val: syncResult.created, cls: "bg-emerald-500/10", color: "text-emerald-400" },
-                  { label: "Skip", val: syncResult.skipped, cls: "bg-sky-500/10", color: "text-sky-400" },
-                  { label: "Xato", val: syncResult.failed, cls: "bg-red-500/10", color: "text-red-400" },
-                ].map(({ label, val, cls, color }) => (
-                  <div key={label} className={`rounded-lg ${cls} py-2`}>
-                    <p className={`text-sm font-bold ${color}`}>{val}</p>
-                    <p className="text-[10px] text-[var(--text-muted)]">{label}</p>
-                  </div>
-                ))}
-              </div>
-              {syncResult.errors.length > 0 && (
-                <div className="space-y-1 max-h-40 overflow-y-auto pt-1 border-t border-[var(--border)]">
-                  {syncResult.errors.map((e, i) => (
-                    <div key={i} className="text-xs px-2 py-1.5 rounded-lg bg-red-500/5 border border-red-500/10">
-                      <span className="font-medium text-[var(--text-primary)]">{e.name || e.employeeNo}</span>
-                      <span className="text-[var(--text-muted)]"> — {e.reason}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+          <TerminalSyncStatus job={sync.job} />
 
           {addMode ? (
             <div className="space-y-3 pt-2 border-t border-[var(--border)]">

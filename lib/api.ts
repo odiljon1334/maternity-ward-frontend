@@ -429,16 +429,35 @@ export const hikvisionApi = {
   getTerminalsWithStatus: (hospitalId: string) =>
     api.get(`/hikvision/terminals?hospitalId=${hospitalId}`),
   
-  // Sync
+  // Sync — fon vazifasi: POST darhol qaytadi, holat GET bilan kuzatiladi
   syncHospital: (hospitalId: string) =>
+    api.post(`/hikvision/sync/${hospitalId}`).then((r) => r.data.data as TerminalSyncJob),
+  syncStatus: (hospitalId: string) =>
     api
-      .post(`/hikvision/sync/${hospitalId}`, undefined, {
-        // Xodimlar terminalga ketma-ket person + face sifatida yoziladi.
-        // Katta muassasada bu bir necha daqiqa davom etishi normal.
-        timeout: 15 * 60 * 1000,
-      })
-      .then((r) => r.data.data),
+      .get(`/hikvision/sync/${hospitalId}`)
+      .then((r) => (r.data.data ?? null) as TerminalSyncJob | null),
 };
+
+export interface TerminalSyncJob {
+  id: string;
+  hospitalId: string;
+  state: "RUNNING" | "DONE" | "FAILED";
+  /** Rasmli faol xodimlar */
+  total: number;
+  withoutPhoto: number;
+  /** xodim × terminal; done — bajarilgani */
+  units: number;
+  done: number;
+  created: number;
+  skipped: number;
+  failed: number;
+  errors: { employeeNo: string; name: string; reason: string }[];
+  errorsTruncated: number;
+  perTerminal: { terminalId: string; terminalName: string; created: number; skipped: number; failed: number; aborted: boolean }[];
+  startedAt: string;
+  finishedAt: string | null;
+  message: string | null;
+}
 
 // ─── Reports ────────────────────────────────────
 export const reportsApi = {
