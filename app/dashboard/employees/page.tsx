@@ -718,7 +718,7 @@ const EmpRow = memo(function EmpRow({
       <td className="px-5 py-3.5 font-bold text-[var(--text-primary)]">{emp.department?.name || "—"}</td>
       <td className="px-5 py-3.5 text-[var(--text-muted)] font-semibold">{emp.position?.name || "—"}</td>
       <td className="px-5 py-3.5 font-mono text-xs font-semibold text-[var(--text-muted)]">{emp.employeeNo || <span className="opacity-30">—</span>}</td>
-      <td className="px-5 py-3.5 font-extrabold text-[var(--text-primary)]">{formatMoney(emp.baseSalary)}</td>
+      <td className="px-5 py-3.5 font-extrabold text-[var(--text-primary)]">{emp.baseSalary == null ? "—" : formatMoney(emp.baseSalary)}</td>
       <td className="px-5 py-3.5">
       {emp.firedAt || emp.status === 'FIRED'
         ? <span className="inline-flex items-center text-xs font-bold px-2.5 py-1 rounded-full bg-red-500/15 border border-red-500/30 text-red-700 dark:text-red-400">Ketgan</span>
@@ -1383,7 +1383,7 @@ const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
 
               <div className="flex items-center gap-3 mt-3 pt-3 border-t border-[var(--border)]">
                 <span className="font-mono text-xs font-semibold text-[var(--text-muted)]">{emp.employeeNo || "—"}</span>
-                <span className="text-xs font-bold text-[var(--text-primary)] whitespace-nowrap">{formatMoney(emp.baseSalary)}</span>
+                <span className="text-xs font-bold text-[var(--text-primary)] whitespace-nowrap">{emp.baseSalary == null ? "—" : formatMoney(emp.baseSalary)}</span>
                 <div className="ml-auto flex items-center gap-1">
                   <button
                     onClick={() => { setEditEmp(emp); setModalOpen(true); }}

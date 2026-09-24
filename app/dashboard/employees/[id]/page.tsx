@@ -843,7 +843,7 @@ export default function EmployeeProfilePage() {
               <div>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Asosiy maosh</p>
                 <p className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 tracking-wide mt-0.5">
-                  {formatMoney(employee.baseSalary)}
+                  {employee.baseSalary == null ? "—" : formatMoney(employee.baseSalary)}
                 </p>
               </div>
               <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
