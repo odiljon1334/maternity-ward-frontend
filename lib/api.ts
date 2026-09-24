@@ -823,6 +823,11 @@ export const workSitesApi = {
     api
       .get("/work-sites/place-search", { params: { q, targetHospitalId } })
       .then((r) => r.data.data as PlaceResult[]),
+  /** Qidiruv natijasi koordinatasiz kelsa (Yandex Geosaggest) — tanlanganda aniqlanadi */
+  placeResolve: (uri: string, targetHospitalId?: string) =>
+    api
+      .get("/work-sites/place-resolve", { params: { uri, targetHospitalId } })
+      .then((r) => r.data.data as ResolvedPlace),
   /** Xodimning o'zi uchun: check-in qilish mumkin bo'lgan barcha markazlar */
   my: () => api.get("/work-sites/my").then((r) => r.data.data as MyGeoCenter[]),
 };
@@ -830,12 +835,16 @@ export const workSitesApi = {
 export interface PlaceResult {
   name: string;
   address: string | null;
-  lat: number;
-  lng: number;
+  /** Yandex Geosaggest natijasida null — tanlanganda `placeResolve(uri)` */
+  lat: number | null;
+  lng: number | null;
   source: "COORDS" | "YANDEX_ORG" | "YANDEX_GEO" | "OSM";
   /** Muassasa markazidan masofa (metr) */
   distance: number | null;
+  uri?: string | null;
 }
+
+export type ResolvedPlace = PlaceResult & { lat: number; lng: number };
 
 export interface MyGeoCenter {
   lat: number;

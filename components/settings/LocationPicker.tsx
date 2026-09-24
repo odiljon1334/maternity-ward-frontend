@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Crosshair, Loader2, MapPin, Search, X } from "lucide-react";
-import { workSitesApi, type PlaceResult } from "@/lib/api";
+import { workSitesApi, type PlaceResult, type ResolvedPlace } from "@/lib/api";
 import { YMaps, Map, Placemark, Circle } from "@pbe/react-yandex-maps";
 import {
   createAccurateLocationRequest,
@@ -44,7 +44,7 @@ export function LocationPicker({
   search?: {
     targetHospitalId?: string;
     /** Natija tanlanganda — masalan nom/manzil maydonlarini to'ldirish uchun */
-    onPlace?: (place: PlaceResult) => void;
+    onPlace?: (place: ResolvedPlace) => void;
   };
 }) {
   const [locating, setLocating] = useState(false);
@@ -175,6 +175,10 @@ const SOURCE_LABEL: Record<PlaceResult["source"], string> = {
   OSM: "OpenStreetMap",
 };
 
+function hasCoords(p: PlaceResult): p is ResolvedPlace {
+  return p.lat != null && p.lng != null;
+}
+
 function fmtDistance(m: number | null) {
   if (m == null) return "";
   return m < 1000 ? `${m} m` : `${(m / 1000).toFixed(m < 10_000 ? 1 : 0)} km`;
@@ -190,10 +194,12 @@ function PlaceSearchBox({
   onPick,
 }: {
   targetHospitalId?: string;
-  onPick: (place: PlaceResult) => void;
+  onPick: (place: ResolvedPlace) => void;
 }) {
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(false);
+  /** Koordinatasi aniqlanayotgan natija indeksi */
+  const [resolving, setResolving] = useState<number | null>(null);
   const [results, setResults] = useState<PlaceResult[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -205,7 +211,7 @@ function PlaceSearchBox({
     try {
       const res = await workSitesApi.placeSearch(query, targetHospitalId);
       // Havola/koordinata — bitta aniq nuqta: ro'yxatsiz darhol qo'yiladi
-      if (res.length === 1 && res[0].source === "COORDS") {
+      if (res.length === 1 && res[0].source === "COORDS" && hasCoords(res[0])) {
         onPick(res[0]);
         setResults(null);
         toast.success("Nuqta xaritaga qo'yildi");
@@ -221,6 +227,32 @@ function PlaceSearchBox({
       setResults(null);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const choose = async (r: PlaceResult, i: number) => {
+    if (resolving !== null) return;
+    if (hasCoords(r)) {
+      onPick(r);
+      setResults(null);
+      return;
+    }
+    if (!r.uri) return;
+    setResolving(i);
+    setError(null);
+    try {
+      const place = await workSitesApi.placeResolve(r.uri, targetHospitalId);
+      // Ro'yxatda ko'ringan nom va manzil saqlanadi — foydalanuvchi aynan shuni tanladi
+      onPick({ ...place, name: r.name, address: r.address ?? place.address });
+      setResults(null);
+    } catch (e) {
+      const msg = (e as { response?: { data?: { message?: string } } })
+        ?.response?.data?.message;
+      setError(
+        msg ?? "Joy koordinatasini olib bo'lmadi. Nuqtani xaritadan tanlang.",
+      );
+    } finally {
+      setResolving(null);
     }
   };
 
@@ -284,15 +316,18 @@ function PlaceSearchBox({
             </div>
             {results.map((r, i) => (
               <button
-                key={`${r.lat},${r.lng},${i}`}
+                key={`${r.uri ?? `${r.lat},${r.lng}`},${i}`}
                 type="button"
-                onClick={() => {
-                  onPick(r);
-                  setResults(null);
-                }}
-                className="flex w-full items-start gap-2.5 px-3 py-2.5 text-left transition hover:bg-[var(--bg-hover)]"
+                onClick={() => void choose(r, i)}
+                disabled={resolving !== null}
+                aria-busy={resolving === i}
+                className="flex w-full items-start gap-2.5 px-3 py-2.5 text-left transition hover:bg-[var(--bg-hover)] disabled:cursor-wait disabled:opacity-60"
               >
-                <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-500" />
+                {resolving === i ? (
+                  <Loader2 className="mt-0.5 h-4 w-4 flex-shrink-0 animate-spin text-emerald-500" />
+                ) : (
+                  <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-500" />
+                )}
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-semibold text-[var(--text-primary)]">
                     {r.name}
