@@ -2,7 +2,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useDeferredValue } from "react";
+import { matchesSearch } from "@/lib/search";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { attendanceApi, departmentsApi, photoThumbUrl } from "@/lib/api";
@@ -88,6 +89,8 @@ export default function AttendancePage() {
 
   const [date, setDate]               = useState(dayjs().format("YYYY-MM-DD"));
   const [searchQuery, setSearchQuery] = useState("");
+  // Yozish paytida ro'yxat qayta chizilishi tugmalarni sekinlashtirmasin
+  const deferredSearch = useDeferredValue(searchQuery);
   const [deptFilter, setDeptFilter]   = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
   const [shiftFilter, setShiftFilter]   = useState<ShiftFilter>("ALL");
@@ -146,13 +149,16 @@ export default function AttendancePage() {
   const filteredRecords = useMemo(() => {
     return (records as any[]).filter(r => {
       // Search
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        if (
-          !r.employee?.fullName?.toLowerCase().includes(q) &&
-          !r.employee?.position?.name?.toLowerCase().includes(q)
-        ) return false;
-      }
+      // Ism-familiya istalgan tartibda, qisman, kirill/lotin — lib/search.ts
+      if (
+        deferredSearch.trim() &&
+        !matchesSearch(deferredSearch, [
+          r.employee?.fullName,
+          r.employee?.position?.name,
+          r.employee?.department?.name,
+          r.employee?.employeeNo,
+        ])
+      ) return false;
 
       // Status filter
       switch (statusFilter) {
@@ -175,19 +181,27 @@ export default function AttendancePage() {
 
       return true;
     });
-  }, [records, searchQuery, statusFilter, shiftFilter]);
+  }, [records, deferredSearch, statusFilter, shiftFilter]);
 
   // ── Sekin-asta ko'rsatish ────────────────────────────────────────────────────
   // 525 xodimni bir vaqtda chizish mobilda ham, desktopda ham og'ir.
   // Pastga yetganda porsiya-porsiya qo'shiladi (sahifa scrolli bo'yicha).
   const PAGE_SIZE = 20;
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  // ⚠️ Desktopda jadvalning O'Z scrolli bor (max-h + overflow-y-auto) — uning
+  // sentineli shu konteyner ichida va IntersectionObserver root'i shu konteyner
+  // bo'lishi kerak. Ilgari bitta umumiy sentinel jadval tashqarisida, doim
+  // ko'rinib turardi: bir marta ishlab (20 → 40), keyin "kesishish o'zgarmadi"
+  // deb boshqa hech qachon ishlamasdi va "yuklanmoqda..." abadiy qolardi.
+  const tableScrollRef = useRef<HTMLDivElement | null>(null);
+  const desktopSentinelRef = useRef<HTMLTableRowElement | null>(null);
+  const mobileSentinelRef = useRef<HTMLDivElement | null>(null);
 
-  // Filtr/sana o'zgarsa — boshidan
+  // Filtr/sana o'zgarsa — boshidan (jadval scrolli ham tepaga)
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [date, searchQuery, deptFilter, statusFilter, shiftFilter]);
+    tableScrollRef.current?.scrollTo({ top: 0 });
+  }, [date, deferredSearch, deptFilter, statusFilter, shiftFilter]);
 
   const visibleRecords = useMemo(
     () => filteredRecords.slice(0, visibleCount),
@@ -197,19 +211,25 @@ export default function AttendancePage() {
 
   useEffect(() => {
     if (!hasMore) return;
-    const el = sentinelRef.current;
-    if (!el) return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) {
-          setVisibleCount((c) => Math.min(c + PAGE_SIZE, filteredRecords.length));
-        }
-      },
-      { rootMargin: "200px" },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, [hasMore, filteredRecords.length]);
+    const loadMore = () =>
+      setVisibleCount((c) => Math.min(c + PAGE_SIZE, filteredRecords.length));
+    const observers: IntersectionObserver[] = [];
+    const watch = (el: Element | null, root: Element | null) => {
+      // display:none (masalan mobil kartochkalar desktopda) — kuzatilmaydi
+      if (!el || (el as HTMLElement).offsetParent === null) return;
+      const io = new IntersectionObserver(
+        (entries) => { if (entries[0]?.isIntersecting) loadMore(); },
+        { root, rootMargin: "300px" },
+      );
+      io.observe(el);
+      observers.push(io);
+    };
+    watch(desktopSentinelRef.current, tableScrollRef.current);
+    watch(mobileSentinelRef.current, null);
+    return () => observers.forEach((io) => io.disconnect());
+    // visibleCount o'zgarganda qayta ulanadi: sentinel hali ham ko'rinib
+    // tursa (ekran baland) — keyingi porsiya darhol qo'shiladi
+  }, [hasMore, visibleCount, filteredRecords.length]);
 
   // ─────────────────────────────────────────────────────────────────────────────
 
@@ -338,13 +358,16 @@ export default function AttendancePage() {
 
           {/* Search */}
           <div className="relative flex-1 min-w-[200px] max-w-md">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            {/* .input-field @layer utilities ichida — oddiy pl-9 uning px-3 idan yutqazadi, shuning uchun ! */}
             <Input
-              type="text"
-              placeholder="Xodim ismi yoki lavozimi..."
+              type="search"
+              inputMode="search"
+              autoComplete="off"
+              placeholder="Ism, familiya, lavozim yoki bo'lim..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="pl-9 text-xs"
+              className="!pl-9 text-xs"
             />
           </div>
 
@@ -440,7 +463,7 @@ export default function AttendancePage() {
       ) : <TableShell maxHeight="none">
         {/* Jadval — faqat sm: dan yuqorida. Mobilda kartochkalar ko'rsatiladi
             (ichki vertikal scroll o'rniga sahifaning o'zi scroll bo'ladi) */}
-        <div className="hidden sm:block overflow-x-auto overflow-y-auto max-h-[calc(100vh-380px)]">
+        <div ref={tableScrollRef} className="hidden sm:block overflow-x-auto overflow-y-auto max-h-[calc(100vh-380px)]">
           <table className="w-full text-left text-xs">
             <thead className="ui-table-head sticky top-0 z-20 border-b border-[var(--border)] uppercase font-semibold tracking-wider">
               <tr>
@@ -608,6 +631,18 @@ export default function AttendancePage() {
                 );
               })}
 
+              {/* Scroll sentinel (jadval scrolli ichida) */}
+              {!isLoading && hasMore && (
+                <tr ref={desktopSentinelRef}>
+                  <td colSpan={9} className="px-4 py-4 text-center text-[11px] text-slate-400 dark:text-slate-500">
+                    <span className="inline-flex items-center gap-2">
+                      <span className="h-3 w-3 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+                      Yana {filteredRecords.length - visibleCount} xodim yuklanmoqda...
+                    </span>
+                  </td>
+                </tr>
+              )}
+
               {/* Empty */}
               {!isLoading && filteredRecords.length === 0 && (
                 <tr>
@@ -719,17 +754,17 @@ export default function AttendancePage() {
               Xodim topilmadi
             </div>
           )}
-        </div>
 
-        {/* Scroll sentinel — ko'ringanda keyingi porsiya qo'shiladi */}
-        {!isLoading && hasMore && (
-          <div ref={sentinelRef} className="py-4 text-center text-[11px] text-slate-400 dark:text-slate-500 border-t border-slate-200 dark:border-slate-800">
-            <span className="inline-flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
-              Yana {filteredRecords.length - visibleCount} xodim yuklanmoqda...
-            </span>
-          </div>
-        )}
+          {/* Scroll sentinel (sahifa scrolli) */}
+          {!isLoading && hasMore && (
+            <div ref={mobileSentinelRef} className="py-4 text-center text-[11px] text-slate-400 dark:text-slate-500">
+              <span className="inline-flex items-center gap-2">
+                <span className="h-3 w-3 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+                Yana {filteredRecords.length - visibleCount} xodim yuklanmoqda...
+              </span>
+            </div>
+          )}
+        </div>
 
         {/* Footer */}
         <div className="px-4 py-2.5 bg-slate-50 dark:bg-slate-950/80 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500">

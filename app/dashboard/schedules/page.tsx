@@ -756,6 +756,16 @@ export default function SchedulesPage() {
     return () => io.disconnect();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
+  // Katta monitorda birinchi porsiya jadvalni to'ldirmasa, scroll bo'lmaydi va
+  // onScroll hech qachon ishlamaydi — bunday holatda keyingi sahifani o'zimiz so'raymiz.
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el || el.offsetParent === null) return;
+    if (hasNextPage && !isFetchingNextPage && el.scrollHeight <= el.clientHeight + 100) {
+      fetchNextPage();
+    }
+  });
+
   const handleScroll = (event: React.UIEvent<HTMLDivElement>) => {
     const { scrollTop, scrollHeight, clientHeight } = event.currentTarget;
     
