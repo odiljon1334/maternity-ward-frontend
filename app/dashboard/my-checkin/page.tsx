@@ -5,13 +5,15 @@
 /**
  * Mobil check-in / check-out (FAZA 6 · 4c) — dizayn kanvasi bo'yicha.
  *
- * Oqim: sahifa ochiladi → ruxsatlar oldin berilgan bo'lsa kamera va GPS o'zi
- * yoqiladi (aks holda bitta "Boshlash" tugmasi — iOS PWA ruxsat oynasi
- * foydalanuvchi bosishini talab qiladi) → xodim ish joyi ichida bo'lsa katta
- * tugma faollashadi → bosilganda surat DARHOL olinib yuboriladi (preview yo'q).
+ * Oqim: sahifa ochiladi → GPS o'zi aniqlanadi (ruxsat oldin berilgan bo'lsa),
+ * kamera YOPIQ turadi → xodim ish joyi ichida bo'lsa "Kelishni/Ketishni
+ * tasdiqlash" faollashadi → bosilganda kamera ochiladi → xodim yuzini
+ * ramkaga joylab "Suratga olish"ni bosadi → surat yuboriladi.
+ * Kamera faqat kerak paytda yonadi (maxfiylik va batareya); iOS'da ham ruxsat
+ * oynasi aynan shu bosishda chiqadi.
  *
- * Ketishda selfie majburiy emas: server GPS'ni doim tekshiradi, yuzni esa faqat
- * shubhali holatda solishtiradi. Kamera ochiq bo'lsa kadr baribir yuboriladi.
+ * Ketishda ham selfie olinadi (dalil sifatida saqlanadi); server yuzni faqat
+ * shubhali holatda solishtiradi.
  *
  * Ichida/tashqarida ekranda serverdagi qoida bilan bir xil hisoblanadi:
  * masofa − radius ≤ min(GPS aniqligi, 50 m). Yakuniy qarorni server qiladi.
@@ -138,16 +140,17 @@ function useCamera() {
     genRef.current++;
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
+    if (videoRef.current) videoRef.current.srcObject = null;
     setActive(false);
     setStarting(false);
   }, []);
 
-  const start = useCallback(async () => {
-    if (streamRef.current) { attach(); return; }
+  const start = useCallback(async (): Promise<boolean> => {
+    if (streamRef.current) { attach(); return true; }
     setError(null);
     if (!navigator.mediaDevices?.getUserMedia) {
       setError("Bu brauzer kamerani qo'llab-quvvatlamaydi. Chrome yoki Safari'dan foydalaning.");
-      return;
+      return false;
     }
     setStarting(true);
     const gen = ++genRef.current;
@@ -160,7 +163,7 @@ function useCamera() {
       // to'xtatiladi (aks holda kamera chirog'i yonib qolardi)
       if (gen !== genRef.current) {
         stream.getTracks().forEach((t) => t.stop());
-        return;
+        return false;
       }
       streamRef.current = stream;
       // iOS ilova fonga o'tganda oqim uziladi — "Boshlash" qayta ko'rinadi
@@ -168,10 +171,12 @@ function useCamera() {
         t.onended = () => { streamRef.current = null; setActive(false); };
       });
       setActive(true);
+      return true;
     } catch {
       if (gen === genRef.current) {
         setError("Kameraga ruxsat berilmadi. Telefon sozlamalarida ushbu sayt uchun kamerani yoqing.");
       }
+      return false;
     } finally {
       if (gen === genRef.current) setStarting(false);
     }
@@ -498,25 +503,26 @@ export default function MyCheckinPage() {
   const [verifyError, setVerifyError] = useState<string | null>(null);
   const [captureError, setCaptureError] = useState<string | null>(null);
   const [showEarlyWarning, setShowEarlyWarning] = useState(false);
+  /** Xodim "tasdiqlash"ni bosgan — kamera ochiq, "Suratga olish" kutilmoqda */
+  const [cameraOpen, setCameraOpen] = useState(false);
   const [steps, setSteps] = useState<{ photoKb: number | null; uploadedMs: number | null; startedAt: number }>({
     photoKb: null, uploadedMs: null, startedAt: 0,
   });
   const [lastResult, setLastResult] = useState<{ siteName: string | null; faceChecked: boolean; facePending: boolean } | null>(null);
 
-  // Ruxsatlar oldin berilgan bo'lsa — hech narsa bosmasdan ishga tushadi
+  // GPS ruxsati oldin berilgan bo'lsa — o'zi aniqlanadi. Kamera esa faqat
+  // "tasdiqlash" bosilganda ochiladi.
   useEffect(() => {
     if (!wantsLive) {
       cam.stop();
       gps.stop();
+      setCameraOpen(false);
       return;
     }
     let cancelled = false;
-    void (async () => {
-      const [geoPerm, camPerm] = await Promise.all([queryPermission("geolocation"), queryPermission("camera")]);
-      if (cancelled) return;
-      if (geoPerm === "granted") gps.locate();
-      if (camPerm === "granted") void cam.start();
-    })();
+    void queryPermission("geolocation").then((geoPerm) => {
+      if (!cancelled && geoPerm === "granted") gps.locate();
+    });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wantsLive]);
@@ -529,19 +535,18 @@ export default function MyCheckinPage() {
         cam.stop();
         return;
       }
-      if (!wantsLive || verify !== "idle") return;
-      void queryPermission("camera").then((p) => {
-        if (p === "granted" && !document.hidden) void cam.start();
-      });
+      // Faqat xodim kamerani o'zi ochgan bo'lsa qayta yoqiladi
+      if (!wantsLive || !cameraOpen || verify !== "idle") return;
+      void cam.start();
     };
     document.addEventListener("visibilitychange", onVisibility);
     return () => document.removeEventListener("visibilitychange", onVisibility);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wantsLive, verify]);
+  }, [wantsLive, verify, cameraOpen]);
 
-  const startAll = () => {
-    if (!gps.coords && !gps.loading) gps.locate();
-    if (!cam.active) void cam.start();
+  const closeCamera = () => {
+    cam.stop();
+    setCameraOpen(false);
   };
 
   /** Tugma ikki marta bosilmasin: surat olinayotgan paytda ham (mutation hali boshlanmagan) */
@@ -579,6 +584,7 @@ export default function MyCheckinPage() {
       void qc.invalidateQueries({ queryKey: SELF_TODAY_KEY });
       void qc.invalidateQueries({ queryKey: ["my-attendance"] });
       void qc.invalidateQueries({ queryKey: ["live-location-tracking-session"] });
+      closeCamera();
       setVerify("idle");
     },
     onError: (error: any) => {
@@ -593,37 +599,46 @@ export default function MyCheckinPage() {
     },
   });
 
-  const cameraRequired = mode === "in";
   const geoReady = geo.status === "inside" || geo.status === "no-centers";
-  const canPress = !mutation.isPending && wantsLive && geoReady && (!cameraRequired || cam.active);
+  /** "Tasdiqlash" (kamerani ochish) mumkinmi */
+  const canOpen = !mutation.isPending && wantsLive && geoReady;
+  /** "Suratga olish" mumkinmi */
+  const canShoot = canOpen && cameraOpen && cam.active;
 
-  const submit = async (confirmedEarly = false) => {
-    if (submittingRef.current || mutation.isPending) return;
-    if (!canPress) return;
+  // Ish joyidan chiqib ketsa yoki holat o'zgarsa — kamera yopiladi
+  useEffect(() => {
+    if (cameraOpen && verify === "idle" && geo.status === "outside") closeCamera();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [geo.status, cameraOpen, verify]);
+
+  /** 1-bosish: kamera ochiladi (ketishda erta bo'lsa — avval ogohlantirish) */
+  const openCamera = async (confirmedEarly = false) => {
+    if (!canOpen || cameraOpen) return;
     if (mode === "out" && isEarlyLeave && !confirmedEarly) {
       setShowEarlyWarning(true);
       return;
     }
-    submittingRef.current = true;
     setShowEarlyWarning(false);
     setCaptureError(null);
+    setCameraOpen(true);
+    const ok = await cam.start();
+    if (!ok) setCameraOpen(false);
+  };
 
-    let selfie: File | null = null;
-    if (cam.active) {
-      const shot = await cam.capture();
-      if (shot.error && cameraRequired) {
-        setCaptureError(shot.error);
-        setVerify("idle");
-        submittingRef.current = false;
-        return;
-      }
-      selfie = shot.file;
-    } else if (cameraRequired) {
-      setCaptureError("Kamera yoqilmagan. Avval kamerani yoqing.");
-      setVerify("idle");
+  /** 2-bosish: surat olinadi va yuboriladi */
+  const submit = async () => {
+    if (submittingRef.current || mutation.isPending) return;
+    if (!canShoot) return;
+    submittingRef.current = true;
+    setCaptureError(null);
+
+    const shot = await cam.capture();
+    if (shot.error || !shot.file) {
+      setCaptureError(shot.error ?? "Suratni olib bo'lmadi. Qayta bosing.");
       submittingRef.current = false;
       return;
     }
+    const selfie = shot.file;
     setVerifyMode(mode);
     setVerifyError(null);
     setSteps({ photoKb: selfie ? Math.max(1, Math.round(selfie.size / 1024)) : null, uploadedMs: null, startedAt: Date.now() });
@@ -748,7 +763,7 @@ export default function MyCheckinPage() {
 
               {view === "verify" ? (
                 <VerifyOverlay state={verify} mode={verifyMode} error={verifyError} />
-              ) : cam.active || view === "outside" ? (
+              ) : cam.active ? (
                 <FaceFrame
                   className="relative"
                   stroke={
@@ -763,18 +778,21 @@ export default function MyCheckinPage() {
                     <Camera className="h-7 w-7" />
                   </span>
                   <p className="max-w-[260px] text-sm font-semibold text-white/80">
-                    {mode === "in"
-                      ? "Kelishni belgilash uchun kamera va joylashuvga ruxsat bering"
-                      : "Kamera ixtiyoriy — shubhali holatda yuz so'raladi"}
+                    {cameraOpen || cam.starting
+                      ? "Kamera ochilmoqda…"
+                      : view === "outside"
+                        ? "Ish joyiga yetib kelganingizda kamera ochiladi"
+                        : `Kamera «${mode === "in" ? "Kelishni" : "Ketishni"} tasdiqlash» bosilganda ochiladi`}
                   </p>
-                  <button
-                    type="button"
-                    onClick={startAll}
-                    disabled={cam.starting}
-                    className="rounded-2xl bg-white px-6 py-3 text-sm font-extrabold text-[#0F1222] shadow-lg transition active:scale-95"
-                  >
-                    {cam.starting ? "Yoqilmoqda…" : "Boshlash"}
-                  </button>
+                  {geo.status === "idle" && !gps.loading && (
+                    <button
+                      type="button"
+                      onClick={gps.locate}
+                      className="rounded-2xl bg-white px-6 py-3 text-sm font-extrabold text-[#0F1222] shadow-lg transition active:scale-95"
+                    >
+                      Joylashuvni aniqlash
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -792,7 +810,7 @@ export default function MyCheckinPage() {
                   accuracy={gps.coords?.accuracy ?? null}
                   issue={gps.error}
                   onRetry={gps.locate}
-                  hidden={!cam.active && geo.status === "idle"}
+                  hidden={geo.status === "idle"}
                 />
               )}
             </div>
@@ -811,7 +829,7 @@ export default function MyCheckinPage() {
                   mutation.reset();
                   void today.refetch().finally(() => setVerify("idle"));
                 }}
-                onBack={() => { mutation.reset(); setVerify("idle"); }}
+                onBack={() => { mutation.reset(); closeCamera(); setVerify("idle"); }}
               />
             ) : (
             <div className="flex flex-col gap-2 px-5 pb-1.5 pt-3.5">
@@ -831,27 +849,42 @@ export default function MyCheckinPage() {
                   </SecondaryButton>
                 </>
               ) : (
-                <>
-                  <PrimaryButton
-                    tone={mode === "in" ? "indigo" : "orange"}
-                    disabled={!canPress}
-                    onClick={() => void submit()}
-                    icon={
-                      !geoReady && wantsLive && (geo.status === "locating" || geo.status === "weak")
-                        ? <Crosshair className="h-[22px] w-[22px]" />
-                        : mode === "in" ? <ScanFace className="h-[22px] w-[22px]" /> : <LogOut className="h-[22px] w-[22px]" />
-                    }
-                  >
-                    {geo.status === "locating" ? "Joylashuv kutilmoqda…"
-                      : mode === "in" ? "Kelishni tasdiqlash" : "Ketishni tasdiqlash"}
-                  </PrimaryButton>
-                  <p className="text-center text-[12.5px] text-[var(--ci-muted)]">
-                    {geo.status === "locating" ? "Aniqlik yetarli bo'lgach tugma o'zi yoqiladi"
-                      : cameraRequired && !cam.active ? "Avval «Boshlash»ni bosing"
-                      : mode === "in" ? "Bosilganda surat o'zi olinadi va yuboriladi"
-                      : "GPS tekshiriladi · yuz faqat shubhali holatda solishtiriladi"}
-                  </p>
-                </>
+                cameraOpen ? (
+                  <>
+                    <PrimaryButton
+                      tone={mode === "in" ? "indigo" : "orange"}
+                      disabled={!canShoot}
+                      onClick={() => void submit()}
+                      icon={<Camera className="h-[22px] w-[22px]" />}
+                    >
+                      {cam.active ? "Suratga olish" : "Kamera ochilmoqda…"}
+                    </PrimaryButton>
+                    <SecondaryButton onClick={closeCamera} icon={<X className="h-[18px] w-[18px]" />}>
+                      Bekor qilish
+                    </SecondaryButton>
+                  </>
+                ) : (
+                  <>
+                    <PrimaryButton
+                      tone={mode === "in" ? "indigo" : "orange"}
+                      disabled={!canOpen}
+                      onClick={() => void openCamera()}
+                      icon={
+                        !geoReady && wantsLive && (geo.status === "locating" || geo.status === "weak")
+                          ? <Crosshair className="h-[22px] w-[22px]" />
+                          : mode === "in" ? <ScanFace className="h-[22px] w-[22px]" /> : <LogOut className="h-[22px] w-[22px]" />
+                      }
+                    >
+                      {geo.status === "locating" ? "Joylashuv kutilmoqda…"
+                        : mode === "in" ? "Kelishni tasdiqlash" : "Ketishni tasdiqlash"}
+                    </PrimaryButton>
+                    <p className="text-center text-[12.5px] text-[var(--ci-muted)]">
+                      {geo.status === "locating" ? "Aniqlik yetarli bo'lgach tugma o'zi yoqiladi"
+                        : geo.status === "idle" ? "Avval joylashuvni aniqlang"
+                        : "Bosilganda kamera ochiladi"}
+                    </p>
+                  </>
+                )
               )}
             </div>
             )}
@@ -862,7 +895,7 @@ export default function MyCheckinPage() {
       {showEarlyWarning && (
         <EarlyLeaveSheet
           shiftEnd={today.shiftEnd}
-          onConfirm={() => void submit(true)}
+          onConfirm={() => void openCamera(true)}
           onCancel={() => setShowEarlyWarning(false)}
         />
       )}
