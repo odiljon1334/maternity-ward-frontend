@@ -94,3 +94,9 @@ export function getAvatarColor(name: string | null | undefined): string {
   for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
   return colors[Math.abs(hash) % colors.length];
 }
+
+const naturalCollator = new Intl.Collator("uz", { numeric: true, sensitivity: "base" });
+/** "2-maktab" < "13-maktab"; katta-kichik harf farqsiz */
+export function naturalCompare(a: string, b: string): number {
+  return naturalCollator.compare(a ?? "", b ?? "");
+}

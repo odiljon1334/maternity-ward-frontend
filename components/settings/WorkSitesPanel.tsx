@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import { employeesApi, workSitesApi, type WorkSite, type LegacyCenter } from "@/lib/api";
 import { Dialog, useConfirmation } from "@/components/ui";
+import { cn, naturalCompare } from "@/lib/utils";
+import { matchesSearch } from "@/lib/search";
 import { LocationPicker, MAX_PICK_ACCURACY_M, type PickedLocation } from "./LocationPicker";
 import { apiErrorText } from "./GeofencePanel";
 
@@ -46,6 +48,26 @@ export function WorkSitesPanel({ targetHospitalId }: { targetHospitalId?: string
   });
 
   const [editing, setEditing] = useState<WorkSite | "new" | null>(null);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<"all" | "active" | "inactive" | "empty">("all");
+  const sorted = useMemo(() => [...sites].sort((a, b) => naturalCompare(a.name, b.name)), [sites]);
+  const counts = useMemo(
+    () => ({
+      all: sites.length,
+      active: sites.filter((x) => x.isActive).length,
+      inactive: sites.filter((x) => !x.isActive).length,
+      empty: sites.filter((x) => x.employeeCount === 0).length,
+    }),
+    [sites],
+  );
+  const visible = sorted.filter(
+    (x) =>
+      (filter === "all" ||
+        (filter === "active" && x.isActive) ||
+        (filter === "inactive" && !x.isActive) ||
+        (filter === "empty" && x.employeeCount === 0)) &&
+      (!query.trim() || matchesSearch(query, [x.name, x.address])),
+  );
   const [assigning, setAssigning] = useState<WorkSite | null>(null);
   const [approving, setApproving] = useState<LegacyCenter | null>(null);
 
@@ -92,8 +114,8 @@ export function WorkSitesPanel({ targetHospitalId }: { targetHospitalId?: string
         </p>
 
         {isLoading ? (
-          <div className="space-y-2">
-            {[1, 2].map((i) => <div key={i} className="h-14 rounded-xl bg-[var(--bg-hover)] animate-pulse" />)}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {[1, 2, 3].map((i) => <div key={i} className="h-36 rounded-2xl bg-[var(--bg-hover)] animate-pulse" />)}
           </div>
         ) : sites.length === 0 ? (
           <div className="text-center py-5 text-sm text-[var(--text-muted)]">
@@ -101,55 +123,152 @@ export function WorkSitesPanel({ targetHospitalId }: { targetHospitalId?: string
             Hali ish joyi qo&apos;shilmagan
           </div>
         ) : (
-          <div className="space-y-2">
-            {sites.map((s) => (
-              <div
-                key={s.id}
-                className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[var(--bg-hover)] border border-[var(--border)]"
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-[var(--text-primary)] truncate">
-                    {s.name}
-                    {!s.isActive && <span className="ml-2 badge-gray">Nofaol</span>}
-                  </p>
-                  <p className="text-xs text-[var(--text-muted)] truncate">
-                    {s.address ? `${s.address} · ` : ""}radius {s.gpsRadius}m · {s.employeeCount} xodim
-                  </p>
-                </div>
-                <button
-                  onClick={() => setAssigning(s)}
-                  className="btn-secondary py-1 px-2.5 text-xs gap-1"
-                  title="Xodimlarni biriktirish"
-                >
-                  <Users className="w-3.5 h-3.5" /> {s.employeeCount}
-                </button>
-                <button
-                  onClick={() => toggleMut.mutate(s)}
-                  disabled={toggleMut.isPending}
-                  className={`text-xs px-2 py-1 rounded-lg border ${s.isActive ? "border-emerald-500/25 text-emerald-400 bg-emerald-500/10" : "border-[var(--border)] text-[var(--text-muted)]"}`}
-                >
-                  {s.isActive ? "Faol" : "Nofaol"}
-                </button>
-                <button onClick={() => setEditing(s)} className="btn-ghost p-1.5" aria-label="Tahrirlash">
-                  <Pencil className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() =>
-                    void confirm({
-                      title: "Ish joyi o'chirilsinmi?",
-                      description: `«${s.name}» o'chiriladi, xodimlar undan uziladi. O'tgan davomat yozuvlari saqlanadi.`,
-                      confirmLabel: "O'chirish",
-                      tone: "danger",
-                    }).then((ok) => ok && removeMut.mutate(s.id))
-                  }
-                  className="btn-ghost p-1.5 text-red-400 hover:bg-red-500/10"
-                  aria-label="O'chirish"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+          <>
+            {/* Qidiruv va filtr */}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative min-w-[200px] flex-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-muted)]" />
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Nomi yoki manzili bo'yicha qidirish..."
+                  className="input-field w-full !pl-9 text-sm"
+                />
               </div>
-            ))}
-          </div>
+              <div className="grid w-full grid-cols-4 gap-0.5 rounded-xl border border-[var(--border)] p-0.5 text-xs font-semibold sm:flex sm:w-auto">
+                {([
+                  ["all", "Hammasi"],
+                  ["active", "Faol"],
+                  ["inactive", "Nofaol"],
+                  ["empty", "Xodimsiz"],
+                ] as const).map(([v, label]) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setFilter(v)}
+                    className={cn(
+                      "whitespace-nowrap rounded-lg px-2 py-1.5 transition-colors sm:px-3",
+                      filter === v
+                        ? "bg-indigo-600 text-white"
+                        : "text-[var(--text-muted)] hover:text-[var(--text-primary)]",
+                    )}
+                  >
+                    {label} <span className="opacity-70">{counts[v]}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {visible.length === 0 ? (
+              <p className="py-6 text-center text-sm text-[var(--text-muted)]">Hech narsa topilmadi</p>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {visible.map((s) => (
+                  <div
+                    key={s.id}
+                    className={cn(
+                      "group flex flex-col gap-3 rounded-2xl border bg-[var(--bg-card)] p-4 transition-all hover:-translate-y-0.5 hover:border-indigo-400/40 hover:shadow-md",
+                      s.isActive ? "border-[var(--border)]" : "border-dashed border-[var(--border)] opacity-70",
+                    )}
+                  >
+                    <div className="flex items-start gap-3">
+                      <span
+                        className={cn(
+                          "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl",
+                          s.isActive ? "bg-indigo-500/10 text-indigo-500" : "bg-[var(--bg-hover)] text-[var(--text-muted)]",
+                        )}
+                      >
+                        <MapPinned className="h-5 w-5" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="line-clamp-2 text-sm font-semibold leading-snug text-[var(--text-primary)]" title={s.name}>
+                          {s.name}
+                        </p>
+                        <p className="mt-0.5 truncate text-[11px] text-[var(--text-muted)]" title={s.address ?? undefined}>
+                          {s.address || "Manzil kiritilmagan"}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => toggleMut.mutate(s)}
+                        disabled={toggleMut.isPending}
+                        title={s.isActive ? "Nofaol qilish" : "Faollashtirish"}
+                        aria-pressed={s.isActive}
+                        className={cn(
+                          "relative h-5 w-9 flex-shrink-0 rounded-full transition-colors",
+                          s.isActive ? "bg-emerald-500" : "bg-[var(--border)]",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all",
+                            s.isActive ? "left-[18px]" : "left-0.5",
+                          )}
+                        />
+                      </button>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5 text-[11px] font-semibold">
+                      <span className="rounded-full bg-[var(--bg-hover)] px-2.5 py-1 text-[var(--text-muted)]">
+                        radius {s.gpsRadius} m
+                      </span>
+                      <span
+                        className={cn(
+                          "rounded-full px-2.5 py-1",
+                          s.employeeCount > 0
+                            ? "bg-sky-500/10 text-sky-600 dark:text-sky-400"
+                            : "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+                        )}
+                      >
+                        {s.employeeCount > 0 ? `${s.employeeCount} xodim` : "xodim biriktirilmagan"}
+                      </span>
+                      {!s.isActive && (
+                        <span className="rounded-full bg-[var(--bg-hover)] px-2.5 py-1 text-[var(--text-muted)]">nofaol</span>
+                      )}
+                    </div>
+
+                    <div className="mt-auto flex items-center gap-1 border-t border-[var(--border)] pt-3">
+                      <button
+                        onClick={() => setAssigning(s)}
+                        className="btn-secondary !gap-1.5 !rounded-lg !px-3 !py-1.5 !text-xs"
+                        title="Xodimlarni biriktirish"
+                      >
+                        <Users className="h-3.5 w-3.5" /> Xodimlar
+                      </button>
+                      <a
+                        href={`https://yandex.uz/maps/?pt=${s.gpsLng},${s.gpsLat}&z=17&l=map`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-ghost ml-auto p-2"
+                        title="Xaritada ko'rish"
+                        aria-label="Xaritada ko'rish"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                      <button onClick={() => setEditing(s)} className="btn-ghost p-2" aria-label="Tahrirlash" title="Tahrirlash">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() =>
+                          void confirm({
+                            title: "Ish joyi o'chirilsinmi?",
+                            description: `«${s.name}» o'chiriladi, xodimlar undan uziladi. O'tgan davomat yozuvlari saqlanadi.`,
+                            confirmLabel: "O'chirish",
+                            tone: "danger",
+                          }).then((ok) => ok && removeMut.mutate(s.id))
+                        }
+                        className="btn-ghost p-2 text-red-400 hover:bg-red-500/10"
+                        aria-label="O'chirish"
+                        title="O'chirish"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
         )}
 
         {legacy.length > 0 && (
