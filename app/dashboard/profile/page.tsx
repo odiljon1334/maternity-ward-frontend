@@ -6,7 +6,6 @@ import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { authApi, employeesApi, photoUrl } from "@/lib/api";
-import { Topbar } from "@/components/layout/Topbar";
 import { useAuthStore } from "@/stores/auth";
 import { useTheme } from "next-themes";
 import {
@@ -15,6 +14,7 @@ import {
   Mail, MailCheck, Send, Pencil
 } from "lucide-react";
 import { cn, getAvatarColor, getInitials } from "@/lib/utils";
+import { EmployeeScreen } from "@/components/employee/EmployeeScreen";
 
 export default function ProfilePage() {
   const { user } = useAuthStore();
@@ -106,13 +106,12 @@ export default function ProfilePage() {
 
   // ─────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen pb-24">
-      <Topbar title="Profilim" subtitle="Shaxsiy ma'lumotlar va xavfsizlik" />
+    <EmployeeScreen title="Profilim" subtitle="Shaxsiy ma'lumotlar va xavfsizlik" className="pb-24">
 
-      <div className="p-4 lg:p-6 max-w-lg mx-auto space-y-6">
+      <div className="px-4 pt-2 sm:p-6 max-w-lg mx-auto space-y-4 sm:space-y-6">
 
         {/* ── Kreativ Banner / Avatar Qismi ────────────────── */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-b from-indigo-950/40 via-[var(--bg-card)] to-[var(--bg-card)] border border-indigo-500/20 p-8 text-center shadow-2xl backdrop-blur-xl">
+        <div className="ci-banner relative overflow-hidden rounded-3xl bg-gradient-to-b from-indigo-950/40 via-[var(--bg-card)] to-[var(--bg-card)] border border-indigo-500/20 p-8 text-center shadow-2xl backdrop-blur-xl">
           <div className="absolute top-0 right-0 p-6 opacity-10 pointer-events-none text-indigo-400">
             <Sparkles className="w-32 h-32" />
           </div>
@@ -482,6 +481,6 @@ export default function ProfilePage() {
         </div>
 
       </div>
-    </div>
+    </EmployeeScreen>
   );
 }

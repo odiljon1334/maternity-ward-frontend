@@ -3,7 +3,6 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { payrollApi, downloadBlob } from "@/lib/api";
-import { Topbar } from "@/components/layout/Topbar";
 import { formatMoney, formatMinutes, cn } from "@/lib/utils";
 import {
   DollarSign, Download,
@@ -11,6 +10,7 @@ import {
   CheckCircle, Clock3, Sparkles, Wallet, Calendar,
 } from "lucide-react";
 import dayjs from "dayjs";
+import { EmployeeScreen } from "@/components/employee/EmployeeScreen";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
@@ -127,13 +127,12 @@ export default function MyPayrollPage() {
   const latestId = latest?.id;
 
   return (
-    <div className="min-h-screen pb-20">
-      <Topbar title="Maoshim" subtitle="Oylik hisob-kitoblar tarixi" />
+    <EmployeeScreen title="Maoshim" subtitle="Oylik hisob-kitoblar tarixi" className="pb-20">
 
-      <div className="p-4 lg:p-6 max-w-2xl mx-auto space-y-5">
+      <div className="px-4 pt-2 sm:p-6 max-w-2xl mx-auto space-y-4 sm:space-y-5">
 
         {/* ── Banner ────────────────────────────────────────────────── */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-950/50 via-indigo-950/40 to-[var(--bg-card)] border dark:border-emerald-500/20 p-6 shadow-2xl backdrop-blur-xl">
+        <div className="ci-banner relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-950/50 via-indigo-950/40 to-[var(--bg-card)] border dark:border-emerald-500/20 p-6 shadow-2xl backdrop-blur-xl">
           <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none text-emerald-400">
             <Wallet className="w-32 h-32" />
           </div>
@@ -337,7 +336,7 @@ export default function MyPayrollPage() {
           </div>
         )}
       </div>
-    </div>
+    </EmployeeScreen>
   );
 }
 

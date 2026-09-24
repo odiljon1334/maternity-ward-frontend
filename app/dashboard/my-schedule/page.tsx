@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { schedulePlanningApi, schedulesApi } from "@/lib/api";
-import { Topbar } from "@/components/layout/Topbar";
 import { cn } from "@/lib/utils";
 import {
   ChevronLeft, ChevronRight,
@@ -18,6 +17,7 @@ import { Button } from "@/components/ui/Button";
 import { Field, Select, Textarea } from "@/components/ui/FormControls";
 import { Surface } from "@/components/ui/Surface";
 import { StatePanel } from "@/components/ui/StatePanel";
+import { EmployeeScreen } from "@/components/employee/EmployeeScreen";
 
 const WEEKDAYS = ["Du", "Se", "Ch", "Pa", "Ju", "Sh", "Ya"];
 
@@ -310,13 +310,13 @@ export default function MySchedulePage() {
   const totalDay      = totalWorkDays - totalNight;
 
   return (
-    <div className="pb-16 bg-[var(--bg-main)] min-h-screen text-[var(--text-primary)]">
-      <Topbar
-        title="Mening grafigim"
-        subtitle={`${empName} · Ish jadvali va smenalar`}
-      />
+    <EmployeeScreen
+      title="Mening grafigim"
+      subtitle={`${empName} · Ish jadvali va smenalar`}
+      className="pb-16"
+    >
 
-      <div className="max-w-4xl mx-auto px-4 lg:px-6 pt-6 space-y-5">
+      <div className="max-w-4xl mx-auto px-4 lg:px-6 pt-2 sm:pt-6 space-y-4 sm:space-y-5">
 
         {/* Banner */}
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-600/90 via-purple-600/70 to-indigo-700/90 border border-indigo-500/30 p-6 shadow-2xl text-white">
@@ -433,6 +433,6 @@ export default function MySchedulePage() {
           </Surface>
         )}
       </div>
-    </div>
+    </EmployeeScreen>
   );
 }

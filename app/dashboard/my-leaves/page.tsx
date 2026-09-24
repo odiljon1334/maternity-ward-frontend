@@ -11,11 +11,11 @@ import {
   Calendar as CalendarIcon,
 } from "lucide-react";
 import { leaveApi } from "@/lib/api";
-import { Topbar } from "@/components/layout/Topbar";
 import { cn } from "@/lib/utils";
 import dayjs from "dayjs";
 import "dayjs/locale/uz-latn";
 import { useAuthStore } from "@/stores/auth";
+import { EmployeeScreen } from "@/components/employee/EmployeeScreen";
 dayjs.locale("uz-latn");
 
 // ─── Konstantalar ─────────────────────────────────────────────────────────────
@@ -361,18 +361,18 @@ export default function MyLeavesPage() {
   ];
 
   return (
-    <div className="pb-16">
-      <Topbar
-        title="Ta'til so'rovlari"
-        subtitle={`${empName} · Ta'til va ruxsatnomalarni boshqarish`}
-      />
+    <EmployeeScreen
+      title="Ta'til so'rovlari"
+      subtitle={`${empName} · Ta'til va ruxsatnomalarni boshqarish`}
+      className="pb-16"
+    >
 
-      <div className="max-w-4xl mx-auto px-4 lg:px-6 pt-6 space-y-6">
+      <div className="max-w-4xl mx-auto px-4 lg:px-6 pt-2 sm:pt-6 space-y-4 sm:space-y-6">
         {/* Modal */}
         {showForm && <NewLeaveForm onClose={() => setShowForm(false)} />}
 
         {/* Header Panel */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-900/40 via-purple-900/20 to-[var(--bg-card)] border dark:border-indigo-900/50 p-6 shadow-xl backdrop-blur-xl">
+        <div className="ci-banner relative overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-900/40 via-purple-900/20 to-[var(--bg-card)] border dark:border-indigo-900/50 p-6 shadow-xl backdrop-blur-xl">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
             <div>
               <div className="flex items-center gap-2 text-indigo-400 text-xs font-bold uppercase tracking-wider mb-1">
@@ -484,6 +484,6 @@ export default function MyLeavesPage() {
           </div>
         )}
       </div>
-    </div>
+    </EmployeeScreen>
   );
 }

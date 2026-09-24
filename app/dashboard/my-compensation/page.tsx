@@ -5,10 +5,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { toast } from "sonner";
 import { HandCoins, MessageSquareText, Trophy } from "lucide-react";
-import { Topbar } from "@/components/layout/Topbar";
 import { compensationApi } from "@/lib/api";
 import { formatMoney } from "@/lib/utils";
 import { Button, Field, Input, Select, StatePanel, Surface, useConfirmation } from "@/components/ui";
+import { EmployeeScreen } from "@/components/employee/EmployeeScreen";
 
 const labels: Record<string, string> = {
   CONTRACTUAL_KPI_BONUS: "KPI bonusi",
@@ -74,9 +74,8 @@ export default function MyCompensationPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)]">
-      <Topbar title="Bonus va avans" subtitle="KPI, mukofot, tushuntirish va avanslarim" />
-      <main className="p-4 sm:p-6 space-y-5 max-w-5xl mx-auto">
+    <EmployeeScreen title="Bonus va avans" subtitle="KPI, mukofot, tushuntirish va avanslarim">
+      <main className="px-4 pt-2 sm:p-6 space-y-4 sm:space-y-5 max-w-5xl mx-auto">
         <Surface className="grid gap-3 p-4 sm:grid-cols-2">
           <Field label="Oy">
             <Select value={month} onChange={(e) => setMonth(+e.target.value)}>{Array.from({ length: 12 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}-oy</option>)}</Select>
@@ -111,6 +110,6 @@ export default function MyCompensationPage() {
           {(advances as any[]).map((item) => <Surface key={item.id} className="p-4 flex items-center gap-3"><div className="flex-1"><b>{item.note || "Avans"}</b><p className="text-sm text-[var(--text-muted)] mt-1">{labels[item.status] || item.status}</p></div><b>{formatMoney(item.paidAmount ?? item.approvedAmount ?? item.requestedAmount)}</b></Surface>)}
         </section>
       </main>
-    </div>
+    </EmployeeScreen>
   );
 }

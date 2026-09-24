@@ -1,6 +1,5 @@
 "use client";
 
-import { Topbar } from "@/components/layout/Topbar";
 import { useAuthStore } from "@/stores/auth";
 import {
   BookOpen,
@@ -13,6 +12,7 @@ import {
   ShieldCheck,
   Trophy,
 } from "lucide-react";
+import { EmployeeScreen } from "@/components/employee/EmployeeScreen";
 
 const topics = [
   {
@@ -58,13 +58,11 @@ export default function LaborLawPage() {
   const isManager = user?.role !== "EMPLOYEE";
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0b0d17] text-slate-900 dark:text-slate-100">
-      <Topbar
-        title="Mehnat huquqi"
-        subtitle="O‘zbekiston Mehnat kodeksi va ish haqi bo‘yicha qisqa yo‘riqnoma"
-      />
-
-      <main className="p-4 sm:p-6 space-y-6 max-w-6xl mx-auto">
+    <EmployeeScreen
+      title="Mehnat huquqi"
+      subtitle="O‘zbekiston Mehnat kodeksi va ish haqi bo‘yicha qisqa yo‘riqnoma"
+    >
+      <main className="px-4 pt-2 sm:p-6 space-y-4 sm:space-y-6 max-w-6xl mx-auto">
         <section className="card overflow-hidden">
           <div className="p-6 sm:p-8 bg-gradient-to-br from-indigo-600 to-violet-700 text-white">
             <div className="flex flex-col sm:flex-row sm:items-center gap-5">
@@ -120,6 +118,6 @@ export default function LaborLawPage() {
           </section>
         )}
       </main>
-    </div>
+    </EmployeeScreen>
   );
 }

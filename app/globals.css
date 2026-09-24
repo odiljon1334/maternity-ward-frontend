@@ -666,3 +666,38 @@ html.dark ::-webkit-scrollbar-thumb:hover {
 @media (prefers-reduced-motion: reduce) {
   .ci-pulse, .ci-sweep { animation: none; }
 }
+
+/* Xodim sahifalari (EmployeeScreen) — mobilda check-in palitrasi.
+   Mavjud sahifa kodidagi .card va --text-* ranglari shu yerda qayta
+   bog'lanadi, shuning uchun sahifalar ichini qayta yozish shart emas. */
+@media (max-width: 639px) {
+  .ci-screen {
+    --bg-card: var(--ci-card);
+    --bg-hover: var(--ci-soft);
+    --border: var(--ci-border);
+    --text-primary: var(--ci-ink);
+    --text-secondary: var(--ci-muted);
+    --text-muted: var(--ci-muted);
+  }
+  /* Sahifa boshidagi banner — check-in'dagi qora "smena" kartasi kabi */
+  .ci-screen .ci-banner {
+    background: var(--ci-hero) !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    color: #fff;
+    --text-primary: #fff;
+    --text-secondary: var(--ci-hero-muted);
+    --text-muted: var(--ci-hero-muted);
+    --bg-card: var(--ci-hero-track);
+    --border: var(--ci-hero-track);
+  }
+  .ci-screen .card,
+  html.dark .ci-screen .card {
+    background-color: var(--ci-card);
+    border-color: var(--ci-border);
+    border-radius: 20px;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}

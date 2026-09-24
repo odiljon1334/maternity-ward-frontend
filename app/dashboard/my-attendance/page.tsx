@@ -4,7 +4,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { attendanceApi, schedulesApi } from "@/lib/api";
-import { Topbar } from "@/components/layout/Topbar";
 import { formatMinutes, cn } from "@/lib/utils";
 import {
   ChevronLeft, ChevronRight,
@@ -15,6 +14,7 @@ import {
 import dayjs from "dayjs";
 import "dayjs/locale/uz-latn";
 import { useAuthStore } from "@/stores/auth";
+import { EmployeeScreen } from "@/components/employee/EmployeeScreen";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
@@ -254,13 +254,12 @@ export default function MyAttendancePage() {
   // ─────────────────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-[var(--bg-page,#f8fafc)] dark:bg-[#090a0f]">
-      <Topbar
-        title="Mening davomatim"
-        subtitle={`${empName} · ${year} yil, ${monthLabel}`}
-      />
+    <EmployeeScreen
+      title="Mening davomatim"
+      subtitle={`${empName} · ${year} yil, ${monthLabel}`}
+    >
 
-      <div className="p-4 lg:p-6 space-y-4 max-w-2xl mx-auto">
+      <div className="px-4 pt-2 sm:p-6 space-y-4 max-w-2xl mx-auto">
 
         {/* ── Oy navigatsiyasi ── */}
         <div className="flex items-center justify-between card p-3">
@@ -441,7 +440,7 @@ export default function MyAttendancePage() {
           </div>
         )}
       </div>
-    </div>
+    </EmployeeScreen>
   );
 }
 
