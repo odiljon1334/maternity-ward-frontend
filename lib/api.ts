@@ -619,6 +619,8 @@ export const paymentsApi = {
     payerName: string;
     amount: number;
     type: "MONTHLY" | "ANNUAL" | "OTHER";
+    /** "YYYY-MM" — qaysi oydan boshlab; yillik to'lov 12 oyni qoplaydi */
+    period?: string;
     note?: string;
   }) => api.post("/payments", data).then((r) => r.data.data),
   update: (id: string, data: { amount?: number; note?: string }) =>

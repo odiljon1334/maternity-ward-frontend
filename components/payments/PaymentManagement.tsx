@@ -52,6 +52,26 @@ function periodLabel(period: string) {
   return `${months[parseInt(m) - 1]} ${y}`;
 }
 
+/** "2026-09" + n oy → "YYYY-MM" */
+function addMonths(period: string, n: number) {
+  const [y, m] = period.split("-").map(Number);
+  const idx = y * 12 + (m - 1) + n;
+  return `${Math.floor(idx / 12)}-${String((idx % 12) + 1).padStart(2, "0")}`;
+}
+
+/** To'lov qoplagan oylar: "Sentabr 2026" yoki "Sentabr 2026 – Avgust 2027" */
+function coverageText(period: string | null | undefined, months?: number | null) {
+  if (!period) return "—";
+  const n = Math.max(1, months ?? 1);
+  return n === 1 ? periodLabel(period) : `${periodLabel(period)} – ${periodLabel(addMonths(period, n - 1))}`;
+}
+
+function currentPeriodValue() {
+  // Toshkent vaqti (UTC+5) bo'yicha joriy oy
+  const d = new Date(Date.now() + 5 * 3600_000);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
 type OverviewItem = {
   id: string;
   name: string;
@@ -92,6 +112,8 @@ type PayForm = {
   payerName: string;
   amount: number;
   type: "MONTHLY" | "ANNUAL" | "OTHER";
+  /** Qaysi oydan boshlab (input type=month → "YYYY-MM") */
+  period: string;
   note?: string;
 };
 
@@ -113,14 +135,18 @@ function AddPaymentModal({
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors },
   } = useForm<PayForm>({
     defaultValues: {
       hospitalId: preHospitalId || "",
       type: "MONTHLY",
       amount: preAmount || 0,
+      period: currentPeriodValue(),
     },
   });
+  const watchType = watch("type");
+  const watchPeriod = watch("period");
 
   const mutation = useMutation({
     mutationFn: (d: PayForm) => paymentsApi.create(d),
@@ -207,10 +233,27 @@ function AddPaymentModal({
               </label>
               <select {...register("type")} className="input-field">
                 <option value="MONTHLY">Oylik</option>
-                <option value="ANNUAL">Yillik</option>
+                <option value="ANNUAL">Yillik (12 oy)</option>
                 <option value="OTHER">Boshqa</option>
               </select>
             </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">
+              Qaysi oy uchun *
+            </label>
+            <input
+              {...register("period", {
+                required: true,
+                pattern: /^\d{4}-(0[1-9]|1[0-2])$/,
+              })}
+              type="month"
+              className="input-field"
+            />
+            <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+              Qoplanadi:{" "}
+              <b>{coverageText(watchPeriod, watchType === "ANNUAL" ? 12 : 1)}</b>
+            </p>
           </div>
           <div>
             <label className="block text-xs font-medium text-[var(--text-muted)] mb-1.5">
@@ -802,7 +845,12 @@ export function PaymentManagement({
                             : "Boshqa"}
                       </td>
                       <td className="px-4 py-3 text-[var(--text-muted)]">
-                        {p.period ? periodLabel(p.period) : "—"}
+                        {coverageText(p.period, p.months)}
+                        {p.telegramPaymentId && (
+                          <span className="ml-1.5 rounded bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-sky-500">
+                            Telegram
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-[var(--text-muted)] text-xs">
                         {new Date(p.createdAt).toLocaleDateString("uz-UZ")}
