@@ -45,7 +45,19 @@ export const api = axios.create({
 api.interceptors.response.use(
   (res) => res,
   (error) => {
-    if (error.response?.status === 401 && typeof window !== "undefined") {
+    const reqUrl: string = error.config?.url ?? "";
+    // Login/parol tiklash so'rovining 401'i — noto'g'ri parol: sahifani qayta
+    // yuklamaymiz, aks holda xato xabari ko'rinmay qoladi
+    const isAuthAttempt =
+      /\/auth\/(login|forgot-password|reset-password|register)/.test(reqUrl);
+    const onLoginPage =
+      typeof window !== "undefined" && window.location.pathname.startsWith("/login");
+    if (
+      error.response?.status === 401 &&
+      typeof window !== "undefined" &&
+      !isAuthAttempt &&
+      !onLoginPage
+    ) {
       localStorage.removeItem("user");
       localStorage.removeItem("auth-storage");
       // HttpOnly cookie'ni browser JavaScript o'chira olmaydi.
@@ -55,7 +67,13 @@ api.interceptors.response.use(
         credentials: "include",
         keepalive: true,
       });
-      window.location.href = "/login";
+      // SW keshi va push obunasi tozalangach (ko'pi bilan 3 s) login'ga
+      void import("./session-cleanup")
+        .then(({ clearDeviceSession }) => clearDeviceSession({ notifyServer: false }))
+        .catch(() => undefined)
+        .finally(() => {
+          window.location.href = "/login";
+        });
     }
     return Promise.reject(error);
   }

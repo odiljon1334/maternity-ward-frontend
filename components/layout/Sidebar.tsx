@@ -153,7 +153,7 @@ export function Sidebar() {
           {!collapsed && (
             <div className="min-w-0">
               <span className="font-black text-white text-sm tracking-tight block truncate">
-                {hospitalName || "MaternityCare"}
+                {hospitalName || "StaffPlusPRO"}
               </span>
               <span className="text-[10px] font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-widest block">
                 Enterprise

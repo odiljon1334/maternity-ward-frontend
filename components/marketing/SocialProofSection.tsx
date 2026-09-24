@@ -6,33 +6,34 @@ import {
   ShieldCheck,
   TrendingUp,
   Quote,
-  Star,
 } from "lucide-react";
 
 export function SocialProofSection() {
+  // Faqat mahsulotning tekshiriladigan imkoniyatlari — o'ylab topilgan
+  // mijozlar soni / tejalgan summa kabi raqamlar ko'rsatilmaydi.
   const stats = [
     {
-      value: "120+",
-      label: "Tibbiyot muassasalari",
-      subtext: "Respublika bo'ylab faol",
+      value: "14 kun",
+      label: "Bepul sinov",
+      subtext: "Karta va shartnomasiz",
       icon: <Building2 className="w-5 h-5 text-blue-600" />,
     },
     {
-      value: "14,800+",
-      label: "Shifokor va hamshiralar",
-      subtext: "Har kuni Face ID dan o'tadi",
+      value: "24/7",
+      label: "Smena va navbatchilik",
+      subtext: "Kunduzgi, tungi, sutkalik",
       icon: <Users className="w-5 h-5 text-indigo-600" />,
     },
     {
-      value: "99.8%",
-      label: "Davomat intizomi",
-      subtext: "Kechikishlar 85% ga qisqargan",
+      value: "Face ID + GPS",
+      label: "Davomat isboti",
+      subtext: "Terminal yoki telefon orqali",
       icon: <ShieldCheck className="w-5 h-5 text-emerald-600" />,
     },
     {
-      value: "450 mln+",
-      label: "So'm tejalgan vaqt va xarajat",
-      subtext: "Tabel va hisob-kitob orqali",
+      value: "08:30",
+      label: "Telegram hisobot",
+      subtext: "Har kuni rahbarga avtomatik",
       icon: <TrendingUp className="w-5 h-5 text-amber-600" />,
     },
   ];
@@ -40,27 +41,27 @@ export function SocialProofSection() {
   const testimonials = [
     {
       quote:
-        "180 nafar xodimimizning 24 soatlik navbatchiligini va tungi smena ustamalarini qog'ozda hisoblash kadrlar bo'limining har oy 4 kunlik vaqtini olar edi. MaternityCare bilan bu jarayon 15 daqiqaga qisqardi. Kechikishlar esa 90% ga kamaydi.",
-      author: "Dr. S. Karimov",
-      role: "Bosh shifokor",
-      hospital: "Samarqand viloyat Perinatal Markazi",
-      badge: "180+ xodim",
+        "180 nafar xodimimizning 24 soatlik navbatchiligini va tungi smena ustamalarini qog'ozda hisoblash kadrlar bo'limining har oy 4 kunlik vaqtini olar edi. Tizim bilan bu hisob avtomatik bo'ladi, kechikishlar esa darhol ko'rinadi.",
+      author: "Bosh shifokor",
+      role: "Namunaviy stsenariy",
+      hospital: "Viloyat perinatal markazi",
+      badge: "Misol",
     },
     {
       quote:
         "Hikvision Face ID terminallari bilan to'g'ridan-to'g'ri ishlashi eng katta yutug'imiz bo'ldi. Internet o'chganda ham terminal o'zida saqlab, internet kelishi bilan serverga uzatadi. Bosh shifokorimiz har kuni soat 08:30 da Telegramda tayyor tahlilni ko'radi.",
-      author: "Dr. N. Yo'ldosheva",
-      role: "Kadrlar bo'limi boshlig'i",
-      hospital: "Toshkent shahar 1-son Tug'ruqxona",
-      badge: "120+ xodim",
+      author: "Kadrlar bo'limi boshlig'i",
+      role: "Namunaviy stsenariy",
+      hospital: "Shahar tug'ruqxonasi",
+      badge: "Misol",
     },
     {
       quote:
-        "Oddiy ofis davomat dasturlari tibbiyotning murakkab smenalarini (kun/tun/sutka) tushunmasdi. Bu tizim aynan shifoxonalar protokollariga moslab yaratilgan. 14 kunlik bepul sinovda to'liq ishonch hosil qilib, 1 yillik tarifga o'tdik.",
-      author: "M. Sobirov",
-      role: "Klinika ijrochi direktori",
-      hospital: "MedLife Ko'p tarmoqli klinikasi",
-      badge: "45 xodim",
+        "Oddiy ofis davomat dasturlari tibbiyotning murakkab smenalarini (kun/tun/sutka) tushunmasdi. Bu tizim aynan shifoxonalar protokollariga moslab yaratilgan. 14 kunlik bepul sinovda o'z smenalaringiz bilan sinab ko'rish mumkin.",
+      author: "Klinika direktori",
+      role: "Namunaviy stsenariy",
+      hospital: "Ko'p tarmoqli xususiy klinika",
+      badge: "Misol",
     },
   ];
 
@@ -93,13 +94,13 @@ export function SocialProofSection() {
         {/* Testimonials Header */}
         <div className="text-center max-w-3xl mx-auto space-y-4 mb-14">
           <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300">
-            Real Natijalar &bull; Tibbiyot Rahbarlari Fikri
+            Namunaviy stsenariylar &bull; Misol
           </span>
           <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-            Klinika rahbarlari nega bizni tanlamoqda?
+            Tizim klinikada qanday ishlaydi?
           </h2>
           <p className="text-base text-slate-600 dark:text-slate-300">
-            Respublikaning yetakchi tibbiyot birlashmalari va xususiy shifoxonalari tajribasi
+            Quyidagilar real mijoz fikri emas — tizimdan foydalanishning namunaviy holatlari
           </p>
         </div>
 
@@ -112,11 +113,9 @@ export function SocialProofSection() {
             >
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <div className="flex text-amber-400 gap-1">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="w-4 h-4 fill-amber-400" />
-                    ))}
-                  </div>
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                    Namunaviy holat
+                  </span>
                   <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300">
                     {t.badge}
                   </span>

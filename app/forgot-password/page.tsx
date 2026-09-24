@@ -91,7 +91,7 @@ export default function ForgotPasswordPage() {
             <div className="p-2.5 rounded-2xl bg-white/20 backdrop-blur-sm border border-white/25 shadow-lg">
               <Activity className="w-6 h-6 text-white" />
             </div>
-            <span className="text-xl font-bold tracking-tight">MaternityCare</span>
+            <span className="text-xl font-bold tracking-tight">StaffPlusPRO</span>
           </div>
 
           <div className="flex-1 flex flex-col justify-center gap-5 py-4">
@@ -123,7 +123,7 @@ export default function ForgotPasswordPage() {
             <div className="p-2 rounded-xl bg-indigo-600">
               <Activity className="w-6 h-6 text-white" />
             </div>
-            <span className="text-xl font-bold dark:text-white text-gray-900">MaternityCare</span>
+            <span className="text-xl font-bold dark:text-white text-gray-900">StaffPlusPRO</span>
           </div>
 
           <Link

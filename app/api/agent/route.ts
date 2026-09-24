@@ -8,6 +8,13 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001/api/v
 const MAX_MESSAGES = 12;
 const MAX_MESSAGE_CHARS = 4_000;
 const MAX_REQUESTS_PER_MINUTE = 12;
+// Bitta so'rovda model <-> tool aylanishlari chegarasi (cheksiz loop va
+// xarajatning oldini olish)
+const MAX_TOOL_ROUNDS = 6;
+// Modelga qaytariladigan bitta tool natijasi hajmi (token xarajati)
+const MAX_TOOL_RESULT_CHARS = 60_000;
+// AI agent — faqat rahbar rollari uchun
+const AGENT_ROLES = new Set(["SUPER_ADMIN", "ASSISTANT_ADMIN", "DIRECTOR", "ADMIN"]);
 const requestWindows = new Map<string, number[]>();
 
 // Agent hozircha faqat o'qish/preview amallarini bajaradi. Jadval yoki shift
@@ -59,6 +66,28 @@ export async function POST(req: Request) {
     cache: "no-store",
   });
   if (!profile.ok) return Response.json({ error: "Session yaroqsiz yoki muddati tugagan" }, { status: 401 });
+  let role: string | undefined;
+  let userKey: string | undefined;
+  try {
+    const pj = (await profile.json()) as { data?: { role?: string; id?: string }; role?: string; id?: string };
+    role = pj.data?.role ?? pj.role;
+    userKey = pj.data?.id ?? pj.id;
+  } catch {
+    role = undefined;
+  }
+  if (!role || !AGENT_ROLES.has(role)) {
+    return Response.json({ error: "AI agent faqat rahbarlar uchun" }, { status: 403 });
+  }
+  // Limit foydalanuvchi bo'yicha ham (bitta IP ortida bir nechta xodim bo'lishi mumkin)
+  if (userKey) {
+    const key = `u:${userKey}`;
+    const userRecent = (requestWindows.get(key) || []).filter((at) => now - at < 60_000);
+    if (userRecent.length >= MAX_REQUESTS_PER_MINUTE) {
+      return Response.json({ error: "AI agent uchun so'rov limiti tugadi. Bir daqiqadan keyin urinib ko'ring." }, { status: 429 });
+    }
+    userRecent.push(now);
+    requestWindows.set(key, userRecent);
+  }
 
   let body: unknown;
   try {
@@ -98,14 +127,17 @@ export async function POST(req: Request) {
       };
 
       try {
-        console.log("▶ Agent boshlandi");
         const history: Anthropic.MessageParam[] = [...messages];
-          console.log("Agent so'rov keldi, messages:", history.length);
-          console.log("Sessiya bor:", !!authHeaders);
 
-        // Agentic loop
-        while (true) {
-          console.log("▶ Anthropic ga so'rov yuborilmoqda...");
+        // Agentic loop — ko'pi bilan MAX_TOOL_ROUNDS marta tool chaqiriladi
+        for (let round = 0; ; round++) {
+          if (round > MAX_TOOL_ROUNDS) {
+            send({
+              type: "error",
+              message: "So'rov juda murakkab — savolni aniqroq yoki qismlarga bo'lib bering.",
+            });
+            break;
+          }
           const response = await client.messages.create({
             model: "claude-sonnet-4-6",
             max_tokens: 4096,
@@ -120,9 +152,7 @@ export async function POST(req: Request) {
           let inputBuffer = "";
           let stopReason = "";
 
-          console.log("▶ Stream boshlandi");
           for await (const event of response) {
-            console.log("EVENT:", event.type);
             if (event.type === "content_block_start") {
               if (event.content_block.type === "tool_use") {
                 currentTool = { id: event.content_block.id, name: event.content_block.name };
@@ -186,10 +216,16 @@ export async function POST(req: Request) {
                 };
               }
               send({ type: "tool_result", toolName: tu.name, result });
+              let content = JSON.stringify(result) ?? "null";
+              if (content.length > MAX_TOOL_RESULT_CHARS) {
+                content =
+                  content.slice(0, MAX_TOOL_RESULT_CHARS) +
+                  '..."[natija qisqartirildi — filtr yoki sahifalashdan foydalaning]"';
+              }
               return {
                 type: "tool_result" as const,
                 tool_use_id: tu.id,
-                content: JSON.stringify(result),
+                content,
               };
             })
           );

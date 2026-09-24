@@ -41,11 +41,18 @@ export const useAuthStore = create<AuthStore>()(
         set({ user: null, selectedHospital: null });
         if (typeof window !== "undefined") {
           localStorage.removeItem("user");
-          void fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001/api/v1"}/auth/logout`, {
-            method: "POST",
-            credentials: "include",
-            keepalive: true,
-          });
+          // Avval push obunasi (sessiya hali yaroqli) va SW keshi tozalanadi,
+          // so'ng sessiya yopiladi
+          void import("../lib/session-cleanup")
+            .then(({ clearDeviceSession }) => clearDeviceSession({ notifyServer: true }))
+            .catch(() => undefined)
+            .finally(() => {
+              void fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001/api/v1"}/auth/logout`, {
+                method: "POST",
+                credentials: "include",
+                keepalive: true,
+              });
+            });
           import('../providers').then(({ globalQueryClient }) => {
             globalQueryClient?.clear();
           });

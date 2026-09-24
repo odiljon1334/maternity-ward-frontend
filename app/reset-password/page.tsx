@@ -49,7 +49,7 @@ function ResetPasswordForm() {
           <div className="p-2 rounded-xl bg-indigo-600">
             <Activity className="w-6 h-6 text-white" />
           </div>
-          <span className="text-xl font-bold dark:text-white text-gray-900">MaternityCare</span>
+          <span className="text-xl font-bold dark:text-white text-gray-900">StaffPlusPRO</span>
         </div>
 
         <div className="dark:bg-[#141824] bg-white rounded-3xl p-8 shadow-xl shadow-black/5 dark:shadow-black/30 border dark:border-[#1e2638] border-gray-200">

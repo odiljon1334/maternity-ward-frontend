@@ -35,7 +35,7 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
             <ShieldCheck className="h-5 w-5 text-white" />
           </span>
           <span className="leading-tight">
-            <div className="text-[15px] font-semibold text-white">MaternityCare</div>
+            <div className="text-[15px] font-semibold text-white">StaffPlusPRO</div>
             <div className="text-[9px] font-medium tracking-wider text-white/40">BOSHQARUV PANELI</div>
           </span>
         </Link>

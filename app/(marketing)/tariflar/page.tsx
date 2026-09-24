@@ -179,13 +179,13 @@ export default function PricingPage() {
                     Funksiya / Imkoniyat
                   </th>
                   <th className="p-4 font-bold text-slate-900 dark:text-white text-center">
-                    Start (1-15 xodim)
+                    Start (1–14 xodim)
                   </th>
                   <th className="p-4 font-bold text-blue-600 dark:text-blue-400 text-center bg-blue-50/40 dark:bg-blue-950/20">
-                    Biznes (16-50 xodim)
+                    Biznes (15–199 xodim)
                   </th>
                   <th className="p-4 font-bold text-slate-900 dark:text-white text-center">
-                    Korporativ (50+)
+                    Korporativ (200–500)
                   </th>
                 </tr>
               </thead>

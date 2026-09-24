@@ -125,7 +125,7 @@ export default function RegisterPage() {
               <Activity className="w-6 h-6 text-white" />
             </div>
             <span className="text-xl font-bold dark:text-white text-gray-900">
-              MaternityCare
+              StaffPlusPRO
             </span>
           </div>
         </div>

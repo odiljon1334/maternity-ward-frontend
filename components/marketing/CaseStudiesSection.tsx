@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   Quote,
   Briefcase,
-  Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -38,8 +37,8 @@ const CASE_STUDIES = [
       "Qabulxona va sanitariya o'tkazgich punktlariga Face ID planshet terminallari o'rnatildi. Shifokor va doyalarning tungi navbatchilikka kirish va chiqish vaqtlari avtomatlashdi. Kechikish yoki kelmaslik yuz berganda bosh vrachning Telegramiga 1 daqiqada signal boradi.",
     quote:
       "Tug'ruqxonada har bir daqiqa inson hayoti uchun qimmatli. StaffPlusPRO orqali barcha bo'limlardagi navbatchiliklar va smena intizomi 100% shaffof bo'ldi. Oylik tabelni yopish esa 3 kundan 5 daqiqaga qisqardi.",
-    author: "Gulchehra Olimova",
-    authorRole: "Bosh Shifokor & Tibbiyot Fanlari Nomzodi",
+    author: "Bosh shifokor",
+    authorRole: "Namunaviy stsenariy (real mijoz fikri emas)",
     roi: "19x",
   },
   {
@@ -62,8 +61,8 @@ const CASE_STUDIES = [
       "Markaziy kirish eshigiga Face ID Kiosk terminali qo'yildi va tibbiy registratura bilan integratsiya qilindi. Barcha bo'lim mudirlari 08:15 da qaysi xonada shifokor qabulni boshlagani haqida planshetida ko'rib turadi.",
     quote:
       "Aholining shikoyatlari 90% ga kamaydi. Vrachlar o'z vaqtida qabulni boshlayapti. Eng muhimi, Exceldagi 200 kishilik ro'yxatni AI Agent orqali 1 daqiqada yuklab olganimiz bizni haftalab vaqt sarflashdan qutqardi.",
-    author: "Dr. Jasur Alimov",
-    authorRole: "Poliklinika Bosh Shifokori",
+    author: "Poliklinika bosh shifokori",
+    authorRole: "Namunaviy stsenariy (real mijoz fikri emas)",
     roi: "16x",
   },
   {
@@ -86,8 +85,8 @@ const CASE_STUDIES = [
       "Tibbiy bo'limlar bo'yicha maxsus smena grafiklari joriy etildi. Face ID va planshet orqali ishlangan har bir soat daqiqasigacha hisoblanib, 1C:ZUP tizimiga avtomatik T-13 tabeli shaklida eksport qilina boshladi.",
     quote:
       "Bosh buxgalter sifatida menga xodimlarning aniq soatlari kerak edi. Hozir 1C dagi tugmani bosamiz — 290 ta tibbiyot xodimining oyligi, tungi smena va bayram pullari 10 soniyada xatosiz tayyor.",
-    author: "Nigora Karimova",
-    authorRole: "Klinika Bosh Buxgalteri",
+    author: "Klinika bosh buxgalteri",
+    authorRole: "Namunaviy stsenariy (real mijoz fikri emas)",
     roi: "21x",
   },
 ];
@@ -104,15 +103,15 @@ export function CaseStudiesSection({ onOpenTrial }: CaseStudiesSectionProps) {
         <div className="text-center max-w-3xl mx-auto mb-14">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 text-xs font-black uppercase tracking-wider mb-4 border border-blue-200 dark:border-blue-800">
             <Briefcase className="w-3.5 h-3.5" />
-            O&apos;zbekistonda Muvaffaqiyatli Keyslar
+            Namunaviy stsenariylar
           </div>
           <h2 className="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight">
             Bizneslar StaffPlusPRO bilan qanday qilib{" "}
             <span className="text-blue-600 dark:text-blue-400">millionlab so&apos;m tejamoqda?</span>
           </h2>
           <p className="mt-4 text-base text-slate-600 dark:text-slate-300 leading-relaxed">
-            Quruq va&apos;dalar emas — Toshkent va viloyatlardagi Tug&apos;ruqxonalar, Ko&apos;p tarmoqli Poliklinikalar va yetakchi Tibbiyot Markazlarining
-            haqiqiy audit va samaradorlik natijalari.
+            Tug&apos;ruqxona, poliklinika va xususiy klinikada tizim qanday ishlashining namunaviy holatlari.
+            Raqamlar taxminiy hisob-kitob asosida — real mijoz auditi yoki fikri emas.
           </p>
         </div>
 
@@ -200,11 +199,6 @@ export function CaseStudiesSection({ onOpenTrial }: CaseStudiesSectionProps) {
                       {currentCase.authorRole}
                     </div>
                   </div>
-                  <div className="flex items-center gap-0.5 text-amber-500">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="w-3.5 h-3.5 fill-amber-500" />
-                    ))}
-                  </div>
                 </div>
               </div>
 
@@ -216,14 +210,14 @@ export function CaseStudiesSection({ onOpenTrial }: CaseStudiesSectionProps) {
               <div className="p-6 rounded-3xl bg-slate-900 text-white border border-slate-800 shadow-xl relative overflow-hidden">
                 <div className="text-xs text-emerald-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
                   <TrendingDown className="w-3.5 h-3.5" />
-                  Haqiqiy Tejamkorlik Ko&apos;rsatkichi
+                  Taxminiy tejamkorlik (hisob-kitob)
                 </div>
 
                 <div className="text-3xl sm:text-4xl font-black text-white mt-2">
                   +{currentCase.stats.savingsNow}
                 </div>
                 <div className="text-xs text-slate-400 mt-1">
-                  Ilgari har oy yo&apos;qotilayotgan:{" "}
+                  Taxminiy oylik yo&apos;qotish:{" "}
                   <span className="text-red-400 line-through font-bold">
                     {currentCase.stats.lossBefore}
                   </span>
@@ -239,7 +233,7 @@ export function CaseStudiesSection({ onOpenTrial }: CaseStudiesSectionProps) {
                   </div>
 
                   <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700">
-                    <div className="text-[11px] text-slate-400">Investitsiya qaytishi:</div>
+                    <div className="text-[11px] text-slate-400">Taxminiy ROI:</div>
                     <div className="text-xl font-black text-emerald-400 mt-0.5">
                       {currentCase.roi} ROI
                     </div>

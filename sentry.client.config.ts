@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
+import { scrubBreadcrumb, scrubEvent } from "./lib/sentry-scrub";
 
 /**
  * Sentry — brauzer (client) tomonidagi xatoliklarni kuzatish (Faza 3).
@@ -16,5 +17,10 @@ if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
     tracesSampleRate: Number(
       process.env.NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE || 0,
     ),
+    // Shaxsiy ma'lumot (IP, cookie, query-string) yuborilmaydi
+    sendDefaultPii: false,
+    beforeSend: (event) => scrubEvent(event),
+    beforeSendTransaction: (event) => scrubEvent(event),
+    beforeBreadcrumb: (breadcrumb) => scrubBreadcrumb(breadcrumb),
   });
 }

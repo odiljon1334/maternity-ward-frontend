@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   X,
   Building2,
@@ -66,6 +66,20 @@ export function OnboardingModal({
     plan: defaultPlan,
     billingCycle: isAnnual ? "annual" : "monthly",
   });
+
+  // Modal har ochilganda tanlangan tarif/xodim soni yangilanadi (ilgari
+  // birinchi ochilgandagi qiymat qolib ketardi) va 1-qadamdan boshlanadi.
+  // Kiritilgan kontakt ma'lumotlari saqlanadi.
+  useEffect(() => {
+    if (!isOpen) return;
+    setStep(1);
+    setFormData((prev) => ({
+      ...prev,
+      staffCount: defaultStaffCount,
+      plan: defaultPlan,
+      billingCycle: isAnnual ? "annual" : "monthly",
+    }));
+  }, [isOpen, defaultPlan, defaultStaffCount, isAnnual]);
 
   if (!isOpen) return null;
 

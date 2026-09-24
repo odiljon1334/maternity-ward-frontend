@@ -37,6 +37,59 @@ const configWithPWA = withPWA({
   },
 
   customWorkerDir: "worker",
+
+  // API javoblari (xodimlar, oylik, davomat) va backend fayllari (selfilar)
+  // HECH QACHON service worker keshiga tushmaydi: umumiy qurilmada keyingi
+  // foydalanuvchi oldingisining ma'lumotini oflayn ko'rib qolmasin.
+  // Faqat statik ilova fayllari keshlanadi. Birinchi mos qoida ishlaydi.
+  runtimeCaching: [
+    {
+      // Boshqa domen (api.clinicuk24.com va h.k.) — shriftlardan tashqari
+      urlPattern: ({ url }) =>
+        url.origin !== self.origin &&
+        !/^fonts\.(gstatic|googleapis)\.com$/i.test(url.hostname),
+      handler: "NetworkOnly",
+      options: {},
+    },
+    {
+      urlPattern: ({ url }) =>
+        url.origin === self.origin &&
+        (url.pathname.startsWith("/api/") || url.pathname.startsWith("/uploads/")),
+      handler: "NetworkOnly",
+      options: {},
+    },
+    {
+      urlPattern: /^https:\/\/fonts\.(?:gstatic|googleapis)\.com\/.*/i,
+      handler: "CacheFirst",
+      options: {
+        cacheName: "google-fonts",
+        expiration: { maxEntries: 8, maxAgeSeconds: 365 * 24 * 60 * 60 },
+      },
+    },
+    {
+      urlPattern: /\/_next\/static\/.+\.(?:js|css|woff2?)$/i,
+      handler: "CacheFirst",
+      options: {
+        cacheName: "next-static",
+        expiration: { maxEntries: 128, maxAgeSeconds: 30 * 24 * 60 * 60 },
+      },
+    },
+    {
+      urlPattern: /\.(?:png|jpg|jpeg|svg|ico|webp|woff2?)$/i,
+      handler: "StaleWhileRevalidate",
+      options: {
+        cacheName: "static-assets",
+        expiration: { maxEntries: 64, maxAgeSeconds: 7 * 24 * 60 * 60 },
+      },
+    },
+    {
+      // Sahifalar: tarmoq birinchi, oflaynda /offline (fallbacks.document)
+      urlPattern: ({ request, url }) =>
+        url.origin === self.origin && request.mode === "navigate",
+      handler: "NetworkOnly",
+      options: {},
+    },
+  ],
 })(nextConfig);
 
 // Sentry — SENTRY_AUTH_TOKEN berilmagan bo'lsa (masalan bu build muhitida)

@@ -120,7 +120,7 @@ export function InstallPrompt() {
             </p>
           ) : (
             <p className="text-xs text-[var(--text-muted)] mt-0.5">
-              MaternityCare ni telefonga o'rnating
+              StaffPlusPRO ni telefonga o'rnating
             </p>
           )}
 

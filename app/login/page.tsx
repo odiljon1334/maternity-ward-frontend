@@ -79,7 +79,7 @@ export default function LoginPage() {
             <div className="p-2.5 rounded-2xl bg-white/20 backdrop-blur-sm border border-white/25 shadow-lg">
               <Activity className="w-6 h-6 text-white" />
             </div>
-            <span className="text-xl font-bold tracking-tight">MaternityCare</span>
+            <span className="text-xl font-bold tracking-tight">StaffPlusPRO</span>
           </div>
 
           {/* ── Main content — center (flex-1 so it fills space) ── */}
@@ -150,7 +150,7 @@ export default function LoginPage() {
             <div className="p-2 rounded-xl bg-indigo-600">
               <Activity className="w-6 h-6 text-white" />
             </div>
-            <span className="text-xl font-bold dark:text-white text-gray-900">MaternityCare</span>
+            <span className="text-xl font-bold dark:text-white text-gray-900">StaffPlusPRO</span>
           </div>
 
           <div className="dark:bg-[#141824] bg-white rounded-3xl p-8 shadow-xl shadow-black/5 dark:shadow-black/30 border dark:border-[#1e2638] border-gray-200">
@@ -274,7 +274,7 @@ export default function LoginPage() {
                 </a>
               )}
               <a
-                href="https://t.me/educampus1"
+                href="https://t.me/StaffPlusPRO_Support_bot"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 group"
@@ -283,7 +283,7 @@ export default function LoginPage() {
                   <Send className="w-3.5 h-3.5 text-sky-500" />
                 </div>
                 <span className="text-sm dark:text-gray-300 text-gray-700 group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
-                  @educampus1
+                  @StaffPlusPRO_Support_bot
                 </span>
               </a>
             </div>
