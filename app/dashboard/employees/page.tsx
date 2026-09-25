@@ -687,7 +687,8 @@ const EmpRow = memo(function EmpRow({
               </div>
             )}
           </button>
-          <button onClick={() => router.push(`/dashboard/employees/${emp.id}`)} className="text-left group/name">
+          <div className="min-w-0">
+          <button onClick={() => router.push(`/dashboard/employees/${emp.id}`)} className="block text-left group/name">
             <div className="flex items-center gap-2 flex-wrap">
               <p className="font-bold text-sm text-[var(--text-primary)] group-hover/name:text-indigo-600 dark:group-hover/name:text-indigo-400 transition-colors">{emp.fullName}</p>
               {lunchLate && lunchLate > 0 ? (
@@ -711,8 +712,8 @@ const EmpRow = memo(function EmpRow({
             sites={emp.workSites}
             legacy={emp.gpsLat != null && emp.gpsLng != null}
             href={`/dashboard/employees/${emp.id}?tab=gps`}
-            compact
           />
+          </div>
         </div>
       </td>
       <td className="px-5 py-3.5 font-bold text-[var(--text-primary)]">{emp.department?.name || "—"}</td>

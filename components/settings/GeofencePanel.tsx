@@ -19,7 +19,14 @@ export const apiErrorText = (e: ApiError) => {
  * joyiga qarab belgilardi. Endi faqat DIRECTOR/ADMIN shu yerda belgilaydi.
  * Qo'shimcha joylar (maktab, bog'cha...) — "Ish joylari" bo'limida.
  */
-export function GeofencePanel() {
+export function GeofencePanel({
+  embedded = false,
+  onSaved,
+}: {
+  /** Boshqa oyna ichida (xodim sahifasi) — kartasiz va sarlavhasiz */
+  embedded?: boolean;
+  onSaved?: () => void;
+} = {}) {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({
     queryKey: ["hospital-my-gps"],
@@ -48,8 +55,11 @@ export function GeofencePanel() {
       }),
     onSuccess: (res) => {
       qc.setQueryData(["hospital-my-gps"], res);
+      // Xodim sahifalaridagi "Asosiy bino" holati ham yangilansin
+      void qc.invalidateQueries({ queryKey: ["employee-sites"] });
       setPoint((p) => (p ? { lat: p.lat, lng: p.lng } : p));
       toast.success("Check-in hududi saqlandi");
+      onSaved?.();
     },
     onError: (e: ApiError) => toast.error(apiErrorText(e)),
   });
@@ -64,8 +74,8 @@ export function GeofencePanel() {
   const radiusValid = radius >= 50 && radius <= 2000;
 
   return (
-    <div className="card overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
+    <div className={embedded ? "" : "card overflow-hidden"}>
+      <div className={embedded ? "hidden" : "flex items-center justify-between px-5 py-4 border-b border-[var(--border)]"}>
         <div className="flex items-center gap-2">
           <MapPin className="w-4 h-4 text-emerald-400" />
           <h3 className="font-semibold text-[var(--text-primary)]">Check-in hududi (asosiy bino)</h3>
@@ -77,7 +87,7 @@ export function GeofencePanel() {
         )}
       </div>
 
-      <div className="p-4 space-y-4">
+      <div className={embedded ? "space-y-4" : "p-4 space-y-4"}>
         <p className="text-xs text-[var(--text-muted)] leading-relaxed">
           Xodimlar telefon orqali shu nuqta atrofidagi radius ichida check-in qila oladi. Xaritada
           muassasa binosini bosing yoki bino ichida turib «Hozirgi joyim» tugmasini bosing.

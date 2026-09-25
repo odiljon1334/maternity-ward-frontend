@@ -1,47 +1,61 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Building2, Check, ExternalLink, Loader2, MapPin, Plus, Search, Trash2 } from "lucide-react";
-import { attendanceApi, workSitesApi } from "@/lib/api";
-import { useConfirmation } from "@/components/ui";
+import { Building2, Check, ExternalLink, Loader2, MapPin, MapPinned, Plus, Search, Trash2, X } from "lucide-react";
+import { attendanceApi, workSitesApi, type EmployeeSites } from "@/lib/api";
+import { Dialog, useConfirmation } from "@/components/ui";
+import { GeofencePanel } from "@/components/settings/GeofencePanel";
+import { useAuthStore } from "@/stores/auth";
 import { cn, naturalCompare } from "@/lib/utils";
 import { matchesSearch } from "@/lib/search";
 
-/** Xodim ro'yxatidagi ish joyi belgisi (employees.workSites dan) */
+/**
+ * Xodim ro'yxatidagi ish joyi belgisi (employees.workSites dan) — ism va
+ * telefon ostida kichik matn qatori (ilgari qator o'rtasidagi katta pill edi).
+ */
 export function WorkSiteChips({
   sites,
   legacy,
   href,
-  compact = false,
+  variant = "line",
 }: {
   sites?: { workSite: { id: string; name: string; isActive: boolean } }[] | null;
   legacy?: boolean;
   href: string;
   compact?: boolean;
+  /** Profil sarlavhasidagi boshqa belgilar bilan bir xil ko'rinish */
+  variant?: "line" | "tag";
 }) {
   const active = (sites ?? []).map((s) => s.workSite).filter((s) => s?.isActive);
   if (!active.length && !legacy) return null;
   const label = active.length
-    ? active.length <= 2 || !compact
-      ? active.map((s) => s.name).join(" · ")
-      : `${active[0].name} +${active.length - 1}`
-    : "Shaxsiy markaz";
+    ? active.length === 1
+      ? active[0].name
+      : `${active.length} ta ish joyi`
+    : "Shaxsiy GPS markaz";
   return (
     <Link
       href={href}
       onClick={(e) => e.stopPropagation()}
       title={active.length ? `Ish joylari: ${active.map((s) => s.name).join(", ")}` : "Xodimning eski shaxsiy GPS markazi — ko'rib chiqing"}
       className={cn(
-        "inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold",
-        active.length
-          ? "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-400"
-          : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400",
+        variant === "tag"
+          ? "flex max-w-[280px] items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-100 px-2.5 py-1 hover:border-sky-400/60 dark:border-slate-700/50 dark:bg-slate-800/60"
+          : "mt-1 inline-flex max-w-[260px] items-center gap-1 text-[11px] font-semibold hover:underline",
+        variant === "line" &&
+          (active.length ? "text-sky-600 dark:text-sky-400" : "text-amber-600 dark:text-amber-400"),
       )}
     >
-      <MapPin className="h-3 w-3 flex-shrink-0" />
+      <MapPin
+        className={cn(
+          "flex-shrink-0",
+          variant === "tag" ? "h-3.5 w-3.5" : "h-3 w-3",
+          variant === "tag" && (active.length ? "text-sky-600 dark:text-sky-400" : "text-amber-600"),
+        )}
+      />
       <span className="truncate">{label}</span>
     </Link>
   );
@@ -51,10 +65,12 @@ function mapLink(lat: number, lng: number) {
   return `https://yandex.uz/maps/?pt=${lng},${lat}&z=17&l=map`;
 }
 
+type Site = EmployeeSites["sites"][number];
+
 /**
- * Xodim sahifasi → "GPS / Ish joylari": xodim qayerda check-in qila olishini
- * ko'rsatadi va ish joylarini shu yerning o'zida biriktirish imkonini beradi
- * (ilgari faqat Sozlamalar → Ish joylari orqali, ish joyi tomonidan).
+ * Xodim sahifasi → "GPS / Ish joylari": xodim qayerda check-in qila olishi.
+ * Biriktirilgan ish joylari kartalar ko'rinishida; yangi joy "Biriktirish"
+ * oynasi orqali qidirib tanlanadi. O'zgarish darhol saqlanadi.
  */
 export function EmployeeWorkSitesPanel({
   employeeId,
@@ -67,43 +83,52 @@ export function EmployeeWorkSitesPanel({
 }) {
   const qc = useQueryClient();
   const { confirm } = useConfirmation();
+  const role = useAuthStore((s) => s.user?.role);
   const target = hospitalId || undefined;
   const key = ["employee-sites", employeeId];
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [mainOpen, setMainOpen] = useState(false);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: key,
     queryFn: () => workSitesApi.employeeSites(employeeId, target),
     enabled: !!employeeId && canManage,
+    staleTime: 0,
   });
-
-  const initial = useMemo(
-    () => new Set((data?.sites ?? []).filter((s) => s.assigned).map((s) => s.id)),
-    [data],
-  );
-  const [picked, setPicked] = useState<Set<string>>(new Set());
-  useEffect(() => setPicked(new Set(initial)), [initial]);
-  const [query, setQuery] = useState("");
-  const [onlyPicked, setOnlyPicked] = useState(false);
 
   const sorted = useMemo(
     () => [...(data?.sites ?? [])].sort((a, b) => naturalCompare(a.name, b.name)),
     [data],
   );
-  const dirty =
-    picked.size !== initial.size || Array.from(picked).some((id) => !initial.has(id));
+  const assigned = sorted.filter((s) => s.assigned);
+  const available = sorted.filter((s) => !s.assigned);
 
   const save = useMutation({
-    mutationFn: () => workSitesApi.setEmployeeSites(employeeId, Array.from(picked), target),
-    onSuccess: () => {
-      toast.success("Ish joylari saqlandi");
+    mutationFn: (ids: string[]) => workSitesApi.setEmployeeSites(employeeId, ids, target),
+    onMutate: async (ids) => {
+      await qc.cancelQueries({ queryKey: key });
+      const prev = qc.getQueryData<EmployeeSites>(key);
+      if (prev) {
+        const set = new Set(ids);
+        qc.setQueryData<EmployeeSites>(key, {
+          ...prev,
+          sites: prev.sites.map((s) => ({ ...s, assigned: set.has(s.id) })),
+        });
+      }
+      return { prev };
+    },
+    onError: (e: { response?: { data?: { message?: string } } }, _ids, ctx) => {
+      if (ctx?.prev) qc.setQueryData(key, ctx.prev);
+      toast.error(e?.response?.data?.message || "Saqlab bo'lmadi");
+    },
+    onSuccess: () => toast.success("Ish joylari yangilandi"),
+    onSettled: () => {
       void qc.invalidateQueries({ queryKey: key });
       void qc.invalidateQueries({ queryKey: ["employee", employeeId] });
       void qc.invalidateQueries({ queryKey: ["employees"] });
       void qc.invalidateQueries({ queryKey: ["work-sites"] });
       void qc.invalidateQueries({ queryKey: ["work-site-employees"] });
     },
-    onError: (e: { response?: { data?: { message?: string } } }) =>
-      toast.error(e?.response?.data?.message || "Saqlab bo'lmadi"),
   });
 
   const resetLegacy = useMutation({
@@ -137,229 +162,154 @@ export function EmployeeWorkSitesPanel({
     );
   }
 
-  const toggle = (id: string) =>
-    setPicked((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-
-  const visible = sorted.filter(
-    (s) =>
-      (!onlyPicked || picked.has(s.id)) &&
-      (!query.trim() || matchesSearch(query, [s.name, s.address])),
-  );
-  const changes =
-    Array.from(picked).filter((id) => !initial.has(id)).length +
-    Array.from(initial).filter((id) => !picked.has(id)).length;
-  const setMany = (ids: string[], on: boolean) =>
-    setPicked((prev) => {
-      const next = new Set(prev);
-      ids.forEach((id) => (on ? next.add(id) : next.delete(id)));
-      return next;
-    });
-  const allVisiblePicked = visible.length > 0 && visible.every((s) => picked.has(s.id));
+  const ids = assigned.map((s) => s.id);
+  const remove = (id: string) => save.mutate(ids.filter((x) => x !== id));
+  // Asosiy binoni shu yerning o'zida belgilash — faqat o'z muassasasi
+  // rahbari (SUPER/ASSISTANT uchun Sozlamalar sahifasi)
+  const canSetMainHere = role === "DIRECTOR" || role === "ADMIN";
 
   return (
     <div className="space-y-4">
-      <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)]">
-        {/* Sarlavha */}
-        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--border)] px-5 py-4">
-          <div className="min-w-0">
-            <h3 className="text-sm font-bold text-[var(--text-primary)]">Qayerda check-in qila oladi</h3>
-            <p className="mt-1 text-xs text-[var(--text-muted)]">
-              Asosiy bino va tanlangan ish joylarining istalganida (radius ichida).
-            </p>
-          </div>
-          <span className="rounded-full bg-sky-500/10 px-3 py-1 text-xs font-bold text-sky-600 dark:text-sky-400">
-            {picked.size} / {sorted.length} tanlangan
-          </span>
+      <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-5 sm:p-6">
+        <div className="mb-5">
+          <h3 className="text-base font-bold text-[var(--text-primary)]">Check-in joylari</h3>
+          <p className="mt-1 text-sm text-[var(--text-muted)]">
+            Xodim shu joylarning istalganida (radius ichida) kelish va ketishni belgilay oladi.
+          </p>
         </div>
 
-        <div className="space-y-4 p-5">
-          {/* Asosiy bino */}
-          <div
+        {/* Asosiy bino */}
+        <div className="flex flex-wrap items-center gap-3 border-b border-[var(--border)] pb-5">
+          <span
             className={cn(
-              "flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3",
-              data.hospitalCenter
-                ? "border-indigo-500/20 bg-indigo-500/5"
-                : "border-amber-500/30 bg-amber-500/5",
+              "flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl",
+              data.hospitalCenter ? "bg-indigo-500/10 text-indigo-500" : "bg-amber-500/10 text-amber-600",
             )}
           >
-            <span
-              className={cn(
-                "flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl",
-                data.hospitalCenter ? "bg-indigo-500/10 text-indigo-500" : "bg-amber-500/10 text-amber-600",
-              )}
+            <Building2 className="h-5 w-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-[var(--text-primary)]">Asosiy bino</p>
+            <p className="text-xs text-[var(--text-muted)]">
+              {data.hospitalCenter
+                ? `Barcha xodimlar uchun · radius ${data.hospitalCenter.radius ?? "—"} m`
+                : "Belgilanmagan — hozircha faqat biriktirilgan ish joylarida check-in qilinadi"}
+            </p>
+          </div>
+          {data.hospitalCenter && (
+            <a
+              href={mapLink(data.hospitalCenter.lat, data.hospitalCenter.lng)}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-semibold text-indigo-500 hover:bg-indigo-500/10"
             >
-              <Building2 className="h-4 w-4" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-[var(--text-primary)]">Asosiy bino</p>
-              <p className="text-[11px] text-[var(--text-muted)]">
-                {data.hospitalCenter
-                  ? `Barcha xodimlar uchun · radius ${data.hospitalCenter.radius ?? "—"} m`
-                  : "Hali belgilanmagan — xodimlar faqat ish joylarida check-in qila oladi"}
-              </p>
-            </div>
-            {data.hospitalCenter ? (
-              <a
-                href={mapLink(data.hospitalCenter.lat, data.hospitalCenter.lng)}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-500"
+              <ExternalLink className="h-3.5 w-3.5" /> Xarita
+            </a>
+          )}
+          {canSetMainHere ? (
+            <button
+              type="button"
+              onClick={() => setMainOpen(true)}
+              className="inline-flex h-9 items-center rounded-xl border border-[var(--border)] px-3 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
+            >
+              {data.hospitalCenter ? "O'zgartirish" : "Belgilash"}
+            </button>
+          ) : (
+            <Link
+              href="/dashboard/settings?tab=location"
+              className="inline-flex h-9 items-center rounded-xl border border-[var(--border)] px-3 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
+            >
+              Sozlamalar
+            </Link>
+          )}
+        </div>
+
+        {/* Biriktirilgan ish joylari */}
+        <div className="pt-5">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <p className="text-sm font-semibold text-[var(--text-primary)]">
+              Qo&apos;shimcha ish joylari
+              <span className="ml-2 rounded-full bg-[var(--bg-hover)] px-2 py-0.5 text-xs font-bold text-[var(--text-muted)]">
+                {assigned.length}
+              </span>
+            </p>
+            {sorted.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setPickerOpen(true)}
+                disabled={available.length === 0}
+                className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-40"
               >
-                Xarita <ExternalLink className="h-3 w-3" />
-              </a>
-            ) : (
-              <Link href="/dashboard/settings?tab=location" className="btn-secondary !rounded-lg !px-3 !py-1.5 !text-xs">
-                Belgilash
-              </Link>
+                <Plus className="h-4 w-4" /> Biriktirish
+              </button>
             )}
           </div>
 
           {sorted.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-[var(--border)] px-4 py-6 text-center text-xs text-[var(--text-muted)]">
-              Muassasada hali qo&apos;shimcha ish joyi yo&apos;q (maktab, bog&apos;cha, filial...).
-            </p>
+            <div className="rounded-2xl border border-dashed border-[var(--border)] px-4 py-8 text-center">
+              <MapPinned className="mx-auto mb-2 h-7 w-7 text-[var(--text-muted)] opacity-40" />
+              <p className="text-sm text-[var(--text-muted)]">Muassasada hali qo&apos;shimcha ish joyi yo&apos;q</p>
+              <Link href="/dashboard/settings?tab=location" className="mt-2 inline-block text-xs font-semibold text-indigo-500 hover:underline">
+                Ish joyi qo&apos;shish
+              </Link>
+            </div>
+          ) : assigned.length === 0 ? (
+            <button
+              type="button"
+              onClick={() => setPickerOpen(true)}
+              className="w-full rounded-2xl border border-dashed border-[var(--border)] px-4 py-8 text-center transition hover:border-indigo-400/60 hover:bg-indigo-500/5"
+            >
+              <MapPinned className="mx-auto mb-2 h-7 w-7 text-indigo-400 opacity-60" />
+              <p className="text-sm font-medium text-[var(--text-primary)]">Ish joyi biriktirilmagan</p>
+              <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+                Maktab, bog&apos;cha yoki filialni tanlash uchun bosing
+              </p>
+            </button>
           ) : (
-            <>
-              {/* Qidiruv va filtr */}
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="relative min-w-[200px] flex-1">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-muted)]" />
-                  <input
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Ish joyini qidirish..."
-                    className="input-field w-full !pl-9 text-sm"
-                  />
-                </div>
-                <div className="flex rounded-xl border border-[var(--border)] p-0.5 text-xs font-semibold">
-                  {[
-                    { v: false, label: "Hammasi" },
-                    { v: true, label: `Tanlangan (${picked.size})` },
-                  ].map((o) => (
-                    <button
-                      key={String(o.v)}
-                      type="button"
-                      onClick={() => setOnlyPicked(o.v)}
-                      className={cn(
-                        "rounded-lg px-3 py-1.5 transition-colors",
-                        onlyPicked === o.v
-                          ? "bg-indigo-600 text-white"
-                          : "text-[var(--text-muted)] hover:text-[var(--text-primary)]",
-                      )}
-                    >
-                      {o.label}
-                    </button>
-                  ))}
-                </div>
-                {visible.length > 1 && (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
+              {assigned.map((s) => (
+                <div
+                  key={s.id}
+                  className={cn(
+                    "group flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] p-3.5 transition hover:border-indigo-400/40 hover:shadow-sm",
+                    !s.isActive && "opacity-60",
+                  )}
+                >
+                  <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400">
+                    <MapPinned className="h-[18px] w-[18px]" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="line-clamp-2 text-sm font-semibold leading-snug text-[var(--text-primary)]" title={s.name}>
+                      {s.name}
+                    </p>
+                    <p className="truncate text-xs text-[var(--text-muted)]">
+                      {!s.isActive && <span className="font-semibold text-amber-500">nofaol · </span>}
+                      radius {s.gpsRadius} m{s.address ? ` · ${s.address}` : ""}
+                    </p>
+                  </div>
+                  <a
+                    href={mapLink(s.gpsLat, s.gpsLng)}
+                    target="_blank"
+                    rel="noreferrer"
+                    title="Xaritada ko'rish"
+                    aria-label={`${s.name} — xaritada`}
+                    className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-[var(--text-muted)] hover:bg-indigo-500/10 hover:text-indigo-500"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
                   <button
                     type="button"
-                    onClick={() => setMany(visible.map((s) => s.id), !allVisiblePicked)}
-                    className="text-xs font-semibold text-indigo-500 hover:underline"
+                    onClick={() => remove(s.id)}
+                    disabled={save.isPending}
+                    title="Olib tashlash"
+                    aria-label={`${s.name} — olib tashlash`}
+                    className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-[var(--text-muted)] hover:bg-red-500/10 hover:text-red-500"
                   >
-                    {allVisiblePicked ? "Ko'rinayotganlarni olib tashlash" : "Ko'rinayotganlarni tanlash"}
+                    <X className="h-4 w-4" />
                   </button>
-                )}
-              </div>
-
-              {/* Ish joylari — bosib tanlanadigan "pill"lar, qatorga sig'guncha yonma-yon */}
-              {visible.length === 0 ? (
-                <p className="py-6 text-center text-xs text-[var(--text-muted)]">Hech narsa topilmadi</p>
-              ) : (
-                <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                  {visible.map((s) => {
-                    const on = picked.has(s.id);
-                    const hint = `${s.name} · radius ${s.gpsRadius} m${s.address ? ` · ${s.address}` : ""}${s.isActive ? "" : " · nofaol"}`;
-                    return (
-                      <span
-                        key={s.id}
-                        className={cn(
-                          "inline-flex max-w-full items-center rounded-full border text-xs font-semibold transition-all sm:text-[13px]",
-                          on
-                            ? "border-sky-500 bg-sky-500 text-white shadow-sm shadow-sky-500/25"
-                            : "border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] hover:border-sky-400/60 hover:bg-sky-500/5",
-                          !s.isActive && "border-dashed opacity-60",
-                        )}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => toggle(s.id)}
-                          aria-pressed={on}
-                          title={hint}
-                          className={cn("inline-flex min-w-0 items-center gap-1 py-1.5 pl-2 sm:gap-1.5 sm:pl-2.5", on ? "pr-1" : "pr-2.5 sm:pr-3")}
-                        >
-                          {on ? (
-                            <Check className="h-3.5 w-3.5 flex-shrink-0" strokeWidth={3} />
-                          ) : (
-                            <Plus className="h-3.5 w-3.5 flex-shrink-0 text-[var(--text-muted)]" />
-                          )}
-                          <span className="truncate">{s.name}</span>
-                          <span className={cn("hidden flex-shrink-0 text-[11px] font-medium sm:inline", on ? "text-white/75" : "text-[var(--text-muted)]")}>
-                            {s.gpsRadius} m
-                          </span>
-                        </button>
-                        {on && (
-                          <a
-                            href={mapLink(s.gpsLat, s.gpsLng)}
-                            target="_blank"
-                            rel="noreferrer"
-                            title="Xaritada ko'rish"
-                            aria-label={`${s.name} — xaritada`}
-                            className="mr-1 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full hover:bg-white/20"
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                        )}
-                      </span>
-                    );
-                  })}
                 </div>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* Pastki panel — o'zgarish bo'lsa */}
-        <div
-          className={cn(
-            "flex flex-wrap items-center gap-2 border-t border-[var(--border)] px-5 py-3",
-            dirty ? "bg-indigo-500/5" : "bg-transparent",
-          )}
-        >
-          {dirty ? (
-            <>
-              <span className="text-xs font-semibold text-[var(--text-primary)]">
-                {changes} ta o&apos;zgarish saqlanmagan
-              </span>
-              <button
-                type="button"
-                onClick={() => setPicked(new Set(initial))}
-                className="btn-secondary ml-auto !rounded-lg !px-4 !py-2 !text-xs"
-              >
-                Bekor qilish
-              </button>
-              <button
-                type="button"
-                onClick={() => save.mutate()}
-                disabled={save.isPending}
-                className="btn-primary !gap-1.5 !rounded-lg !px-4 !py-2 !text-xs"
-              >
-                {save.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                Saqlash
-              </button>
-            </>
-          ) : (
-            <Link
-              href="/dashboard/settings?tab=location"
-              className="ml-auto inline-flex items-center gap-1 text-xs font-semibold text-indigo-500"
-            >
-              <Plus className="h-3.5 w-3.5" /> Yangi ish joyi qo&apos;shish
-            </Link>
+              ))}
+            </div>
           )}
         </div>
       </div>
@@ -399,6 +349,131 @@ export function EmployeeWorkSitesPanel({
           </div>
         </div>
       )}
+
+      {pickerOpen && (
+        <SitePicker
+          sites={available}
+          saving={save.isPending}
+          onClose={() => setPickerOpen(false)}
+          onAdd={(picked) =>
+            save.mutate([...ids, ...picked], { onSuccess: () => setPickerOpen(false) })
+          }
+        />
+      )}
+
+      {mainOpen && (
+        <Dialog
+          open
+          onClose={() => {
+            setMainOpen(false);
+            void qc.invalidateQueries({ queryKey: key });
+          }}
+          title="Asosiy bino"
+          description="Muassasa binosini xaritada belgilang va saqlang — barcha xodimlar uchun amal qiladi."
+          className="sm:!w-[min(100%,44rem)]"
+        >
+          <GeofencePanel embedded onSaved={() => void qc.invalidateQueries({ queryKey: key })} />
+        </Dialog>
+      )}
     </div>
+  );
+}
+
+/** Ish joylarini qidirib tanlash oynasi */
+function SitePicker({
+  sites,
+  saving,
+  onClose,
+  onAdd,
+}: {
+  sites: Site[];
+  saving: boolean;
+  onClose: () => void;
+  onAdd: (ids: string[]) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const visible = sites.filter((s) => !query.trim() || matchesSearch(query, [s.name, s.address]));
+  const toggle = (id: string) =>
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title="Ish joyi biriktirish"
+      description="Bir nechtasini tanlashingiz mumkin."
+      footer={
+        <>
+          <button type="button" onClick={onClose} className="btn-secondary px-4 py-2 text-sm">
+            Bekor qilish
+          </button>
+          <button
+            type="button"
+            disabled={picked.size === 0 || saving}
+            onClick={() => onAdd(Array.from(picked))}
+            className="btn-primary gap-1.5 px-4 py-2 text-sm disabled:opacity-40"
+          >
+            {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+            Biriktirish{picked.size ? ` (${picked.size})` : ""}
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
+          <input
+            autoFocus
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Nomi yoki manzili bo'yicha qidirish..."
+            className="input-field w-full !pl-9"
+          />
+        </div>
+        <div className="max-h-[50vh] overflow-y-auto rounded-xl border border-[var(--border)] divide-y divide-[var(--border)]">
+          {visible.length === 0 ? (
+            <p className="px-4 py-8 text-center text-sm text-[var(--text-muted)]">Hech narsa topilmadi</p>
+          ) : (
+            visible.map((s) => {
+              const on = picked.has(s.id);
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => toggle(s.id)}
+                  aria-pressed={on}
+                  className={cn(
+                    "flex w-full items-center gap-3 px-4 py-3 text-left transition-colors",
+                    on ? "bg-indigo-500/[0.07]" : "hover:bg-[var(--bg-hover)]",
+                    !s.isActive && "opacity-60",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md border transition-colors",
+                      on ? "border-indigo-600 bg-indigo-600 text-white" : "border-[var(--border)]",
+                    )}
+                  >
+                    {on && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-[var(--text-primary)]">{s.name}</span>
+                    <span className="block truncate text-xs text-[var(--text-muted)]">
+                      {!s.isActive && "nofaol · "}radius {s.gpsRadius} m{s.address ? ` · ${s.address}` : ""}
+                    </span>
+                  </span>
+                </button>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </Dialog>
   );
 }

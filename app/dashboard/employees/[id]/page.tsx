@@ -833,6 +833,7 @@ export default function EmployeeProfilePage() {
                     sites={employee.workSites}
                     legacy={employee.gpsLat != null && employee.gpsLng != null}
                     href={`/dashboard/employees/${employee.id}?tab=gps`}
+                    variant="tag"
                   />
                 </div>
               </div>
