@@ -514,6 +514,11 @@ export const hospitalsApi = {
     api.get(`/hospitals/me/gps`).then((r) => r.data.data as HospitalGps),
   setMyGps: (data: { lat: number; lng: number; accuracy?: number; radius?: number }) =>
     api.put(`/hospitals/me/gps`, data).then((r) => r.data.data as HospitalGps),
+  /** SUPER/ASSISTANT admin — tanlangan muassasaning asosiy binosi */
+  getGps: (id: string) =>
+    api.get(`/hospitals/${id}/gps`).then((r) => r.data.data as HospitalGps),
+  setGps: (id: string, data: { lat: number; lng: number; accuracy?: number; radius?: number }) =>
+    api.put(`/hospitals/${id}/gps`, data).then((r) => r.data.data as HospitalGps),
   resetTelegramSubs: (id: string) => api.delete(`/hospitals/${id}/telegram-subs`).then((r) => r.data),
   listAssistants: (id: string) =>
     api.get(`/hospitals/${id}/assistants`).then((r) => r.data.data),

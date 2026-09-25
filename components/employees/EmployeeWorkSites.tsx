@@ -164,9 +164,11 @@ export function EmployeeWorkSitesPanel({
 
   const ids = assigned.map((s) => s.id);
   const remove = (id: string) => save.mutate(ids.filter((x) => x !== id));
-  // Asosiy binoni shu yerning o'zida belgilash — faqat o'z muassasasi
-  // rahbari (SUPER/ASSISTANT uchun Sozlamalar sahifasi)
-  const canSetMainHere = role === "DIRECTOR" || role === "ADMIN";
+  // Asosiy binoni shu yerning o'zida belgilash (Sozlamalarga o'tmasdan)
+  // SUPER/ASSISTANT admin xodimning muassasasi uchun belgilaydi
+  const superLike = role === "SUPER_ADMIN" || role === "ASSISTANT_ADMIN";
+  const canSetMainHere =
+    role === "DIRECTOR" || role === "ADMIN" || (superLike && !!hospitalId);
 
   return (
     <div className="space-y-4">
@@ -372,7 +374,11 @@ export function EmployeeWorkSitesPanel({
           description="Muassasa binosini xaritada belgilang va saqlang — barcha xodimlar uchun amal qiladi."
           className="sm:!w-[min(100%,44rem)]"
         >
-          <GeofencePanel embedded onSaved={() => void qc.invalidateQueries({ queryKey: key })} />
+          <GeofencePanel
+            embedded
+            hospitalId={superLike ? hospitalId ?? undefined : undefined}
+            onSaved={() => void qc.invalidateQueries({ queryKey: key })}
+          />
         </Dialog>
       )}
     </div>

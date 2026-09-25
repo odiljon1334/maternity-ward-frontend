@@ -22,15 +22,19 @@ export const apiErrorText = (e: ApiError) => {
 export function GeofencePanel({
   embedded = false,
   onSaved,
+  hospitalId,
 }: {
+  /** SUPER/ASSISTANT admin uchun tanlangan muassasa (DIRECTOR/ADMIN — o'ziniki, berilmaydi) */
+  hospitalId?: string;
   /** Boshqa oyna ichida (xodim sahifasi) — kartasiz va sarlavhasiz */
   embedded?: boolean;
   onSaved?: () => void;
 } = {}) {
   const qc = useQueryClient();
+  const gpsKey = hospitalId ? ["hospital-gps", hospitalId] : ["hospital-my-gps"];
   const { data, isLoading } = useQuery({
-    queryKey: ["hospital-my-gps"],
-    queryFn: () => hospitalsApi.getMyGps(),
+    queryKey: gpsKey,
+    queryFn: () => (hospitalId ? hospitalsApi.getGps(hospitalId) : hospitalsApi.getMyGps()),
     staleTime: 60_000,
   });
 
@@ -46,15 +50,17 @@ export function GeofencePanel({
   }, [data]);
 
   const saveMut = useMutation({
-    mutationFn: () =>
-      hospitalsApi.setMyGps({
+    mutationFn: () => {
+      const body = {
         lat: point!.lat,
         lng: point!.lng,
         radius,
         ...(point?.accuracy !== undefined ? { accuracy: Math.round(point.accuracy) } : {}),
-      }),
+      };
+      return hospitalId ? hospitalsApi.setGps(hospitalId, body) : hospitalsApi.setMyGps(body);
+    },
     onSuccess: (res) => {
-      qc.setQueryData(["hospital-my-gps"], res);
+      qc.setQueryData(gpsKey, res);
       // Xodim sahifalaridagi "Asosiy bino" holati ham yangilansin
       void qc.invalidateQueries({ queryKey: ["employee-sites"] });
       setPoint((p) => (p ? { lat: p.lat, lng: p.lng } : p));

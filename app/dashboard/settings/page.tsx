@@ -303,7 +303,10 @@ export default function SettingsPage() {
           )}
           {active === "location" && canManageLocation && (
             <>
-              {canManageBranding && <GeofencePanel />}
+              {/* SUPER/ASSISTANT admin — tanlangan muassasa uchun (ilgari umuman ko'rinmasdi) */}
+              {canManageLocation && (
+                <GeofencePanel hospitalId={isSuperLike(user?.role) ? targetHospitalId : undefined} />
+              )}
               <WorkSitesPanel targetHospitalId={isSuperLike(user?.role) ? targetHospitalId : undefined} />
             </>
           )}
