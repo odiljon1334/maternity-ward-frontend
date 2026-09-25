@@ -111,7 +111,12 @@ export function GeofencePanel({
             <Loader2 className="w-5 h-5 animate-spin text-[var(--text-muted)]" />
           </div>
         ) : (
-          <LocationPicker value={point} onChange={setPoint} radius={radiusValid ? radius : undefined} search={{}} />
+          <LocationPicker
+            value={point}
+            onChange={setPoint}
+            radius={radiusValid ? radius : undefined}
+            search={{ targetHospitalId: hospitalId }}
+          />
         )}
 
         <div className="grid grid-cols-2 gap-2 items-end">

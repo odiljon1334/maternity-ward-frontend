@@ -194,7 +194,7 @@ export function EmployeeWorkSitesPanel({
             <p className="text-sm font-semibold text-[var(--text-primary)]">Asosiy bino</p>
             <p className="text-xs text-[var(--text-muted)]">
               {data.hospitalCenter
-                ? `Barcha xodimlar uchun · radius ${data.hospitalCenter.radius ?? "—"} m`
+                ? `Xodimga avtomatik biriktirilgan · radius ${data.hospitalCenter.radius ?? "—"} m`
                 : "Belgilanmagan — hozircha faqat biriktirilgan ish joylarida check-in qilinadi"}
             </p>
           </div>
@@ -214,7 +214,7 @@ export function EmployeeWorkSitesPanel({
               onClick={() => setMainOpen(true)}
               className="inline-flex h-9 items-center rounded-xl border border-[var(--border)] px-3 text-xs font-semibold text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
             >
-              {data.hospitalCenter ? "O'zgartirish" : "Belgilash"}
+              {data.hospitalCenter ? "Binoni tahrirlash" : "Binoni belgilash"}
             </button>
           ) : (
             <Link
@@ -228,6 +228,10 @@ export function EmployeeWorkSitesPanel({
 
         {/* Biriktirilgan ish joylari */}
         <div className="pt-5">
+          <div className="mb-4 rounded-xl border border-sky-500/20 bg-sky-500/[0.06] px-3.5 py-3 text-xs leading-relaxed text-[var(--text-muted)]">
+            Asosiy bino barcha xodimlarga avtomatik amal qiladi. Xodim maktab, filial yoki boshqa hududda ham
+            ishlasa, muassasada avval yaratilgan GPS joyini quyidan tanlang.
+          </div>
           <div className="mb-3 flex items-center justify-between gap-3">
             <p className="text-sm font-semibold text-[var(--text-primary)]">
               Qo&apos;shimcha ish joylari
@@ -242,7 +246,7 @@ export function EmployeeWorkSitesPanel({
                 disabled={available.length === 0}
                 className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-40"
               >
-                <Plus className="h-4 w-4" /> Biriktirish
+                <Plus className="h-4 w-4" /> Mavjud GPSdan tanlash
               </button>
             )}
           </div>
@@ -264,7 +268,7 @@ export function EmployeeWorkSitesPanel({
               <MapPinned className="mx-auto mb-2 h-7 w-7 text-indigo-400 opacity-60" />
               <p className="text-sm font-medium text-[var(--text-primary)]">Ish joyi biriktirilmagan</p>
               <p className="mt-0.5 text-xs text-[var(--text-muted)]">
-                Maktab, bog&apos;cha yoki filialni tanlash uchun bosing
+                Mavjud maktab, bog&apos;cha yoki filial GPSini tanlash uchun bosing
               </p>
             </button>
           ) : (
@@ -370,8 +374,8 @@ export function EmployeeWorkSitesPanel({
             setMainOpen(false);
             void qc.invalidateQueries({ queryKey: key });
           }}
-          title="Asosiy bino"
-          description="Muassasa binosini xaritada belgilang va saqlang — barcha xodimlar uchun amal qiladi."
+          title="Muassasaning asosiy binosi"
+          description="Bu umumiy sozlama: o'zgartirish shu muassasadagi barcha xodimlarga ta'sir qiladi."
           className="sm:!w-[min(100%,44rem)]"
         >
           <GeofencePanel
@@ -412,8 +416,8 @@ function SitePicker({
     <Dialog
       open
       onClose={onClose}
-      title="Ish joyi biriktirish"
-      description="Bir nechtasini tanlashingiz mumkin."
+      title="Mavjud GPS joyidan tanlash"
+      description="Muassasada yaratilgan ish joylaridan bir yoki bir nechtasini xodimga biriktiring."
       footer={
         <>
           <button type="button" onClick={onClose} className="btn-secondary px-4 py-2 text-sm">
