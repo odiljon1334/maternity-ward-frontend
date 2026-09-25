@@ -11,7 +11,7 @@ import {
   CreditCard, UserPlus, Shield, Send, Eye, X, Video, 
   ScanFace, UserCircle, Palmtree, BarChart2, Wallet, Bot, Archive, UserCog,
   Sparkles, BookOpen, HandCoins,
-  MapPin
+  MapPin, Clock3, ArrowLeftRight
 } from "lucide-react";
 import { cn, getInitials, getAvatarColor } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth";
@@ -52,6 +52,8 @@ const mainNavItems: NavItem[] = [
   roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] 
 },
   { href: "/dashboard/leaves",            label: "Ta'til so'rovlari",  icon: Palmtree,       exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
+  { href: "/dashboard/attendance-notices", label: "Kechikish xabarlari", icon: Clock3,        exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
+  { href: "/dashboard/shift-swaps", label: "Smena almashish", icon: ArrowLeftRight, exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/cameras", label: "Kameralar", icon: Video, exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "MINISTRY"] },
   { href: "/dashboard/payroll",           label: "Maosh",              icon: DollarSign,     exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/compensation",      label: "KPI, jarima, avans", icon: HandCoins,      exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR"] },

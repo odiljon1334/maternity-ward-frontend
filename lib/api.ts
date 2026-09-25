@@ -731,6 +731,26 @@ export const ministryApi = {
 };
 
 // ─── Leave Requests (Ta'til so'rovlari) ─────────
+/** "Kechikaman" xabarlari (xodim yuboradi, rahbar tasdiqlaydi) */
+export const noticeApi = {
+  list: (params?: { status?: string; days?: number; targetHospitalId?: string }) =>
+    api.get("/attendance-notices", { params }).then((r) => r.data.data ?? r.data),
+  review: (id: string, data: { decision: "APPROVED" | "REJECTED"; note?: string }, targetHospitalId?: string) =>
+    api
+      .patch(`/attendance-notices/${id}/review`, data, { params: targetHospitalId ? { targetHospitalId } : undefined })
+      .then((r) => r.data.data ?? r.data),
+};
+
+/** Smena almashish so'rovlari (oddiy grafik; hamkasb rozi → rahbar tasdiqlaydi) */
+export const swapApi = {
+  list: (params?: { status?: string; targetHospitalId?: string }) =>
+    api.get("/shift-swaps", { params }).then((r) => r.data.data ?? r.data),
+  review: (id: string, data: { decision: "APPROVED" | "REJECTED"; note?: string }, targetHospitalId?: string) =>
+    api
+      .patch(`/shift-swaps/${id}/review`, data, { params: targetHospitalId ? { targetHospitalId } : undefined })
+      .then((r) => r.data.data ?? r.data),
+};
+
 export const leaveApi = {
   /** EMPLOYEE: yangi so'rov yaratish */
   create: (data: { type: string; startDate: string; endDate: string; reason?: string }) =>
