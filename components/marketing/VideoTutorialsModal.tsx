@@ -22,6 +22,7 @@ import {
   ShieldCheck,
   FileText,
 } from "lucide-react";
+import { SUPPORT_OPERATOR_URL, SUPPORT_OPERATOR_USERNAME } from "@/lib/contacts";
 import { toast } from "sonner";
 
 export interface VideoTutorialItem {
@@ -554,12 +555,12 @@ export function VideoTutorialsModal({
               <p className="text-[11px] text-slate-500">
                 Savollaringiz bormi? Telegram orqali mutaxassisimiz bepul bog&apos;lanib ekranni ko&apos;rib sozlab beradi:{" "}
                 <a
-                  href="https://t.me/StaffPlusPRO_Support_bot"
+                  href={SUPPORT_OPERATOR_URL}
                   target="_blank"
                   rel="noreferrer"
                   className="text-blue-600 font-bold underline"
                 >
-                  @StaffPlusPRO_Support_bot
+                  @{SUPPORT_OPERATOR_USERNAME}
                 </a>
               </p>
             </div>

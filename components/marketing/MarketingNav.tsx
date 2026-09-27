@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { APP_PAGE_PATH, SUPPORT_BOT_URL } from "@/lib/contacts";
 import {
   Activity,
   Menu,
@@ -23,6 +24,7 @@ import {
   Users,
   ChevronDown,
   MapPin,
+  Smartphone,
 } from "lucide-react";
 
 interface MarketingNavProps {
@@ -139,6 +141,17 @@ export function MarketingNav({ onOpenDemo, onOpenTrial, onOpenTutorials }: Marke
                       <div>
                         <div className="font-semibold text-blue-600 dark:text-blue-400">Planshet Kiosk</div>
                         <div className="text-[10px] text-slate-400 font-normal">Yuzni tanish plansheti</div>
+                      </div>
+                    </a>
+                    <a
+                      href="/#ilova"
+                      onClick={() => setSystemMenuOpen(false)}
+                      className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-xl transition-colors"
+                    >
+                      <Smartphone className="w-4 h-4 text-indigo-500 shrink-0" />
+                      <div>
+                        <div className="font-semibold">Xodimlar ilovasi</div>
+                        <div className="text-[10px] text-slate-400 font-normal">Android · yuklab olish</div>
                       </div>
                     </a>
                     <a
@@ -285,6 +298,14 @@ export function MarketingNav({ onOpenDemo, onOpenTrial, onOpenTutorials }: Marke
                 <span>Video Qo&apos;llanma</span>
               </Link>
             )}
+
+            <a
+              href="/#ilova"
+              className="hidden 2xl:flex items-center gap-1.5 hover:text-blue-600 dark:hover:text-blue-400 transition-colors whitespace-nowrap px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800/60"
+            >
+              <Smartphone className="w-3.5 h-3.5" />
+              <span>Mobil ilova</span>
+            </a>
 
             <Link
               href="/tariflar"
@@ -520,6 +541,15 @@ export function MarketingNav({ onOpenDemo, onOpenTrial, onOpenTutorials }: Marke
                   )}
 
                   <Link
+                    href={APP_PAGE_PATH}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors"
+                  >
+                    <Smartphone className="w-4 h-4 text-indigo-500" />
+                    <span>Mobil ilovani yuklab olish</span>
+                  </Link>
+
+                  <Link
                     href="/tariflar"
                     onClick={() => setMobileMenuOpen(false)}
                     className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors"
@@ -575,7 +605,7 @@ export function MarketingNav({ onOpenDemo, onOpenTrial, onOpenTutorials }: Marke
 
               <div className="pt-2 text-center">
                 <a
-                  href="https://t.me/StaffPlusPRO_Support_bot"
+                  href={SUPPORT_BOT_URL}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 text-[11px] text-slate-500 hover:text-blue-500 transition-colors"

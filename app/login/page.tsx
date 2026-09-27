@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { Eye, EyeOff, Activity, Users, Clock, TrendingUp, Shield, Mail, Phone, Send } from "lucide-react";
+import { Eye, EyeOff, Activity, Users, Clock, TrendingUp, Shield, Mail, Phone, Send, Headset } from "lucide-react";
+import { SUPPORT_BOT_URL, SUPPORT_BOT_USERNAME, SUPPORT_OPERATOR_URL, SUPPORT_OPERATOR_USERNAME } from "@/lib/contacts";
 import { authApi } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth";
 import { cn } from "@/lib/utils";
@@ -274,7 +275,7 @@ export default function LoginPage() {
                 </a>
               )}
               <a
-                href="https://t.me/StaffPlusPRO_Support_bot"
+                href={SUPPORT_BOT_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 group"
@@ -283,7 +284,20 @@ export default function LoginPage() {
                   <Send className="w-3.5 h-3.5 text-sky-500" />
                 </div>
                 <span className="text-sm dark:text-gray-300 text-gray-700 group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
-                  @StaffPlusPRO_Support_bot
+                  @{SUPPORT_BOT_USERNAME}
+                </span>
+              </a>
+              <a
+                href={SUPPORT_OPERATOR_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 group"
+              >
+                <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center flex-shrink-0 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-500/20 transition-colors">
+                  <Headset className="w-3.5 h-3.5 text-indigo-500" />
+                </div>
+                <span className="text-sm dark:text-gray-300 text-gray-700 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                  Operator: @{SUPPORT_OPERATOR_USERNAME}
                 </span>
               </a>
             </div>

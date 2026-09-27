@@ -7,6 +7,7 @@ import { WhiteLabelStudio } from "@/components/marketing/WhiteLabelStudio";
 import { TerminalPolicySection } from "@/components/marketing/TerminalPolicySection";
 import { DirectorTelegramShowcase } from "@/components/marketing/DirectorTelegramShowcase";
 import { MobileEmployeeShowcase } from "@/components/marketing/MobileEmployeeShowcase";
+import { MobileAppDownloadSection } from "@/components/marketing/MobileAppDownloadSection";
 import { LiveMapShowcase } from "@/components/marketing/LiveMapShowcase";
 import { FeatureGrid } from "@/components/marketing/FeatureGrid";
 import { VideoTutorialsSection } from "@/components/marketing/VideoTutorialsSection";
@@ -84,6 +85,9 @@ export default function MarketingLandingPage() {
       <MobileEmployeeShowcase
         onOpenTrial={() => setIsTrialOpen(true)}
       />
+
+      {/* Xodimlar ilovasi: yuklab olish, o'rnatish va tarqatish (/ilova) */}
+      <MobileAppDownloadSection />
 
       {/* Live Map & Geofence Showcase: Check-in connects, Check-out disconnects */}
       <LiveMapShowcase

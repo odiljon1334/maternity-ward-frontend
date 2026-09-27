@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
 import {
   Activity,
@@ -17,66 +17,24 @@ import {
   ShieldCheck,
   Smartphone,
 } from "lucide-react";
+import {
+  INSTALL_STEPS,
+  dateUz,
+  sizeMb,
+  useAppManifest,
+  useDevicePlatform,
+  type InstallStepKey,
+} from "@/lib/app-release";
+import { SUPPORT_BOT_URL, SUPPORT_OPERATOR_URL, SUPPORT_OPERATOR_USERNAME } from "@/lib/contacts";
 import { AppQrCode } from "./AppQrCode";
 
-type Manifest = {
-  latest: {
-    version: string;
-    build: number;
-    url: string;
-    sha256: string;
-    size: number;
-    publishedAt: string;
-    notes: string[];
-  };
-  minSupportedBuild: number;
+const STEP_ICON: Record<InstallStepKey, LucideIcon> = {
+  download: Download,
+  allow: ShieldCheck,
+  protect: ShieldAlert,
+  login: LogIn,
 };
-
-const MONTHS = [
-  "yanvar",
-  "fevral",
-  "mart",
-  "aprel",
-  "may",
-  "iyun",
-  "iyul",
-  "avgust",
-  "sentabr",
-  "oktabr",
-  "noyabr",
-  "dekabr",
-];
-const dateUz = (iso: string) => {
-  const d = new Date(iso);
-  return `${d.getDate()}-${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
-};
-const mb = (bytes: number) =>
-  `${(bytes / 1024 / 1024).toFixed(1).replace(".0", "")} MB`;
-
-const SUPPORT_TELEGRAM = "https://t.me/StaffPlusPRO_Support_bot";
-
-const STEPS = [
-  {
-    icon: Download,
-    title: "Yuklab oling",
-    text: "«Android uchun yuklab olish» tugmasini bosing. Fayl telefoningizga saqlanadi.",
-  },
-  {
-    icon: ShieldCheck,
-    title: "O'rnatishga ruxsat bering",
-    text: "Telefon «Noma'lum manbalardan o'rnatish»ni so'rasa — brauzer uchun «Ruxsat berish»ni yoqing. Bu bir martalik.",
-  },
-  {
-    icon: ShieldAlert,
-    title: "Play Protect ogohlantirsa",
-    text: "Ilova Play Market'dan emasligi uchun ogohlantirish chiqishi mumkin: «Batafsil» → «Baribir o'rnatish» ni bosing.",
-  },
-  {
-    icon: LogIn,
-    title: "Kiring",
-    text: "Ilovani oching va muassasangiz bergan login va parol bilan kiring.",
-  },
-];
+const STEPS = INSTALL_STEPS.map((s) => ({ ...s, icon: STEP_ICON[s.key] }));
 
 const FEATURES = [
   {
@@ -124,47 +82,9 @@ const FAQ = [
   },
 ];
 
-function useManifest() {
-  const [state, setState] = useState<{
-    status: "loading" | "ready" | "none";
-    data?: Manifest;
-  }>({ status: "loading" });
-  useEffect(() => {
-    let alive = true;
-    fetch("/app/android/latest.json", { cache: "no-store" })
-      .then((r) =>
-        r.ok ? r.json() : Promise.reject(new Error(String(r.status))),
-      )
-      .then(
-        (data: Manifest) =>
-          alive &&
-          setState({ status: data?.latest?.url ? "ready" : "none", data }),
-      )
-      .catch(() => alive && setState({ status: "none" }));
-    return () => {
-      alive = false;
-    };
-  }, []);
-  return state;
-}
-
-function usePlatform() {
-  const [p, setP] = useState<"android" | "ios" | "desktop">("android");
-  useEffect(() => {
-    const ua = navigator.userAgent;
-    if (/iPhone|iPad|iPod/i.test(ua)) setP("ios");
-    else if (
-      !/Android/i.test(ua) &&
-      window.matchMedia("(min-width: 768px)").matches
-    )
-      setP("desktop");
-  }, []);
-  return p;
-}
-
 export function AppDownloadPage() {
-  const m = useManifest();
-  const platform = usePlatform();
+  const m = useAppManifest();
+  const platform = useDevicePlatform();
   const latest = m.data?.latest;
 
   const download =
@@ -231,7 +151,7 @@ export function AppDownloadPage() {
             ) : null}
             {latest ? (
               <p className="mt-3 text-[13px] font-medium text-indigo-100/90">
-                Versiya {latest.version} · {mb(latest.size)} ·{" "}
+                Versiya {latest.version} · {sizeMb(latest.size)} ·{" "}
                 {dateUz(latest.publishedAt)} · Android 7.0+
               </p>
             ) : null}
@@ -393,12 +313,21 @@ export function AppDownloadPage() {
         <p>
           Yordam kerakmi?{" "}
           <a
-            href={SUPPORT_TELEGRAM}
+            href={SUPPORT_BOT_URL}
             className="font-bold text-[var(--ci-indigo-text)]"
             target="_blank"
             rel="noopener noreferrer"
           >
-            Telegram orqali yozing
+            Telegram yordamchi
+          </a>{" "}
+          yoki operator{" "}
+          <a
+            href={SUPPORT_OPERATOR_URL}
+            className="font-bold text-[var(--ci-indigo-text)]"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            @{SUPPORT_OPERATOR_USERNAME}
           </a>
         </p>
         <p className="mt-2">

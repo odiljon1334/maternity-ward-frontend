@@ -7,6 +7,7 @@ import {
   Phone,
   Calculator,
 } from "lucide-react";
+import { SUPPORT_OPERATOR_URL } from "@/lib/contacts";
 import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { MarketingFooter } from "@/components/marketing/MarketingFooter";
 import { PricingCalculator } from "@/components/marketing/PricingCalculator";
@@ -259,7 +260,7 @@ export default function PricingPage() {
               </p>
             </div>
             <a
-              href="https://t.me/clinicuk_support"
+              href={SUPPORT_OPERATOR_URL}
               target="_blank"
               rel="noreferrer"
               className="shrink-0 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-lg shadow-blue-600/30 transition-colors flex items-center gap-2"

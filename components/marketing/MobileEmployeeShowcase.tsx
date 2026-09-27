@@ -52,7 +52,7 @@ export function MobileEmployeeShowcase({ onOpenTrial }: MobileEmployeeShowcasePr
         <div className="text-center max-w-3xl mx-auto space-y-4 mb-14">
           <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-200">
             <Smartphone className="w-3.5 h-3.5" />
-            <span>Xodim Mobil Ilovasi (PWA &amp; Telegram)</span>
+            <span>Xodim Mobil Ilovasi (Android &amp; Telegram)</span>
           </div>
 
           <h2 className="text-3xl sm:text-5xl font-black text-slate-900 tracking-tight leading-tight">

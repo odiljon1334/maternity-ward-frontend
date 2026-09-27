@@ -1,7 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { Activity, Phone, MapPin, Send } from "lucide-react";
+import {
+  APP_PAGE_PATH,
+  SUPPORT_BOT_URL,
+  SUPPORT_BOT_USERNAME,
+  SUPPORT_OPERATOR_URL,
+  SUPPORT_OPERATOR_USERNAME,
+  SUPPORT_PHONE,
+  SUPPORT_PHONE_LABEL,
+} from "@/lib/contacts";
+import { Activity, Bot, Phone, MapPin, Send, Smartphone } from "lucide-react";
 
 export function MarketingFooter() {
   return (
@@ -60,6 +69,12 @@ export function MarketingFooter() {
                 </Link>
               </li>
               <li>
+                <Link href={APP_PAGE_PATH} className="hover:text-white transition-colors flex items-center gap-1.5">
+                  <Smartphone className="w-3.5 h-3.5" />
+                  <span>Mobil ilova (Android)</span>
+                </Link>
+              </li>
+              <li>
                 <Link href="/tariflar" className="hover:text-white transition-colors">
                   Tariflar jadvali
                 </Link>
@@ -99,20 +114,29 @@ export function MarketingFooter() {
             <h4 className="text-white font-semibold text-sm">Aloqa &amp; Yordam</h4>
             <div className="space-y-2.5">
               <a
-                href="tel:+998955775454"
+                href={`tel:${SUPPORT_PHONE}`}
                 className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors"
               >
                 <Phone className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                <span>+998 95 577 54 54</span>
+                <span>{SUPPORT_PHONE_LABEL}</span>
               </a>
               <a
-                href="https://t.me/StaffPlusPRO_Support_bot"
+                href={SUPPORT_OPERATOR_URL}
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors"
               >
                 <Send className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                <span>Telegram: @StaffPlusPRO_Support_bot</span>
+                <span>Operator: @{SUPPORT_OPERATOR_USERNAME}</span>
+              </a>
+              <a
+                href={SUPPORT_BOT_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-2 text-slate-300 hover:text-white transition-colors"
+              >
+                <Bot className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                <span>24/7 yordamchi: @{SUPPORT_BOT_USERNAME}</span>
               </a>
               <div className="flex items-start gap-2 text-slate-400 text-[11px] pt-1">
                 <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0 mt-0.5" />
