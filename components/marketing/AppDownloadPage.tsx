@@ -70,7 +70,7 @@ const FAQ = [
   },
   {
     q: "Joylashuvim doim kuzatiladimi?",
-    a: "Yo'q. Joylashuv faqat ish vaqtida — kelishni belgilaganingizdan ketishni belgilaguningizcha yuboriladi. Bu vaqtda bildirishnoma panelida «StaffPlusPRO — Ish vaqti» yozuvi turadi.",
+    a: "Yo'q. Joylashuv faol ish smenasi davomida — check-in qilingandan check-out yoki smena yakunigacha yuboriladi. Android ilovada bu vaqtda bildirishnoma panelida «StaffPlusPRO — Ish vaqti» yozuvi turadi.",
   },
   {
     q: "Qaysi telefonlarda ishlaydi?",

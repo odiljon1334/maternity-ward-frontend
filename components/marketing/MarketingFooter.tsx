@@ -38,7 +38,7 @@ export function MarketingFooter() {
                 CLICK &bull; Payme
               </span>
               <span className="px-2.5 py-1 rounded bg-slate-900 border border-slate-800 text-slate-300 font-mono text-[11px]">
-                Didox E-Faktura
+                Didox — ishlab chiqilmoqda
               </span>
             </div>
           </div>
@@ -152,6 +152,8 @@ export function MarketingFooter() {
           <div className="flex items-center gap-6 text-[11px] text-slate-400">
             <Link href="/tariflar" className="hover:text-slate-200 transition-colors">Tariflar</Link>
             <Link href="/video-qollanma" className="hover:text-slate-200 transition-colors">Qo&apos;llanmalar</Link>
+            <Link href="/maxfiylik" className="hover:text-slate-200 transition-colors">Maxfiylik</Link>
+            <Link href="/foydalanish-shartlari" className="hover:text-slate-200 transition-colors">Foydalanish shartlari</Link>
             <Link href="/login" className="hover:text-slate-200 transition-colors">Tizimga kirish</Link>
           </div>
         </div>

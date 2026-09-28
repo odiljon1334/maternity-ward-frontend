@@ -5,11 +5,11 @@ import { Providers } from "@/providers";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const APP_URL = "https://clinicuk24.com";
-const APP_NAME = "MaternityCare";
-const APP_TITLE = "MaternityCare — Aqlli Boshqaruv Tizimi";
+const APP_NAME = "StaffPlusPRO";
+const APP_TITLE = "StaffPlusPRO — Davomat, grafik va xodimlar boshqaruvi";
 const APP_DESCRIPTION =
-  "Tug'ruq xona xodimlari davomati, maosh va kasalxona operatsiyalarini bir platformada boshqaring. " +
-  "Умная система управления персоналом роддома — учёт посещаемости, зарплаты и операций в одной платформе.";
+  "Muassasa va tashkilotlar uchun Face ID hamda mobil davomat, 24/7 ish grafiklari, " +
+  "T-13 Excel hisobotlari, ish haqi hisobi va Telegram bildirishnomalari.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
@@ -20,10 +20,9 @@ export const metadata: Metadata = {
   },
   description: APP_DESCRIPTION,
   keywords: [
-    "tug'ruq xona", "davomat tizimi", "xodimlar boshqaruvi", "maosh hisoblash",
-    "kasalxona tizimi", "Hikvision integratsiya",
-    "роддом", "система учёта посещаемости", "управление персоналом больницы",
-    "MaternityCare", "clinicuk24",
+    "davomat tizimi", "xodimlar boshqaruvi", "ish grafigi", "maosh hisoblash",
+    "T-13 tabel", "Face ID davomat", "Hikvision integratsiya",
+    "StaffPlusPRO", "MaternityCare", "clinicuk24",
   ],
   authors: [{ name: APP_NAME, url: APP_URL }],
   creator: APP_NAME,

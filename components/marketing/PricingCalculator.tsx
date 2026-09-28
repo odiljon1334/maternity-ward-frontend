@@ -427,7 +427,7 @@ export function PricingCalculator({ onSelectPlan, onOpenProposal }: PricingCalcu
                 </div>
                 <div className="flex items-start gap-2.5 text-slate-700 dark:text-slate-300">
                   <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                  <span>1C, MedSoft, Didox va korporativ ERP tizimlari bilan to&apos;g&apos;ridan-to&apos;g&apos;ri API</span>
+                  <span>T-13 Excel/PDF eksporti; 1C, MedSoft va ERP API integratsiyasi loyiha asosida</span>
                 </div>
                 <div className="flex items-start gap-2.5 text-slate-700 dark:text-slate-300">
                   <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />

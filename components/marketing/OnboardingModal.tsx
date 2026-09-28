@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   X,
   Building2,
@@ -362,7 +363,15 @@ export function OnboardingModal({
               </button>
 
               <p className="text-[11px] text-center text-slate-500 dark:text-slate-400">
-                Tugmani bosish orqali siz xizmat ko&apos;rsatish shartlariga va shaxsiy ma&apos;lumotlarni qayta ishlashga rozilik bildirasiz.
+                Tugmani bosish orqali siz{" "}
+                <Link href="/foydalanish-shartlari" target="_blank" className="font-semibold text-blue-600 hover:underline">
+                  foydalanish shartlari
+                </Link>{" "}
+                va{" "}
+                <Link href="/maxfiylik" target="_blank" className="font-semibold text-blue-600 hover:underline">
+                  maxfiylik siyosati
+                </Link>
+                ga rozilik bildirasiz.
               </p>
             </form>
           ) : (

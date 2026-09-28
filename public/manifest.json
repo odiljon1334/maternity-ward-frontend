@@ -1,7 +1,7 @@
 {
-  "name": "Maternity Ward — Davomat tizimi",
-  "short_name": "MatWard",
-  "description": "Tug'ruq xona xodimlari davomati va maosh boshqaruvi",
+  "name": "StaffPlusPRO — Davomat va xodimlar boshqaruvi",
+  "short_name": "StaffPlusPRO",
+  "description": "Muassasalar uchun davomat, ish grafigi va ish haqi boshqaruvi",
   "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#0f1117",

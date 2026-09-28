@@ -6,7 +6,15 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: "*",
-      allow: ["/", "/tariflar", "/video-qollanma", "/login"],
+      allow: [
+        "/",
+        "/tariflar",
+        "/video-qollanma",
+        "/ilova",
+        "/maxfiylik",
+        "/foydalanish-shartlari",
+        "/login",
+      ],
       // Ichki, autentifikatsiya talab qiladigan bo'limlar indekslanmaydi
       disallow: ["/dashboard/", "/panel/", "/register", "/forgot-password", "/reset-password", "/api/"],
     },

@@ -4,7 +4,7 @@ import { TrackingScripts } from "@/components/marketing/TrackingScripts";
 export const metadata: Metadata = {
   title: "StaffPlusPRO — Universal Xodimlar Davomati, Face ID & Smart Kadrlar Tizimi",
   description:
-    "Har qanday korxona, ofis, ishlab chiqarish va klinikalar (MaternityCare) uchun Face ID davomat tizimi. O'z logotipingiz bilan White-Label, 24/7 smenalar, avtomatlashtirilgan T-13 tabel va Telegram bot.",
+    "Muassasa va tashkilotlar uchun Face ID va mobil davomat, 24/7 smenalar, T-13 Excel hisobotlari, ish haqi hisobi va Telegram bildirishnomalari.",
   keywords: [
     "davomat tizimi",
     "face id davomat uzbekistan",
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "StaffPlusPRO — Korxonalar va Klinikalar Uchun Face ID Davomat Ekotizimi",
     description:
-      "Universal Face ID terminallar, White-Label brending, 24/7 smenalar, oylik tabel va ish haqi avtomatizatsiyasi. 14 kun bepul sinab ko'ring!",
+      "Face ID terminallar, Android ilova, iPhone veb kabineti, 24/7 smenalar, T-13 Excel va ish haqi hisobi. Sinov uchun ariza qoldiring.",
     type: "website",
     locale: "uz_UZ",
   },

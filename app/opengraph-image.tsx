@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
-export const alt = "MaternityCare — Aqlli Boshqaruv Tizimi";
+export const alt = "StaffPlusPRO — Davomat, grafik va xodimlar boshqaruvi";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -60,10 +60,10 @@ export default function OgImage() {
               fontSize: 26,
             }}
           >
-            🏥
+            ✓
           </div>
           <span style={{ color: "white", fontSize: 28, fontWeight: 700, letterSpacing: -0.5 }}>
-            MaternityCare
+            StaffPlusPRO
           </span>
           <div
             style={{
@@ -95,7 +95,7 @@ export default function OgImage() {
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <span style={{ color: "#c7d2fe", fontSize: 20, fontWeight: 500 }}>
-              🇺🇿 O'zbekcha
+              🇺🇿 O&apos;zbekcha
             </span>
             <h1
               style={{
@@ -107,9 +107,9 @@ export default function OgImage() {
                 letterSpacing: -2,
               }}
             >
-              Aqlli Boshqaruv
+              Xodimlar boshqaruvi
               <br />
-              <span style={{ color: "#a5b4fc" }}>Tizimi</span>
+              <span style={{ color: "#a5b4fc" }}>bitta platformada</span>
             </h1>
           </div>
           <p
@@ -121,10 +121,10 @@ export default function OgImage() {
               lineHeight: 1.5,
             }}
           >
-            Xodimlar davomati, maosh va kasalxona operatsiyalarini bir platformada boshqaring.
+            Face ID va mobil davomat, 24/7 ish grafiklari, T-13 hisobotlari va ish haqi hisobi.
             <br />
             <span style={{ color: "rgba(199,210,254,0.65)", fontSize: 19 }}>
-              🇷🇺 Умная система управления персоналом роддома — посещаемость, зарплата, операции.
+              Muassasa va tashkilotlar uchun xavfsiz, tenantlarga ajratilgan tizim.
             </span>
           </p>
         </div>
@@ -132,9 +132,9 @@ export default function OgImage() {
         {/* Bottom: Stats */}
         <div style={{ display: "flex", gap: 20 }}>
           {[
-            { value: "99%", label: "Davomat aniqligi / Точность учёта" },
-            { value: "24/7", label: "Monitoring / Мониторинг" },
-            { value: "< 5 daq", label: "O'rnatish / Установка" },
+            { value: "Face ID", label: "Terminal va mobil check-in" },
+            { value: "24/7", label: "Tungi va kunduzgi grafiklar" },
+            { value: "T-13", label: "Excel va PDF hisobotlar" },
           ].map((s) => (
             <div
               key={s.value}

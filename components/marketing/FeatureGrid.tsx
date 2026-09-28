@@ -32,10 +32,10 @@ export function FeatureGrid() {
     {
       icon: <Palette className="w-6 h-6 text-teal-600" />,
       badge: "White-Label Ekotizim",
-      title: "O'z Korxonangiz Logosi & Nomi",
+      title: "Muassasangiz nomi bilan alohida kabinet",
       description:
-        "Tizim korxonangiz brendiga to'liq moslashadi. Xodimlarning shaxsiy kabinetida va Telegram botida aynan sizning logotipingiz hamda korxonangiz nomi ko'rinadi.",
-      highlights: ["Shaxsiy logotip va ranglar", "Korxona nomidagi Telegram bot", "Brendlangan T-13 hisobotlar"],
+        "Har bir muassasaning xodimlari, bo'limlari, grafiklari va hisobotlari boshqa tashkilotlardan ajratilgan. Logotip va kengaytirilgan brending korporativ loyiha doirasida sozlanadi.",
+      highlights: ["Tenantlar qat'iy ajratilgan", "Muassasa nomi ko'rinadi", "Korporativ brending sozlamasi"],
     },
     {
       icon: <DollarSign className="w-6 h-6 text-emerald-600" />,
@@ -43,7 +43,7 @@ export function FeatureGrid() {
       title: "Oylik Maosh & Excel/PDF Tabel",
       description:
         "T-13 tabeli daqiqasigacha to'ldiriladi. Oklad yoki soatbay stavka, tungi soatlar (1.5x), bayram kunlari koeffitsientlari inobatga olinib, Excel (.xlsx) da tahrirlanadi va PDF da chop etiladi.",
-      highlights: ["T-13 davomat tabeli", "Excel va PDF yuklab olish", "1C:Korxona bilan integratsiya"],
+      highlights: ["T-13 davomat tabeli", "Excel va PDF yuklab olish", "1C uchun Excel eksport"],
     },
     {
       icon: <Send className="w-6 h-6 text-sky-600" />,
@@ -59,7 +59,7 @@ export function FeatureGrid() {
       title: "GPS Geolocation & Mobil Kabinet",
       description:
         "Tashqi savdo vakillari, haydovchilar, feldsherlar va filiallar uchun smartfon orqali self-checkin. Belgilangan geo-radius va yuzni selfi orqali tasdiqlash.",
-      highlights: ["Geo-fencing chegarasi", "Selfie bilan tekshirish", "iOS va Android PWA ilova"],
+      highlights: ["Geo-fencing chegarasi", "Selfie bilan tekshirish", "Android ilova va iPhone veb kabineti"],
     },
   ];
 
@@ -132,21 +132,21 @@ export function FeatureGrid() {
             </h3>
             
             <p className="text-sm text-slate-300 leading-relaxed">
-              Yangi apparat sotib olishingiz shart emas! <strong>Hikvision, Dahua, ZKTeco, Uniview</strong> va boshqa barcha standart IP Face ID terminallarini 15 daqiqada serverimizga ulab beramiz.
+              Yangi apparat sotib olishdan oldin mavjud terminalingizni tekshiramiz. Qo&apos;llab-quvvatlanadigan <strong>Hikvision</strong> modellari webhook va sinxronlash orqali ulanadi; boshqa brendlar model va protokol bo&apos;yicha alohida baholanadi.
             </p>
 
             <div className="flex flex-wrap gap-4 pt-2 text-xs text-blue-200">
               <span className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                Statik IP shart emas
+                Webhook va fon sinxronlash
               </span>
               <span className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                Mavjud apparatlarni bepul ulash
+                Moslik oldindan tekshiriladi
               </span>
               <span className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                1000+ xodimga terminallar BIZDAN BEPUL
+                Uskuna shartlari shartnomada belgilanadi
               </span>
             </div>
           </div>

@@ -204,7 +204,7 @@ export function DirectorTelegramShowcase({ onOpenTrial }: DirectorTelegramShowca
                     </div>
                     <div>
                       <p className="text-sm font-bold text-white">
-                        {activeMode === "terminal" ? "Hikvision DS-K1T671MF (Turniket #1)" : "StaffPlusPRO Mobile Client (iOS / Android)"}
+                        {activeMode === "terminal" ? "Hikvision DS-K1T671MF (Turniket #1)" : "StaffPlusPRO Mobile (Android / iPhone web)"}
                       </p>
                       <p className="text-[11px] text-slate-400">
                         {activeMode === "terminal" ? "IP: 192.168.1.120 • Holat: ONLAYN 🟢" : "GPS: Toshkent, Chilonzor 9 • Aniqlik: ±3m"}

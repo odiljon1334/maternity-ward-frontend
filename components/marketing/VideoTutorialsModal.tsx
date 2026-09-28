@@ -21,6 +21,7 @@ import {
   Info,
   ShieldCheck,
   FileText,
+  type LucideIcon,
 } from "lucide-react";
 import { SUPPORT_OPERATOR_URL, SUPPORT_OPERATOR_USERNAME } from "@/lib/contacts";
 import { toast } from "sonner";
@@ -31,7 +32,7 @@ export interface VideoTutorialItem {
   title: string;
   shortDesc: string;
   duration: string;
-  icon: any;
+  icon: LucideIcon;
   badge: string;
   steps: string[];
   keyNotes: string[];
@@ -153,8 +154,8 @@ export const TUTORIAL_LESSONS: VideoTutorialItem[] = [
       "Agar rahbar imzosi va tashkilot muhri uchun kerak bo'lsa, 'PDF' tugmasini bosing — tayyor A4 formatidagi chiroyli vedomost shakllanadi.",
     ],
     keyNotes: [
-      "Excel fayldagi har bir ustun rasmiy O'zbekiston mehnat qoidalariga (T-13 shakli) to'liq mos keladi.",
-      "1C:Korxona (8.3) bilan to'g'ridan-to'g'ri integratsiya API si mavjud.",
+      "Excel faylda T-13 uchun ish kuni, soat va davomat kodlari shakllantiriladi; yakuniy hujjatni mas'ul xodim tekshiradi.",
+      "Excel faylini 1C jarayoniga import qilish mumkin; to'g'ridan-to'g'ri API integratsiyasi alohida loyiha sifatida baholanadi.",
     ],
     downloadAction: {
       label: "Rasmiy T-13 Davomat Tabeli namunasi (Excel)",
