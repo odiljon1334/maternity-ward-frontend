@@ -15,6 +15,7 @@ const employeeSites = fs.readFileSync(
   path.join(root, "components/employees/EmployeeWorkSites.tsx"),
   "utf8",
 );
+const api = fs.readFileSync(path.join(root, "lib/api.ts"), "utf8");
 
 assert.match(
   settingsPage,
@@ -32,6 +33,18 @@ assert.match(
   geofencePanel,
   /<LocationPicker[\s\S]*?search=\{\{ targetHospitalId: hospitalId \}\}/,
   "GeofencePanel joy qidiruviga tanlangan muassasa ID sini uzatishi kerak",
+);
+
+assert.match(
+  employeeSites,
+  /resetEmployeeGps\(employeeId, target\)/,
+  "Eski xodim GPSini tozalash tanlangan muassasa scope'ini yuborishi kerak",
+);
+
+assert.match(
+  api,
+  /resetEmployeeGps:\s*\(employeeId: string, targetHospitalId\?: string\)[\s\S]*?params:\s*targetHospitalId\s*\?\s*\{ targetHospitalId \}/,
+  "resetEmployeeGps API targetHospitalId query parametrini yuborishi kerak",
 );
 
 console.log("Geofence hospital scope checks passed");

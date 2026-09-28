@@ -132,7 +132,7 @@ export function EmployeeWorkSitesPanel({
   });
 
   const resetLegacy = useMutation({
-    mutationFn: () => attendanceApi.resetEmployeeGps(employeeId),
+    mutationFn: () => attendanceApi.resetEmployeeGps(employeeId, target),
     onSuccess: () => {
       toast.success("Shaxsiy markaz tozalandi");
       void qc.invalidateQueries({ queryKey: key });

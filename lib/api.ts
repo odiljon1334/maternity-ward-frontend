@@ -361,8 +361,12 @@ export const attendanceApi = {
       },
     }).then((r) => r.data.data ?? r.data);
   },
-  resetEmployeeGps: (employeeId: string) =>
-    api.post(`/attendance/reset-employee-gps/${employeeId}`).then((r) => r.data.data),
+  resetEmployeeGps: (employeeId: string, targetHospitalId?: string) =>
+    api.post(
+      `/attendance/reset-employee-gps/${employeeId}`,
+      undefined,
+      { params: targetHospitalId ? { targetHospitalId } : undefined },
+    ).then((r) => r.data.data),
 };
 
 // ─── Location ─────────────────────────────────
