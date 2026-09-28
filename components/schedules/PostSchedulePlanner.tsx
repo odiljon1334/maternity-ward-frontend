@@ -70,6 +70,11 @@ function formatMinutes(minutes: number) {
   return `${Number.isInteger(hours) ? hours : hours.toFixed(1)} soat`;
 }
 
+function formatCompactMinutes(minutes: number) {
+  const hours = minutes / 60;
+  return `${Number.isInteger(hours) ? hours : hours.toFixed(1)}s`;
+}
+
 export function PostSchedulePlanner({
   targetHospitalId,
   month,
@@ -170,6 +175,15 @@ export function PostSchedulePlanner({
     setCells(next);
   }, [detail]);
 
+  const canonicalCarryInKeys = useMemo(
+    () => new Set(
+      (detail?.entries ?? [])
+        .filter((entry: any) => entry.isCanonicalCarryIn)
+        .map((entry: any) => `${entry.employeeId}:${dayjs(entry.workDate).format("YYYY-MM-DD")}`),
+    ),
+    [detail],
+  );
+
   const days = useMemo(() => {
     const first = dayjs(`${year}-${String(month).padStart(2, "0")}-01`);
     const regular = Array.from({ length: first.daysInMonth() }, (_, index) => ({
@@ -192,23 +206,52 @@ export function PostSchedulePlanner({
     [shifts],
   );
 
-  const livePlannedMinutes = useMemo(() => {
+  const liveCoverage = useMemo(() => {
     const monthStart = dayjs(`${year}-${String(month).padStart(2, "0")}-01T00:00:00+05:00`);
     const monthEnd = monthStart.add(1, "month");
+    const byDate: Record<string, number> = {};
+    const incomingByCell: Record<string, number> = {};
+    const sourceParts: Record<string, { sameDay: number; nextDays: number }> = {};
 
-    return Object.entries(cells).reduce((total, [key, value]) => {
-      if (!value || value.startsWith("STATUS:")) return total;
+    for (const [key, value] of Object.entries(cells)) {
+      if (!value || value.startsWith("STATUS:")) continue;
       const shift = shiftsById.get(value);
-      if (!shift) return total;
+      if (!shift) continue;
       const separator = key.indexOf(":");
+      const employeeId = key.slice(0, separator);
       const workDate = key.slice(separator + 1);
       const interval = buildShiftInterval(workDate, shift);
       const startsAt = dayjs(interval.startsAt);
       const endsAt = dayjs(interval.endsAt);
-      const overlapStart = startsAt.isAfter(monthStart) ? startsAt : monthStart;
-      const overlapEnd = endsAt.isBefore(monthEnd) ? endsAt : monthEnd;
-      return total + Math.max(0, overlapEnd.diff(overlapStart, "minute"));
-    }, 0);
+      let cursor = startsAt.isAfter(monthStart) ? startsAt : monthStart;
+      const clippedEnd = endsAt.isBefore(monthEnd) ? endsAt : monthEnd;
+      let sameDay = 0;
+      let nextDays = 0;
+
+      while (cursor.isBefore(clippedEnd)) {
+        const nextMidnight = cursor.startOf("day").add(1, "day");
+        const segmentEnd = nextMidnight.isBefore(clippedEnd) ? nextMidnight : clippedEnd;
+        const date = cursor.format("YYYY-MM-DD");
+        const minutes = Math.max(0, segmentEnd.diff(cursor, "minute"));
+        byDate[date] = (byDate[date] ?? 0) + minutes;
+        if (date === workDate) {
+          sameDay += minutes;
+        } else {
+          nextDays += minutes;
+          const incomingKey = `${employeeId}:${date}`;
+          incomingByCell[incomingKey] = (incomingByCell[incomingKey] ?? 0) + minutes;
+        }
+        cursor = segmentEnd;
+      }
+      sourceParts[key] = { sameDay, nextDays };
+    }
+
+    return {
+      plannedMinutes: Object.values(byDate).reduce((total, minutes) => total + minutes, 0),
+      byDate,
+      incomingByCell,
+      sourceParts,
+    };
   }, [cells, month, shiftsById, year]);
 
   const createPost = useMutation({
@@ -287,7 +330,7 @@ export function PostSchedulePlanner({
   const savePlan = useMutation({
     mutationFn: () => {
       const entries = Object.entries(cells)
-        .filter(([, value]) => !!value)
+        .filter(([key, value]) => !!value && !canonicalCarryInKeys.has(key))
         .map(([key, value]) => {
           const separator = key.indexOf(":");
           const employeeId = key.slice(0, separator);
@@ -309,6 +352,11 @@ export function PostSchedulePlanner({
             ...buildShiftInterval(workDate, shift),
           };
         });
+      const dailyLimit = selectedPost?.dailyCoverageMinutes ?? 1440;
+      const overfilledDay = Object.entries(liveCoverage.byDate).find(([, minutes]) => minutes > dailyLimit);
+      if (overfilledDay) {
+        throw new Error(`${dayjs(overfilledDay[0]).format("DD.MM.YYYY")} kuni ${formatMinutes(overfilledDay[1])}/${formatMinutes(dailyLimit)} rejalashtirilgan. Ortiqcha smenani olib tashlang.`);
+      }
       return schedulePlanningApi.saveEntries(planId, entries, params);
     },
     onSuccess: () => {
@@ -316,7 +364,7 @@ export function PostSchedulePlanner({
       qc.invalidateQueries({ queryKey: ["post-schedule-plan"] });
       qc.invalidateQueries({ queryKey: ["post-schedule-plans"] });
     },
-    onError: (error) => toast.error(getErrorMessage(error, "Grafik saqlanmadi")),
+    onError: (error) => toast.error(getErrorMessage(error, error?.message || "Grafik saqlanmadi")),
   });
 
   const statusMutation = useMutation({
@@ -347,9 +395,10 @@ export function PostSchedulePlanner({
 
   const summary = detail?.summary;
   const targetMinutes = summary?.targetMinutes ?? 0;
-  const displayedPlannedMinutes = isNaN(livePlannedMinutes)
+  const dailyCoverageMinutes = selectedPost?.dailyCoverageMinutes ?? 1440;
+  const displayedPlannedMinutes = isNaN(liveCoverage.plannedMinutes)
     ? summary?.plannedMinutes ?? 0
-    : livePlannedMinutes;
+    : liveCoverage.plannedMinutes;
   const displayedRemainingMinutes = Math.max(0, targetMinutes - displayedPlannedMinutes);
   const displayedExcessMinutes = Math.max(0, displayedPlannedMinutes - targetMinutes);
   const canApprove = ADMIN_ROLES.includes(userRole ?? "");
@@ -430,7 +479,15 @@ export function PostSchedulePlanner({
         <TableShell>
             <table className="border-collapse text-[11px] min-w-max">
               <thead className="ui-table-head sticky top-0 z-20">
-                <tr><th className="ui-table-head sticky left-0 z-30 min-w-56 border border-[var(--border)] p-2 text-left">Xodim</th>{days.map((day) => <th key={day.date} className={cn("w-20 min-w-20 border border-[var(--border)] p-1", day.carryIn && "bg-amber-100 dark:bg-amber-500/10")}>{day.label}</th>)}</tr>
+                <tr><th className="ui-table-head sticky left-0 z-30 min-w-56 border border-[var(--border)] p-2 text-left">Xodim</th>{days.map((day) => {
+                  const plannedMinutes = liveCoverage.byDate[day.date] ?? 0;
+                  const overfilled = plannedMinutes > dailyCoverageMinutes;
+                  const complete = plannedMinutes === dailyCoverageMinutes;
+                  return <th key={day.date} className={cn("w-20 min-w-20 border border-[var(--border)] p-1", day.carryIn && "bg-amber-100 dark:bg-amber-500/10")}>
+                    <span className="block">{day.label}</span>
+                    {!day.carryIn && <span className={cn("mt-0.5 block font-mono text-[8px]", overfilled ? "text-rose-600 dark:text-rose-300" : complete ? "text-emerald-600 dark:text-emerald-300" : "text-amber-600 dark:text-amber-300")}>{formatCompactMinutes(plannedMinutes)}/{formatCompactMinutes(dailyCoverageMinutes)}</span>}
+                  </th>;
+                })}</tr>
               </thead>
               <tbody>
                 {employees.map((employee) => <tr key={employee.id} className="table-row-hover">
@@ -439,8 +496,11 @@ export function PostSchedulePlanner({
                     const key = `${employee.id}:${day.date}`;
                     const selectedValue = cells[key] ?? "";
                     const selectedShift = shiftsById.get(selectedValue);
+                    const incomingMinutes = liveCoverage.incomingByCell[key] ?? 0;
+                    const sourcePart = liveCoverage.sourceParts[key];
+                    const isCanonicalCarryIn = canonicalCarryInKeys.has(key);
                     return <td key={day.date} className={cn("border border-[var(--border)] p-1 align-top", day.carryIn && "bg-amber-50 dark:bg-amber-500/5")}>
-                      <select aria-label={`${employee.fullName}, ${day.label}-kun`} value={selectedValue} disabled={!isDraft || !canWrite} onChange={(event) => setCells((current) => ({ ...current, [key]: event.target.value }))} className="h-8 w-full rounded-lg border border-transparent bg-transparent px-1 text-[10px] text-[var(--text-primary)] hover:border-[var(--border)] focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/30 disabled:opacity-70">
+                      <select aria-label={`${employee.fullName}, ${day.label}-kun`} value={selectedValue} disabled={!isDraft || !canWrite || isCanonicalCarryIn} onChange={(event) => setCells((current) => ({ ...current, [key]: event.target.value }))} className="h-8 w-full rounded-lg border border-transparent bg-transparent px-1 text-[10px] text-[var(--text-primary)] hover:border-[var(--border)] focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/30 disabled:opacity-70">
                         <option value="">—</option>
                         {shifts.map((shift) => <option key={shift.id} value={shift.id}>{shift.name} {shift.startTime}-{shift.endTime}</option>)}
                         {STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
@@ -451,14 +511,17 @@ export function PostSchedulePlanner({
                           title={`${selectedShift.name}: ${selectedShift.startTime}–${selectedShift.endTime}${selectedShift.isOvernight ? " (ertangi kun)" : ""}`}
                         >
                           {selectedShift.startTime}–{selectedShift.endTime}{selectedShift.isOvernight ? <sup className="ml-0.5 text-[7px]">+1</sup> : null}
+                          {sourcePart && <span className="ml-1 text-[8px] text-[var(--text-muted)]">({formatCompactMinutes(sourcePart.sameDay)}{sourcePart.nextDays ? ` + ${formatCompactMinutes(sourcePart.nextDays)}→` : ""})</span>}
                         </div>
                       )}
+                      {!!incomingMinutes && <div className="mt-1 rounded bg-sky-500/10 px-1 py-0.5 text-center font-mono text-[8px] font-semibold text-sky-700 dark:text-sky-300">← {formatCompactMinutes(incomingMinutes)} oldingi smenadan</div>}
+                      {isCanonicalCarryIn && <div className="mt-1 text-center text-[8px] font-medium text-amber-700 dark:text-amber-300">Tasdiqlangan oldingi oy</div>}
                     </td>;
                   })}
                 </tr>)}
               </tbody>
             </table>
-          <div className="border-t border-slate-200 dark:border-slate-800 px-4 py-3 text-[11px] text-slate-500"><FileSpreadsheet className="inline h-4 w-4 mr-1" />← ustuni oy boshidagi tungi smenaning oldingi kundan kirib keladigan qismini hisoblash uchun.</div>
+          <div className="border-t border-slate-200 dark:border-slate-800 px-4 py-3 text-[11px] text-slate-500"><FileSpreadsheet className="inline h-4 w-4 mr-1" />← ustuni oldingi tasdiqlangan oyning tungi smenasidan avtomatik olinadi. Kun sarlavhasidagi ko‘rsatkich rejalashtirilgan/kerakli post soatini, katakdagi ko‘k belgi esa oldingi smenadan kirgan soatni ko‘rsatadi.</div>
         </TableShell>
 
         {detail.status === "APPROVED" && <ScheduleChangePanel detail={detail} employees={employees} targetHospitalId={targetHospitalId} userRole={userRole} />}
@@ -511,7 +574,7 @@ export function PostSchedulePlanner({
 function ScheduleChangePanel({ detail, employees, targetHospitalId, userRole }: { detail: any; employees: any[]; targetHospitalId?: string; userRole?: string }) {
   const qc = useQueryClient();
   const params = requestParams(targetHospitalId);
-  const workingEntries = (detail.entries ?? []).filter((entry: any) => entry.entryType === "WORKING");
+  const workingEntries = (detail.entries ?? []).filter((entry: any) => entry.entryType === "WORKING" && !entry.isCarryIn);
   const [type, setType] = useState("SUBSTITUTION");
   const [primaryEntryId, setPrimaryEntryId] = useState(workingEntries[0]?.id ?? "");
   const [replacementEmployeeId, setReplacementEmployeeId] = useState("");
