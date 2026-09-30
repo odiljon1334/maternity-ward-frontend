@@ -114,6 +114,7 @@ export function PostSchedulePlanner({
   const [postId, setPostId] = useState("");
   const [planId, setPlanId] = useState("");
   const [cells, setCells] = useState<Record<string, string>>({});
+  const [outsidePostEmployeeIds, setOutsidePostEmployeeIds] = useState<Set<string>>(new Set());
   const [postFormOpen, setPostFormOpen] = useState(false);
   const [editingPostId, setEditingPostId] = useState("");
   const [postName, setPostName] = useState("");
@@ -221,16 +222,22 @@ export function PostSchedulePlanner({
   useEffect(() => {
     if (!detail) {
       setCells({});
+      setOutsidePostEmployeeIds(new Set());
       return;
     }
     const next: Record<string, string> = {};
+    const nextOutsidePostEmployeeIds = new Set<string>();
     for (const entry of detail.entries ?? []) {
       const date = dayjs(entry.workDate).format("YYYY-MM-DD");
       next[`${entry.employeeId}:${date}`] = entry.entryType === "WORKING"
         ? entry.shiftId
         : `STATUS:${entry.entryType}`;
+      if (entry.countsTowardPostCoverage === false) {
+        nextOutsidePostEmployeeIds.add(entry.employeeId);
+      }
     }
     setCells(next);
+    setOutsidePostEmployeeIds(nextOutsidePostEmployeeIds);
   }, [detail]);
 
   const canonicalCarryInKeys = useMemo(
@@ -276,16 +283,18 @@ export function PostSchedulePlanner({
     const monthStart = dayjs(`${year}-${String(month).padStart(2, "0")}-01T00:00:00+05:00`);
     const monthEnd = monthStart.add(1, "month");
     const byDate: Record<string, number> = {};
+    const outsideByDate: Record<string, number> = {};
     const incomingByCell: Record<string, number> = {};
     const sourceParts: Record<string, { sameDay: number; nextDays: number }> = {};
 
     for (const [key, value] of Object.entries(cells)) {
       if (!value || value.startsWith("STATUS:")) continue;
-      const shift = shiftsById.get(value);
-      if (!shift) continue;
       const separator = key.indexOf(":");
       const employeeId = key.slice(0, separator);
       const workDate = key.slice(separator + 1);
+      const shift = shiftsById.get(value);
+      if (!shift) continue;
+      const coverageByDate = outsidePostEmployeeIds.has(employeeId) ? outsideByDate : byDate;
       const interval = buildShiftInterval(workDate, shift);
       const startsAt = dayjs(interval.startsAt);
       const endsAt = dayjs(interval.endsAt);
@@ -299,7 +308,7 @@ export function PostSchedulePlanner({
         const segmentEnd = nextMidnight.isBefore(clippedEnd) ? nextMidnight : clippedEnd;
         const date = cursor.format("YYYY-MM-DD");
         const minutes = Math.max(0, segmentEnd.diff(cursor, "minute"));
-        byDate[date] = (byDate[date] ?? 0) + minutes;
+        coverageByDate[date] = (coverageByDate[date] ?? 0) + minutes;
         if (date === workDate) {
           sameDay += minutes;
         } else {
@@ -314,11 +323,13 @@ export function PostSchedulePlanner({
 
     return {
       plannedMinutes: Object.values(byDate).reduce((total, minutes) => total + minutes, 0),
+      outsidePlannedMinutes: Object.values(outsideByDate).reduce((total, minutes) => total + minutes, 0),
       byDate,
+      outsideByDate,
       incomingByCell,
       sourceParts,
     };
-  }, [cells, month, shiftsById, year]);
+  }, [cells, month, outsidePostEmployeeIds, shiftsById, year]);
 
   const parsedDailyCoverageHours = Number(dailyCoverageHours);
   const parsedWeeklyCoverageMinutes = weeklyCoverageHours.map((hours) => Math.round(Number(hours) * 60));
@@ -441,6 +452,7 @@ export function PostSchedulePlanner({
             return {
               employeeId,
               entryType: value.slice("STATUS:".length),
+              countsTowardPostCoverage: !outsidePostEmployeeIds.has(employeeId),
               workDate,
             };
           }
@@ -450,6 +462,7 @@ export function PostSchedulePlanner({
             employeeId,
             shiftId: shift.id,
             entryType: "WORKING",
+            countsTowardPostCoverage: !outsidePostEmployeeIds.has(employeeId),
             workDate,
             ...buildShiftInterval(workDate, shift),
           };
@@ -571,16 +584,17 @@ export function PostSchedulePlanner({
       </Surface>
 
       {detail && <>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
           {[
             ["Holat", detail.status],
             [`Post normasi · ${coverageModeLabel(detail)}`, formatMinutes(targetMinutes)],
-            ["Rejalashtirilgan", formatMinutes(displayedPlannedMinutes)],
+            ["Postga rejalashtirilgan", formatMinutes(displayedPlannedMinutes)],
             [displayedExcessMinutes ? "Oshib ketgan" : "Qolgan", formatMinutes(displayedExcessMinutes || displayedRemainingMinutes)],
+            ["Postdan tashqari", formatMinutes(liveCoverage.outsidePlannedMinutes)],
           ].map(([label, value]) => <Surface key={label} className="p-4"><p className="text-[11px] font-medium text-[var(--text-muted)]">{label}</p><p className="mt-1 font-bold text-[var(--text-primary)]">{value}</p></Surface>)}
         </div>
 
-        <div className="rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 py-3 text-xs text-sky-800 dark:text-sky-200">Kun ustunidagi soat barcha xodimlarning o‘sha kundagi jami vaqtidir va qat’iy kunlik limit emas. Qoralamani istalgan bosqichda saqlash mumkin; tasdiqlashga yuborishda faqat oylik jami norma to‘liq bo‘lishi tekshiriladi.</div>
+        <div className="rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 py-3 text-xs text-sky-800 dark:text-sky-200">Har bir xodimni “Post xodimi” yoki “Postdan tashqari” deb belgilang. Kunlik 8 soatlik postdan tashqari xodimlar jadval va Excelda ko‘rinadi, ammo postning 720/744 soatlik normasiga qo‘shilmaydi.</div>
 
         <div className="flex flex-wrap gap-2">
           {isDraft && canWrite && <Button onClick={() => savePlan.mutate()} loading={savePlan.isPending} size="sm"><Save className="h-4 w-4" />Saqlash</Button>}
@@ -595,16 +609,36 @@ export function PostSchedulePlanner({
               <thead className="ui-table-head sticky top-0 z-20">
                 <tr><th className="ui-table-head sticky left-0 z-30 min-w-56 border border-[var(--border)] p-2 text-left">Xodim</th>{days.map((day) => {
                   const plannedMinutes = liveCoverage.byDate[day.date] ?? 0;
+                  const outsideMinutes = liveCoverage.outsideByDate[day.date] ?? 0;
                   return <th key={day.date} title={`${day.date} — ${day.weekday}`} className={cn("w-20 min-w-20 border border-[var(--border)] p-1", day.carryIn ? "bg-amber-100 dark:bg-amber-500/10" : day.isWeekend && "bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-300")}>
                     <span className={cn("block", day.isWeekend && !day.carryIn && "text-rose-600 dark:text-rose-300")}>{day.label}</span>
                     <span className={cn("mt-0.5 block text-[8px] font-bold uppercase", day.isWeekend && !day.carryIn ? "text-rose-600 dark:text-rose-300" : "text-[var(--text-muted)]")}>{day.weekday}</span>
                     {!day.carryIn && <span className={cn("mt-0.5 block font-mono text-[8px]", plannedMinutes ? "text-indigo-600 dark:text-indigo-300" : "text-[var(--text-muted)]")}>{formatCompactMinutes(plannedMinutes)}</span>}
+                    {!day.carryIn && !!outsideMinutes && <span className="mt-0.5 block font-mono text-[7px] text-slate-500">+{formatCompactMinutes(outsideMinutes)} tash.</span>}
                   </th>;
                 })}</tr>
               </thead>
               <tbody>
                 {employees.map((employee) => <tr key={employee.id} className="table-row-hover">
-                  <td className="sticky left-0 z-10 border border-[var(--border)] bg-[var(--bg-card)] p-2"><p className="font-semibold text-[var(--text-primary)]">{employee.fullName}</p><p className="text-[9px] text-[var(--text-muted)]">{employee.position?.name}</p></td>
+                  <td className="sticky left-0 z-10 border border-[var(--border)] bg-[var(--bg-card)] p-2">
+                    <p className="font-semibold text-[var(--text-primary)]">{employee.fullName}</p>
+                    <p className="text-[9px] text-[var(--text-muted)]">{employee.position?.name}</p>
+                    <select
+                      aria-label={`${employee.fullName} post guruhi`}
+                      value={outsidePostEmployeeIds.has(employee.id) ? "OUTSIDE" : "POST"}
+                      disabled={!isDraft || !canWrite}
+                      onChange={(event) => setOutsidePostEmployeeIds((current) => {
+                        const next = new Set(current);
+                        if (event.target.value === "OUTSIDE") next.add(employee.id);
+                        else next.delete(employee.id);
+                        return next;
+                      })}
+                      className={cn("mt-1 h-6 w-full rounded-md border px-1 text-[9px] font-semibold", outsidePostEmployeeIds.has(employee.id) ? "border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200" : "border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300")}
+                    >
+                      <option value="POST">Post xodimi</option>
+                      <option value="OUTSIDE">Postdan tashqari</option>
+                    </select>
+                  </td>
                   {days.map((day) => {
                     const key = `${employee.id}:${day.date}`;
                     const selectedValue = cells[key] ?? "";
@@ -634,7 +668,7 @@ export function PostSchedulePlanner({
                 </tr>)}
               </tbody>
             </table>
-          <div className="border-t border-slate-200 dark:border-slate-800 px-4 py-3 text-[11px] text-slate-500"><FileSpreadsheet className="inline h-4 w-4 mr-1" />← ustuni oldingi oyning eng so‘nggi faol rejasidagi tungi smenadan avtomatik olinadi. Kun sarlavhasidagi ko‘rsatkich barcha xodimlarning o‘sha kundagi jami rejalashtirilgan vaqtini, katakdagi ko‘k belgi esa oldingi smenadan kirgan soatni ko‘rsatadi.</div>
+          <div className="border-t border-slate-200 dark:border-slate-800 px-4 py-3 text-[11px] text-slate-500"><FileSpreadsheet className="inline h-4 w-4 mr-1" />← ustuni oldingi oyning eng so‘nggi faol rejasidagi tungi smenadan olinadi. Kun sarlavhasidagi asosiy soat post normasiga kiradigan vaqtni, “tash.” esa postdan tashqari xodimlar vaqtini ko‘rsatadi.</div>
         </TableShell>
 
         {detail.status === "APPROVED" && <ScheduleChangePanel detail={detail} employees={employees} targetHospitalId={targetHospitalId} userRole={userRole} />}
