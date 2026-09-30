@@ -9,7 +9,8 @@
     "lint": "next lint",
     "test:live-map": "bash scripts/test-live-map-layout.sh",
     "test:mobile-geolocation": "node scripts/test-mobile-geolocation.cjs",
-    "test:geofence-scope": "node scripts/test-geofence-hospital-scope.cjs"
+    "test:geofence-scope": "node scripts/test-geofence-hospital-scope.cjs",
+    "test:post-schedule-visibility": "node scripts/test-post-schedule-visibility.cjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",

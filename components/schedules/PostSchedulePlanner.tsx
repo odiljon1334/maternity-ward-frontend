@@ -13,6 +13,7 @@ import {
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { matchesSearch } from "@/lib/search";
+import { filterAndOrderPostEmployees, type PostScheduleEmployeeView } from "@/lib/post-schedule-view";
 import { Button } from "@/components/ui/Button";
 import { Field, Input, Select } from "@/components/ui/FormControls";
 import { ConfirmDialog, PromptDialog } from "@/components/ui/Dialog";
@@ -118,6 +119,7 @@ export function PostSchedulePlanner({
   const [outsidePostEmployeeIds, setOutsidePostEmployeeIds] = useState<Set<string>>(new Set());
   const [employeeSearch, setEmployeeSearch] = useState("");
   const deferredEmployeeSearch = useDeferredValue(employeeSearch);
+  const [employeeView, setEmployeeView] = useState<PostScheduleEmployeeView>("ALL");
   const [postFormOpen, setPostFormOpen] = useState(false);
   const [editingPostId, setEditingPostId] = useState("");
   const [postName, setPostName] = useState("");
@@ -221,15 +223,22 @@ export function PostSchedulePlanner({
     enabled: !!departmentId,
   });
   const employees: any[] = employeesResponse?.data ?? [];
-  const visibleEmployees = useMemo(
-    () => employees.filter((employee) => matchesSearch(deferredEmployeeSearch, [
+  const plannedEmployeeIds = useMemo(() => new Set(
+    Object.entries(cells)
+      .filter(([, value]) => Boolean(value))
+      .map(([key]) => key.slice(0, key.indexOf(":"))),
+  ), [cells]);
+  const visibleEmployees = useMemo(() => filterAndOrderPostEmployees(
+    employees.filter((employee) => matchesSearch(deferredEmployeeSearch, [
       employee.fullName,
       employee.position?.name,
       employee.department?.name,
       employee.employeeNo,
     ])),
-    [deferredEmployeeSearch, employees],
-  );
+    plannedEmployeeIds,
+    outsidePostEmployeeIds,
+    employeeView,
+  ), [deferredEmployeeSearch, employeeView, employees, outsidePostEmployeeIds, plannedEmployeeIds]);
 
   useEffect(() => {
     if (!detail) {
@@ -626,6 +635,24 @@ export function PostSchedulePlanner({
               className="pl-9"
               aria-label="Post rejasidagi xodimlarni qidirish"
             />
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {([
+              ["ALL", "Barchasi"],
+              ["PLANNED", "Grafik bor"],
+              ["UNPLANNED", "Grafiksiz"],
+              ["OUTSIDE", "Postdan tashqari"],
+            ] as const).map(([value, label]) => (
+              <Button
+                key={value}
+                type="button"
+                size="sm"
+                variant={employeeView === value ? "primary" : "secondary"}
+                onClick={() => setEmployeeView(value)}
+              >
+                {label}
+              </Button>
+            ))}
           </div>
           <span className="text-xs text-[var(--text-muted)]">{visibleEmployees.length}/{employees.length} xodim</span>
         </div>
