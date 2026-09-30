@@ -13,7 +13,11 @@ import {
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { matchesSearch } from "@/lib/search";
-import { filterAndOrderPostEmployees, type PostScheduleEmployeeView } from "@/lib/post-schedule-view";
+import {
+  collectPersistedPlannedEmployeeIds,
+  filterAndOrderPostEmployees,
+  type PostScheduleEmployeeView,
+} from "@/lib/post-schedule-view";
 import { Button } from "@/components/ui/Button";
 import { Field, Input, Select } from "@/components/ui/FormControls";
 import { ConfirmDialog, PromptDialog } from "@/components/ui/Dialog";
@@ -223,11 +227,13 @@ export function PostSchedulePlanner({
     enabled: !!departmentId,
   });
   const employees: any[] = employeesResponse?.data ?? [];
-  const plannedEmployeeIds = useMemo(() => new Set(
-    Object.entries(cells)
-      .filter(([, value]) => Boolean(value))
-      .map(([key]) => key.slice(0, key.indexOf(":"))),
-  ), [cells]);
+  // Keep rows stable while the user edits cells. Re-sorting from the mutable
+  // `cells` state moves a row immediately after its first shift is selected,
+  // which can make subsequent selections land on a different employee.
+  const plannedEmployeeIds = useMemo(
+    () => collectPersistedPlannedEmployeeIds(detail?.entries ?? []),
+    [detail?.entries],
+  );
   const visibleEmployees = useMemo(() => filterAndOrderPostEmployees(
     employees.filter((employee) => matchesSearch(deferredEmployeeSearch, [
       employee.fullName,

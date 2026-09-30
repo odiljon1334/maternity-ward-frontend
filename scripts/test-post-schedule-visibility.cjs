@@ -14,7 +14,7 @@ loaded.filename = sourcePath;
 loaded.paths = Module._nodeModulePaths(path.dirname(sourcePath));
 loaded._compile(output, sourcePath);
 
-const { filterAndOrderPostEmployees } = loaded.exports;
+const { collectPersistedPlannedEmployeeIds, filterAndOrderPostEmployees } = loaded.exports;
 const employees = [
   { id: "empty-a", fullName: "A xodim" },
   { id: "planned-z", fullName: "Z xodim" },
@@ -24,10 +24,19 @@ const employees = [
 const planned = new Set(["planned-z", "outside"]);
 const outside = new Set(["outside"]);
 
+const persistedPlanned = collectPersistedPlannedEmployeeIds([
+  { employeeId: "planned-z", entryType: "WORKING" },
+]);
+assert.deepEqual(
+  [...persistedPlanned],
+  ["planned-z"],
+  "Qator tartibi faqat serverda saqlangan yozuvlarga bog‘liq bo‘lishi kerak",
+);
+
 assert.deepEqual(
   filterAndOrderPostEmployees(employees, planned, outside, "ALL").map((item) => item.id),
-  ["planned-z", "outside", "empty-a", "empty-b"],
-  "Grafik berilgan xodimlar bo‘sh qatorlardan oldin ko‘rinishi kerak",
+  ["empty-a", "planned-z", "empty-b", "outside"],
+  "Tahrirlanadigan jadvaldagi xodim qatorlari hech qachon joyini almashtirmasligi kerak",
 );
 assert.deepEqual(
   filterAndOrderPostEmployees(employees, planned, outside, "PLANNED").map((item) => item.id),

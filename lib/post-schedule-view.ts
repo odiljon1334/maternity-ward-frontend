@@ -1,5 +1,11 @@
 export type PostScheduleEmployeeView = "ALL" | "PLANNED" | "UNPLANNED" | "OUTSIDE";
 
+export function collectPersistedPlannedEmployeeIds(
+  entries: Array<{ employeeId: string }>,
+): Set<string> {
+  return new Set(entries.map((entry) => entry.employeeId));
+}
+
 export function filterAndOrderPostEmployees<T extends { id: string }>(
   employees: T[],
   plannedEmployeeIds: Set<string>,
@@ -13,13 +19,8 @@ export function filterAndOrderPostEmployees<T extends { id: string }>(
     return true;
   });
 
-  if (view !== "ALL") return filtered;
-  return filtered
-    .map((employee, index) => ({ employee, index }))
-    .sort((left, right) => {
-      const leftPlanned = plannedEmployeeIds.has(left.employee.id) ? 1 : 0;
-      const rightPlanned = plannedEmployeeIds.has(right.employee.id) ? 1 : 0;
-      return rightPlanned - leftPlanned || left.index - right.index;
-    })
-    .map(({ employee }) => employee);
+  // Never reorder the editable grid. A row that moves after selecting a shift
+  // can make the next click target a different employee. The explicit
+  // "Grafik bor" filter is the safe way to surface planned employees.
+  return filtered;
 }
