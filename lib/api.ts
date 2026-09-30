@@ -319,6 +319,8 @@ export const schedulePlanningApi = {
     api.post(`/schedule-planning/plans/${id}/approve`, {}, { params }).then((r) => r.data.data),
   rejectPlan: (id: string, reason: string, params?: { targetHospitalId?: string }) =>
     api.post(`/schedule-planning/plans/${id}/reject`, { reason }, { params }).then((r) => r.data.data),
+  reopenPlan: (id: string, reason: string, params?: { targetHospitalId?: string }) =>
+    api.post(`/schedule-planning/plans/${id}/reopen`, { reason }, { params }).then((r) => r.data.data),
   exportPlan: (id: string, params?: { targetHospitalId?: string }) =>
     api.get(`/schedule-planning/plans/${id}/export`, { params, responseType: "blob" }),
   createChange: (data: any, params?: { targetHospitalId?: string }) =>

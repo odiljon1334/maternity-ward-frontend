@@ -140,6 +140,8 @@ export function PostSchedulePlanner({
   const [postConfirmation, setPostConfirmation] = useState<"archive" | "delete" | null>(null);
   const [rejectPlanOpen, setRejectPlanOpen] = useState(false);
   const [rejectPlanReason, setRejectPlanReason] = useState("");
+  const [reopenPlanOpen, setReopenPlanOpen] = useState(false);
+  const [reopenPlanReason, setReopenPlanReason] = useState("");
 
   useEffect(() => {
     if (!departmentId && departments.length) setDepartmentId(departments[0].id);
@@ -521,6 +523,18 @@ export function PostSchedulePlanner({
     onError: (error) => toast.error(getErrorMessage(error, error?.message || "Amal bajarilmadi")),
   });
 
+  const reopenPlan = useMutation({
+    mutationFn: (reason: string) => schedulePlanningApi.reopenPlan(planId, reason.trim(), params),
+    onSuccess: () => {
+      toast.success("Grafik qayta tahrirlashga ochildi");
+      setReopenPlanOpen(false);
+      setReopenPlanReason("");
+      qc.invalidateQueries({ queryKey: ["post-schedule-plan"] });
+      qc.invalidateQueries({ queryKey: ["post-schedule-plans"] });
+    },
+    onError: (error) => toast.error(getErrorMessage(error, "Grafik qayta ochilmadi")),
+  });
+
   const downloadExcel = async () => {
     try {
       const response = await schedulePlanningApi.exportPlan(planId, params);
@@ -628,6 +642,7 @@ export function PostSchedulePlanner({
           {isDraft && canWrite && <Button onClick={() => statusMutation.mutate({ action: "submit" })} loading={statusMutation.isPending} variant="success" size="sm"><Send className="h-4 w-4" />Tasdiqlashga yuborish</Button>}
           {detail.status === "SUBMITTED" && canApprove && <Button onClick={() => statusMutation.mutate({ action: "approve" })} loading={statusMutation.isPending} variant="success" size="sm"><Check className="h-4 w-4" />Tasdiqlash</Button>}
           {detail.status === "SUBMITTED" && canApprove && <Button onClick={() => setRejectPlanOpen(true)} variant="danger" size="sm">Rad etish</Button>}
+          {detail.status === "APPROVED" && canApprove && <Button onClick={() => setReopenPlanOpen(true)} variant="warning" size="sm"><RotateCcw className="h-4 w-4" />Qayta tahrirlash</Button>}
           <Button onClick={downloadExcel} variant="secondary" size="sm"><Download className="h-4 w-4" />Excel</Button>
         </div>
 
@@ -773,6 +788,20 @@ export function PostSchedulePlanner({
         confirmLabel="Rad etish"
         tone="danger"
         loading={statusMutation.isPending}
+      />
+      <PromptDialog
+        open={reopenPlanOpen}
+        onClose={() => { setReopenPlanOpen(false); setReopenPlanReason(""); }}
+        onConfirm={(reason) => reopenPlan.mutate(reason)}
+        title="Grafikni qayta tahrirlash"
+        description="Bu amal faqat hali boshlanmagan oy uchun ishlaydi. Nashr qilingan grafik vaqtincha olib tashlanadi; tuzatib, qayta tasdiqlashingiz kerak. Sabab audit tarixida saqlanadi."
+        label="Qayta ochish sababi"
+        value={reopenPlanReason}
+        onValueChange={setReopenPlanReason}
+        placeholder="Masalan: xodim smenalari noto‘g‘ri qatorda saqlangan"
+        confirmLabel="Qayta tahrirlashga ochish"
+        tone="warning"
+        loading={reopenPlan.isPending}
       />
     </div>
   );
