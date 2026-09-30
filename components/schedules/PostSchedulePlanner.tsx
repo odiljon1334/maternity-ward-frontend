@@ -38,6 +38,7 @@ const STATUS_OPTIONS = [
 ];
 
 const ADMIN_ROLES = ["SUPER_ADMIN", "ADMIN", "DIRECTOR"];
+const WEEKDAY_LABELS = ["Ya", "Du", "Se", "Cho", "Pa", "Ju", "Sha"];
 
 function requestParams(targetHospitalId?: string) {
   return targetHospitalId ? { targetHospitalId } : undefined;
@@ -186,15 +187,23 @@ export function PostSchedulePlanner({
 
   const days = useMemo(() => {
     const first = dayjs(`${year}-${String(month).padStart(2, "0")}-01`);
-    const regular = Array.from({ length: first.daysInMonth() }, (_, index) => ({
-      date: first.date(index + 1).format("YYYY-MM-DD"),
-      label: String(index + 1),
-      carryIn: false,
-    }));
+    const regular = Array.from({ length: first.daysInMonth() }, (_, index) => {
+      const date = first.date(index + 1);
+      return {
+        date: date.format("YYYY-MM-DD"),
+        label: String(index + 1),
+        weekday: WEEKDAY_LABELS[date.day()],
+        isWeekend: [0, 6].includes(date.day()),
+        carryIn: false,
+      };
+    });
+    const carryDate = first.subtract(1, "day");
     return [
       {
-        date: first.subtract(1, "day").format("YYYY-MM-DD"),
-        label: `←${first.subtract(1, "day").date()}`,
+        date: carryDate.format("YYYY-MM-DD"),
+        label: `←${carryDate.date()}`,
+        weekday: WEEKDAY_LABELS[carryDate.day()],
+        isWeekend: [0, 6].includes(carryDate.day()),
         carryIn: true,
       },
       ...regular,
@@ -483,8 +492,9 @@ export function PostSchedulePlanner({
                   const plannedMinutes = liveCoverage.byDate[day.date] ?? 0;
                   const overfilled = plannedMinutes > dailyCoverageMinutes;
                   const complete = plannedMinutes === dailyCoverageMinutes;
-                  return <th key={day.date} className={cn("w-20 min-w-20 border border-[var(--border)] p-1", day.carryIn && "bg-amber-100 dark:bg-amber-500/10")}>
-                    <span className="block">{day.label}</span>
+                  return <th key={day.date} title={`${day.date} — ${day.weekday}`} className={cn("w-20 min-w-20 border border-[var(--border)] p-1", day.carryIn ? "bg-amber-100 dark:bg-amber-500/10" : day.isWeekend && "bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-300")}>
+                    <span className={cn("block", day.isWeekend && !day.carryIn && "text-rose-600 dark:text-rose-300")}>{day.label}</span>
+                    <span className={cn("mt-0.5 block text-[8px] font-bold uppercase", day.isWeekend && !day.carryIn ? "text-rose-600 dark:text-rose-300" : "text-[var(--text-muted)]")}>{day.weekday}</span>
                     {!day.carryIn && <span className={cn("mt-0.5 block font-mono text-[8px]", overfilled ? "text-rose-600 dark:text-rose-300" : complete ? "text-emerald-600 dark:text-emerald-300" : "text-amber-600 dark:text-amber-300")}>{formatCompactMinutes(plannedMinutes)}/{formatCompactMinutes(dailyCoverageMinutes)}</span>}
                   </th>;
                 })}</tr>
@@ -499,7 +509,7 @@ export function PostSchedulePlanner({
                     const incomingMinutes = liveCoverage.incomingByCell[key] ?? 0;
                     const sourcePart = liveCoverage.sourceParts[key];
                     const isCanonicalCarryIn = canonicalCarryInKeys.has(key);
-                    return <td key={day.date} className={cn("border border-[var(--border)] p-1 align-top", day.carryIn && "bg-amber-50 dark:bg-amber-500/5")}>
+                    return <td key={day.date} className={cn("border border-[var(--border)] p-1 align-top", day.carryIn ? "bg-amber-50 dark:bg-amber-500/5" : day.isWeekend && "bg-rose-50/60 dark:bg-rose-500/[0.04]")}>
                       <select aria-label={`${employee.fullName}, ${day.label}-kun`} value={selectedValue} disabled={!isDraft || !canWrite || isCanonicalCarryIn} onChange={(event) => setCells((current) => ({ ...current, [key]: event.target.value }))} className="h-8 w-full rounded-lg border border-transparent bg-transparent px-1 text-[10px] text-[var(--text-primary)] hover:border-[var(--border)] focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/30 disabled:opacity-70">
                         <option value="">—</option>
                         {shifts.map((shift) => <option key={shift.id} value={shift.id}>{shift.name} {shift.startTime}-{shift.endTime}</option>)}
