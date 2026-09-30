@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
-import { Archive, Check, Clock, Download, FileSpreadsheet, Pencil, Plus, RotateCcw, Save, Send, Trash2, X } from "lucide-react";
+import { Archive, Check, Clock, Download, FileSpreadsheet, Pencil, Plus, RotateCcw, Save, Search, Send, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   downloadBlob,
@@ -12,6 +12,7 @@ import {
   shiftsApi,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { matchesSearch } from "@/lib/search";
 import { Button } from "@/components/ui/Button";
 import { Field, Input, Select } from "@/components/ui/FormControls";
 import { ConfirmDialog, PromptDialog } from "@/components/ui/Dialog";
@@ -115,6 +116,8 @@ export function PostSchedulePlanner({
   const [planId, setPlanId] = useState("");
   const [cells, setCells] = useState<Record<string, string>>({});
   const [outsidePostEmployeeIds, setOutsidePostEmployeeIds] = useState<Set<string>>(new Set());
+  const [employeeSearch, setEmployeeSearch] = useState("");
+  const deferredEmployeeSearch = useDeferredValue(employeeSearch);
   const [postFormOpen, setPostFormOpen] = useState(false);
   const [editingPostId, setEditingPostId] = useState("");
   const [postName, setPostName] = useState("");
@@ -218,6 +221,15 @@ export function PostSchedulePlanner({
     enabled: !!departmentId,
   });
   const employees: any[] = employeesResponse?.data ?? [];
+  const visibleEmployees = useMemo(
+    () => employees.filter((employee) => matchesSearch(deferredEmployeeSearch, [
+      employee.fullName,
+      employee.position?.name,
+      employee.department?.name,
+      employee.employeeNo,
+    ])),
+    [deferredEmployeeSearch, employees],
+  );
 
   useEffect(() => {
     if (!detail) {
@@ -604,6 +616,20 @@ export function PostSchedulePlanner({
           <Button onClick={downloadExcel} variant="secondary" size="sm"><Download className="h-4 w-4" />Excel</Button>
         </div>
 
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-3">
+          <div className="relative min-w-64 flex-1 sm:max-w-md">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
+            <Input
+              value={employeeSearch}
+              onChange={(event) => setEmployeeSearch(event.target.value)}
+              placeholder="Xodim, lavozim yoki bo‘limni qidiring..."
+              className="pl-9"
+              aria-label="Post rejasidagi xodimlarni qidirish"
+            />
+          </div>
+          <span className="text-xs text-[var(--text-muted)]">{visibleEmployees.length}/{employees.length} xodim</span>
+        </div>
+
         <TableShell>
             <table className="border-collapse text-[11px] min-w-max">
               <thead className="ui-table-head sticky top-0 z-20">
@@ -619,7 +645,7 @@ export function PostSchedulePlanner({
                 })}</tr>
               </thead>
               <tbody>
-                {employees.map((employee) => <tr key={employee.id} className="table-row-hover">
+                {visibleEmployees.map((employee) => <tr key={employee.id} className="table-row-hover">
                   <td className="sticky left-0 z-10 border border-[var(--border)] bg-[var(--bg-card)] p-2">
                     <p className="font-semibold text-[var(--text-primary)]">{employee.fullName}</p>
                     <p className="text-[9px] text-[var(--text-muted)]">{employee.position?.name}</p>
@@ -666,6 +692,7 @@ export function PostSchedulePlanner({
                     </td>;
                   })}
                 </tr>)}
+                {!visibleEmployees.length && <tr><td colSpan={days.length + 1} className="p-8 text-center text-sm text-[var(--text-muted)]">Qidiruv bo‘yicha xodim topilmadi</td></tr>}
               </tbody>
             </table>
           <div className="border-t border-slate-200 dark:border-slate-800 px-4 py-3 text-[11px] text-slate-500"><FileSpreadsheet className="inline h-4 w-4 mr-1" />← ustuni oldingi oyning eng so‘nggi faol rejasidagi tungi smenadan olinadi. Kun sarlavhasidagi asosiy soat post normasiga kiradigan vaqtni, “tash.” esa postdan tashqari xodimlar vaqtini ko‘rsatadi.</div>
