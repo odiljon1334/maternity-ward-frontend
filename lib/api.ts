@@ -278,9 +278,27 @@ export const schedulePlanningApi = {
   posts: (params?: { targetHospitalId?: string; departmentId?: string; includeArchived?: boolean }) =>
     api.get("/schedule-planning/posts", { params }).then((r) => r.data.data),
   createPost: (
-    data: { name: string; code: string; departmentId: string; dailyCoverageMinutes?: number },
+    data: {
+      name: string;
+      code: string;
+      departmentId: string;
+      coverageMode?: "CONTINUOUS_24_7" | "DAILY" | "WEEKDAYS" | "CUSTOM_WEEKLY";
+      dailyCoverageMinutes?: number;
+      coverageMinutesByWeekday?: number[];
+    },
     params?: { targetHospitalId?: string },
   ) => api.post("/schedule-planning/posts", data, { params }).then((r) => r.data.data),
+  updatePost: (
+    id: string,
+    data: {
+      name?: string;
+      code?: string;
+      coverageMode?: "CONTINUOUS_24_7" | "DAILY" | "WEEKDAYS" | "CUSTOM_WEEKLY";
+      dailyCoverageMinutes?: number;
+      coverageMinutesByWeekday?: number[];
+    },
+    params?: { targetHospitalId?: string },
+  ) => api.patch(`/schedule-planning/posts/${id}`, data, { params }).then((r) => r.data.data),
   setPostStatus: (id: string, isActive: boolean, params?: { targetHospitalId?: string }) =>
     api.patch(`/schedule-planning/posts/${id}/status`, { isActive }, { params }).then((r) => r.data.data),
   deletePost: (id: string, params?: { targetHospitalId?: string }) =>
@@ -301,6 +319,8 @@ export const schedulePlanningApi = {
     api.post(`/schedule-planning/plans/${id}/approve`, {}, { params }).then((r) => r.data.data),
   rejectPlan: (id: string, reason: string, params?: { targetHospitalId?: string }) =>
     api.post(`/schedule-planning/plans/${id}/reject`, { reason }, { params }).then((r) => r.data.data),
+  reopenPlan: (id: string, reason: string, params?: { targetHospitalId?: string }) =>
+    api.post(`/schedule-planning/plans/${id}/reopen`, { reason }, { params }).then((r) => r.data.data),
   exportPlan: (id: string, params?: { targetHospitalId?: string }) =>
     api.get(`/schedule-planning/plans/${id}/export`, { params, responseType: "blob" }),
   createChange: (data: any, params?: { targetHospitalId?: string }) =>

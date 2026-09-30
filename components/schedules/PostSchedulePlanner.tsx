@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
-import { Archive, Check, Clock, Download, FileSpreadsheet, Plus, RotateCcw, Save, Send, Trash2, X } from "lucide-react";
+import { Archive, Check, Clock, Download, FileSpreadsheet, Pencil, Plus, RotateCcw, Save, Search, Send, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   downloadBlob,
@@ -12,6 +12,12 @@ import {
   shiftsApi,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { matchesSearch } from "@/lib/search";
+import {
+  collectPersistedPlannedEmployeeIds,
+  filterAndOrderPostEmployees,
+  type PostScheduleEmployeeView,
+} from "@/lib/post-schedule-view";
 import { Button } from "@/components/ui/Button";
 import { Field, Input, Select } from "@/components/ui/FormControls";
 import { ConfirmDialog, PromptDialog } from "@/components/ui/Dialog";
@@ -39,6 +45,22 @@ const STATUS_OPTIONS = [
 
 const ADMIN_ROLES = ["SUPER_ADMIN", "ADMIN", "DIRECTOR"];
 const WEEKDAY_LABELS = ["Ya", "Du", "Se", "Cho", "Pa", "Ju", "Sha"];
+const COVERAGE_MODES = [
+  { value: "CONTINUOUS_24_7", label: "24 soat × kalendar kuni" },
+  { value: "DAILY", label: "N soat × kalendar kuni" },
+  { value: "WEEKDAYS", label: "N soat × Dushanba–Juma" },
+  { value: "CUSTOM_WEEKLY", label: "Hafta kunlari bo‘yicha oy normasi" },
+] as const;
+const COVERAGE_WEEKDAYS = [
+  { index: 1, label: "Du" },
+  { index: 2, label: "Se" },
+  { index: 3, label: "Cho" },
+  { index: 4, label: "Pa" },
+  { index: 5, label: "Ju" },
+  { index: 6, label: "Sha" },
+  { index: 0, label: "Ya" },
+];
+type CoverageMode = typeof COVERAGE_MODES[number]["value"];
 
 function requestParams(targetHospitalId?: string) {
   return targetHospitalId ? { targetHospitalId } : undefined;
@@ -76,6 +98,14 @@ function formatCompactMinutes(minutes: number) {
   return `${Number.isInteger(hours) ? hours : hours.toFixed(1)}s`;
 }
 
+function coverageModeLabel(post: any) {
+  const mode: CoverageMode = post?.coverageMode ?? "CONTINUOUS_24_7";
+  if (mode === "CONTINUOUS_24_7") return "Oy normasi 24s/kun";
+  if (mode === "DAILY") return `Oy normasi ${formatCompactMinutes(post.dailyCoverageMinutes)}/kun`;
+  if (mode === "WEEKDAYS") return `Oy normasi Du–Ju ${formatCompactMinutes(post.dailyCoverageMinutes)}`;
+  return "Haftalik norma bo‘yicha";
+}
+
 export function PostSchedulePlanner({
   targetHospitalId,
   month,
@@ -90,9 +120,17 @@ export function PostSchedulePlanner({
   const [postId, setPostId] = useState("");
   const [planId, setPlanId] = useState("");
   const [cells, setCells] = useState<Record<string, string>>({});
+  const [outsidePostEmployeeIds, setOutsidePostEmployeeIds] = useState<Set<string>>(new Set());
+  const [employeeSearch, setEmployeeSearch] = useState("");
+  const deferredEmployeeSearch = useDeferredValue(employeeSearch);
+  const [employeeView, setEmployeeView] = useState<PostScheduleEmployeeView>("ALL");
   const [postFormOpen, setPostFormOpen] = useState(false);
+  const [editingPostId, setEditingPostId] = useState("");
   const [postName, setPostName] = useState("");
   const [postCode, setPostCode] = useState("");
+  const [coverageMode, setCoverageMode] = useState<CoverageMode>("CONTINUOUS_24_7");
+  const [dailyCoverageHours, setDailyCoverageHours] = useState("24");
+  const [weeklyCoverageHours, setWeeklyCoverageHours] = useState(["0", "8", "8", "8", "8", "8", "0"]);
   const [showArchivedPosts, setShowArchivedPosts] = useState(false);
   const [shiftFormOpen, setShiftFormOpen] = useState(false);
   const [shiftName, setShiftName] = useState("");
@@ -102,6 +140,8 @@ export function PostSchedulePlanner({
   const [postConfirmation, setPostConfirmation] = useState<"archive" | "delete" | null>(null);
   const [rejectPlanOpen, setRejectPlanOpen] = useState(false);
   const [rejectPlanReason, setRejectPlanReason] = useState("");
+  const [reopenPlanOpen, setReopenPlanOpen] = useState(false);
+  const [reopenPlanReason, setReopenPlanReason] = useState("");
 
   useEffect(() => {
     if (!departmentId && departments.length) setDepartmentId(departments[0].id);
@@ -125,6 +165,35 @@ export function PostSchedulePlanner({
   }, [posts, postId]);
 
   const selectedPost = posts.find((post: any) => post.id === postId);
+
+  const closePostForm = () => {
+    setPostFormOpen(false);
+    setEditingPostId("");
+  };
+
+  const openCreatePost = () => {
+    setEditingPostId("");
+    setPostName("");
+    setPostCode("");
+    setCoverageMode("CONTINUOUS_24_7");
+    setDailyCoverageHours("24");
+    setWeeklyCoverageHours(["0", "8", "8", "8", "8", "8", "0"]);
+    setPostFormOpen(true);
+  };
+
+  const openEditPost = () => {
+    if (!selectedPost) return;
+    setEditingPostId(selectedPost.id);
+    setPostName(selectedPost.name);
+    setPostCode(selectedPost.code);
+    setCoverageMode(selectedPost.coverageMode ?? "CONTINUOUS_24_7");
+    setDailyCoverageHours(String((selectedPost.dailyCoverageMinutes ?? 1440) / 60));
+    const weekly = Array.isArray(selectedPost.coverageMinutesByWeekday)
+      ? selectedPost.coverageMinutesByWeekday
+      : [0, 480, 480, 480, 480, 480, 0];
+    setWeeklyCoverageHours(weekly.map((minutes: number) => String(minutes / 60)));
+    setPostFormOpen(true);
+  };
 
   const { data: plans = [] } = useQuery({
     queryKey: ["post-schedule-plans", targetHospitalId, postId, year, month],
@@ -160,20 +229,44 @@ export function PostSchedulePlanner({
     enabled: !!departmentId,
   });
   const employees: any[] = employeesResponse?.data ?? [];
+  // Keep rows stable while the user edits cells. Re-sorting from the mutable
+  // `cells` state moves a row immediately after its first shift is selected,
+  // which can make subsequent selections land on a different employee.
+  const plannedEmployeeIds = useMemo(
+    () => collectPersistedPlannedEmployeeIds(detail?.entries ?? []),
+    [detail?.entries],
+  );
+  const visibleEmployees = useMemo(() => filterAndOrderPostEmployees(
+    employees.filter((employee) => matchesSearch(deferredEmployeeSearch, [
+      employee.fullName,
+      employee.position?.name,
+      employee.department?.name,
+      employee.employeeNo,
+    ])),
+    plannedEmployeeIds,
+    outsidePostEmployeeIds,
+    employeeView,
+  ), [deferredEmployeeSearch, employeeView, employees, outsidePostEmployeeIds, plannedEmployeeIds]);
 
   useEffect(() => {
     if (!detail) {
       setCells({});
+      setOutsidePostEmployeeIds(new Set());
       return;
     }
     const next: Record<string, string> = {};
+    const nextOutsidePostEmployeeIds = new Set<string>();
     for (const entry of detail.entries ?? []) {
       const date = dayjs(entry.workDate).format("YYYY-MM-DD");
       next[`${entry.employeeId}:${date}`] = entry.entryType === "WORKING"
         ? entry.shiftId
         : `STATUS:${entry.entryType}`;
+      if (entry.countsTowardPostCoverage === false) {
+        nextOutsidePostEmployeeIds.add(entry.employeeId);
+      }
     }
     setCells(next);
+    setOutsidePostEmployeeIds(nextOutsidePostEmployeeIds);
   }, [detail]);
 
   const canonicalCarryInKeys = useMemo(
@@ -219,16 +312,18 @@ export function PostSchedulePlanner({
     const monthStart = dayjs(`${year}-${String(month).padStart(2, "0")}-01T00:00:00+05:00`);
     const monthEnd = monthStart.add(1, "month");
     const byDate: Record<string, number> = {};
+    const outsideByDate: Record<string, number> = {};
     const incomingByCell: Record<string, number> = {};
     const sourceParts: Record<string, { sameDay: number; nextDays: number }> = {};
 
     for (const [key, value] of Object.entries(cells)) {
       if (!value || value.startsWith("STATUS:")) continue;
-      const shift = shiftsById.get(value);
-      if (!shift) continue;
       const separator = key.indexOf(":");
       const employeeId = key.slice(0, separator);
       const workDate = key.slice(separator + 1);
+      const shift = shiftsById.get(value);
+      if (!shift) continue;
+      const coverageByDate = outsidePostEmployeeIds.has(employeeId) ? outsideByDate : byDate;
       const interval = buildShiftInterval(workDate, shift);
       const startsAt = dayjs(interval.startsAt);
       const endsAt = dayjs(interval.endsAt);
@@ -242,7 +337,7 @@ export function PostSchedulePlanner({
         const segmentEnd = nextMidnight.isBefore(clippedEnd) ? nextMidnight : clippedEnd;
         const date = cursor.format("YYYY-MM-DD");
         const minutes = Math.max(0, segmentEnd.diff(cursor, "minute"));
-        byDate[date] = (byDate[date] ?? 0) + minutes;
+        coverageByDate[date] = (coverageByDate[date] ?? 0) + minutes;
         if (date === workDate) {
           sameDay += minutes;
         } else {
@@ -257,28 +352,66 @@ export function PostSchedulePlanner({
 
     return {
       plannedMinutes: Object.values(byDate).reduce((total, minutes) => total + minutes, 0),
+      outsidePlannedMinutes: Object.values(outsideByDate).reduce((total, minutes) => total + minutes, 0),
       byDate,
+      outsideByDate,
       incomingByCell,
       sourceParts,
     };
-  }, [cells, month, shiftsById, year]);
+  }, [cells, month, outsidePostEmployeeIds, shiftsById, year]);
+
+  const parsedDailyCoverageHours = Number(dailyCoverageHours);
+  const parsedWeeklyCoverageMinutes = weeklyCoverageHours.map((hours) => Math.round(Number(hours) * 60));
+  const coverageFormValid = coverageMode === "CONTINUOUS_24_7"
+    || (coverageMode === "CUSTOM_WEEKLY"
+      ? parsedWeeklyCoverageMinutes.every((minutes) => Number.isFinite(minutes) && minutes >= 0 && minutes <= 1440)
+        && parsedWeeklyCoverageMinutes.some((minutes) => minutes > 0)
+      : Number.isFinite(parsedDailyCoverageHours) && parsedDailyCoverageHours > 0 && parsedDailyCoverageHours <= 24);
+
+  const postCoveragePayload = () => ({
+    coverageMode,
+    dailyCoverageMinutes: coverageMode === "CONTINUOUS_24_7"
+      ? 1440
+      : coverageMode === "CUSTOM_WEEKLY"
+        ? Math.max(...parsedWeeklyCoverageMinutes)
+        : Math.round(parsedDailyCoverageHours * 60),
+    ...(coverageMode === "CUSTOM_WEEKLY" && {
+      coverageMinutesByWeekday: parsedWeeklyCoverageMinutes,
+    }),
+  });
 
   const createPost = useMutation({
     mutationFn: () => schedulePlanningApi.createPost({
       name: postName,
       code: postCode,
       departmentId,
-      dailyCoverageMinutes: 1440,
+      ...postCoveragePayload(),
     }, params),
     onSuccess: (post) => {
       toast.success("Post yaratildi");
       setPostId(post.id);
       setPostName("");
       setPostCode("");
-      setPostFormOpen(false);
+      closePostForm();
       qc.invalidateQueries({ queryKey: ["schedule-posts"] });
     },
     onError: (error) => toast.error(getErrorMessage(error, "Post yaratilmadi")),
+  });
+
+  const updatePost = useMutation({
+    mutationFn: () => schedulePlanningApi.updatePost(editingPostId, {
+      name: postName,
+      code: postCode,
+      ...postCoveragePayload(),
+    }, params),
+    onSuccess: () => {
+      toast.success("Post sozlamasi yangilandi. Qoralama rejalar yangi norma bilan qayta hisoblanadi.");
+      closePostForm();
+      qc.invalidateQueries({ queryKey: ["schedule-posts"] });
+      qc.invalidateQueries({ queryKey: ["post-schedule-plan"] });
+      qc.invalidateQueries({ queryKey: ["post-schedule-plans"] });
+    },
+    onError: (error) => toast.error(getErrorMessage(error, "Post sozlamasi yangilanmadi")),
   });
 
   const postStatus = useMutation({
@@ -348,6 +481,7 @@ export function PostSchedulePlanner({
             return {
               employeeId,
               entryType: value.slice("STATUS:".length),
+              countsTowardPostCoverage: !outsidePostEmployeeIds.has(employeeId),
               workDate,
             };
           }
@@ -357,15 +491,11 @@ export function PostSchedulePlanner({
             employeeId,
             shiftId: shift.id,
             entryType: "WORKING",
+            countsTowardPostCoverage: !outsidePostEmployeeIds.has(employeeId),
             workDate,
             ...buildShiftInterval(workDate, shift),
           };
         });
-      const dailyLimit = selectedPost?.dailyCoverageMinutes ?? 1440;
-      const overfilledDay = Object.entries(liveCoverage.byDate).find(([, minutes]) => minutes > dailyLimit);
-      if (overfilledDay) {
-        throw new Error(`${dayjs(overfilledDay[0]).format("DD.MM.YYYY")} kuni ${formatMinutes(overfilledDay[1])}/${formatMinutes(dailyLimit)} rejalashtirilgan. Ortiqcha smenani olib tashlang.`);
-      }
       return schedulePlanningApi.saveEntries(planId, entries, params);
     },
     onSuccess: () => {
@@ -393,6 +523,18 @@ export function PostSchedulePlanner({
     onError: (error) => toast.error(getErrorMessage(error, error?.message || "Amal bajarilmadi")),
   });
 
+  const reopenPlan = useMutation({
+    mutationFn: (reason: string) => schedulePlanningApi.reopenPlan(planId, reason.trim(), params),
+    onSuccess: () => {
+      toast.success("Grafik qayta tahrirlashga ochildi");
+      setReopenPlanOpen(false);
+      setReopenPlanReason("");
+      qc.invalidateQueries({ queryKey: ["post-schedule-plan"] });
+      qc.invalidateQueries({ queryKey: ["post-schedule-plans"] });
+    },
+    onError: (error) => toast.error(getErrorMessage(error, "Grafik qayta ochilmadi")),
+  });
+
   const downloadExcel = async () => {
     try {
       const response = await schedulePlanningApi.exportPlan(planId, params);
@@ -404,7 +546,6 @@ export function PostSchedulePlanner({
 
   const summary = detail?.summary;
   const targetMinutes = summary?.targetMinutes ?? 0;
-  const dailyCoverageMinutes = selectedPost?.dailyCoverageMinutes ?? 1440;
   const displayedPlannedMinutes = isNaN(liveCoverage.plannedMinutes)
     ? summary?.plannedMinutes ?? 0
     : liveCoverage.plannedMinutes;
@@ -429,10 +570,11 @@ export function PostSchedulePlanner({
           <Field label="Post" className="min-w-52 flex-1 sm:flex-none">
             <Select value={postId} onChange={(event) => setPostId(event.target.value)} className="h-10 min-w-52 text-xs">
               <option value="">Postni tanlang</option>
-              {posts.map((post: any) => <option key={post.id} value={post.id}>{post.name}{post.isActive ? "" : " — arxiv"}</option>)}
+              {posts.map((post: any) => <option key={post.id} value={post.id}>{post.name} — {coverageModeLabel(post)}{post.isActive ? "" : " — arxiv"}</option>)}
             </Select>
           </Field>
-          {canWrite && <Button onClick={() => setPostFormOpen((value) => !value)} variant="secondary" size="sm" className="mt-5"><Plus className="h-3.5 w-3.5" />Yangi post</Button>}
+          {canWrite && <Button onClick={openCreatePost} variant="secondary" size="sm" className="mt-5"><Plus className="h-3.5 w-3.5" />Yangi post</Button>}
+          {selectedPost && canWrite && <Button onClick={openEditPost} variant="secondary" size="sm" className="mt-5"><Pencil className="h-3.5 w-3.5" />Postni sozlash</Button>}
           {canWrite && <Button onClick={() => setShiftFormOpen((value) => !value)} variant="secondary" size="sm" className="mt-5"><Clock className="h-3.5 w-3.5" />Yangi smena</Button>}
           {canCreatePlan && <Button onClick={() => createPlan.mutate()} loading={createPlan.isPending} size="sm" className="mt-5">{plans.length ? "Yangi versiya" : "Oylik reja yaratish"}</Button>}
           {!!plans.length && <Select aria-label="Grafik versiyasi" value={planId} onChange={(event) => setPlanId(event.target.value)} className="mt-5 h-9 w-auto min-w-32 text-xs">
@@ -449,11 +591,26 @@ export function PostSchedulePlanner({
           </Button>
         </div>
 
-        {postFormOpen && <div className="ui-surface-muted mt-3 grid gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] sm:items-end">
-          <Field label="Post nomi"><Input value={postName} onChange={(event) => setPostName(event.target.value)} placeholder="Masalan: Ona va bola 1" className="text-xs" /></Field>
-          <Field label="Post kodi"><Input value={postCode} onChange={(event) => setPostCode(event.target.value)} placeholder="ONA_VA_BOLA_1" className="text-xs" /></Field>
-          <Button onClick={() => createPost.mutate()} loading={createPost.isPending} disabled={!postName.trim() || !postCode.trim()} size="sm">Yaratish</Button>
-          <Button onClick={() => setPostFormOpen(false)} variant="ghost" size="icon" aria-label="Post formasini yopish"><X className="h-4 w-4" /></Button>
+        {postFormOpen && <div className="ui-surface-muted mt-3 space-y-3 p-3">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <Field label="Post nomi"><Input value={postName} onChange={(event) => setPostName(event.target.value)} placeholder="Masalan: Ona va bola 1" className="text-xs" /></Field>
+            <Field label="Post kodi"><Input value={postCode} onChange={(event) => setPostCode(event.target.value)} placeholder="ONA_VA_BOLA_1" className="text-xs" /></Field>
+            <Field label="Ish rejimi"><Select value={coverageMode} onChange={(event) => {
+              const nextMode = event.target.value as CoverageMode;
+              if (coverageMode === "CONTINUOUS_24_7" && nextMode === "DAILY") setDailyCoverageHours("12");
+              if (coverageMode === "CONTINUOUS_24_7" && nextMode === "WEEKDAYS") setDailyCoverageHours("8");
+              setCoverageMode(nextMode);
+            }} className="text-xs">{COVERAGE_MODES.map((mode) => <option key={mode.value} value={mode.value}>{mode.label}</option>)}</Select></Field>
+            {coverageMode !== "CONTINUOUS_24_7" && coverageMode !== "CUSTOM_WEEKLY" ? <Field label="Norma koeffitsiyenti (soat)"><Input type="number" min="0.5" max="24" step="0.5" value={dailyCoverageHours} onChange={(event) => setDailyCoverageHours(event.target.value)} className="text-xs" /></Field> : <div className="flex min-h-10 items-end"><div className="w-full rounded-xl border border-indigo-500/20 bg-indigo-500/10 px-3 py-2.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300">{coverageMode === "CONTINUOUS_24_7" ? "Oy normasi: kalendar kunlari × 24 soat" : "Oy normasi hafta kunlari kesimida hisoblanadi"}</div></div>}
+          </div>
+          {coverageMode === "CUSTOM_WEEKLY" && <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
+            {COVERAGE_WEEKDAYS.map((weekday) => <Field key={weekday.index} label={`${weekday.label} (soat)`}><Input type="number" min="0" max="24" step="0.5" value={weeklyCoverageHours[weekday.index]} onChange={(event) => setWeeklyCoverageHours((current) => current.map((value, index) => index === weekday.index ? event.target.value : value))} className="text-xs" /></Field>)}
+          </div>}
+          <p className="text-[11px] text-[var(--text-muted)]">Bu qiymat bir kunlik xodimlar limiti emas — undan faqat postning oylik jami normasi hisoblanadi. Bir kunda bir nechta xodim ishlashi mumkin. O‘zgarishlar qoralama va yangi rejalarga qo‘llanadi; yuborilgan hamda tasdiqlangan tarix o‘zgarmaydi.</p>
+          <div className="flex justify-end gap-2">
+            <Button onClick={() => editingPostId ? updatePost.mutate() : createPost.mutate()} loading={createPost.isPending || updatePost.isPending} disabled={!postName.trim() || !postCode.trim() || !coverageFormValid} size="sm">{editingPostId ? "Saqlash" : "Yaratish"}</Button>
+            <Button onClick={closePostForm} variant="ghost" size="icon" aria-label="Post formasini yopish"><X className="h-4 w-4" /></Button>
+          </div>
         </div>}
 
         {shiftFormOpen && <div className="ui-surface-muted mt-3 grid gap-3 p-3 sm:grid-cols-2 xl:grid-cols-[minmax(12rem,1fr)_10rem_9rem_9rem_auto_auto_auto] xl:items-end">
@@ -468,21 +625,57 @@ export function PostSchedulePlanner({
       </Surface>
 
       {detail && <>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
           {[
             ["Holat", detail.status],
-            ["Post normasi", formatMinutes(targetMinutes)],
-            ["Rejalashtirilgan", formatMinutes(displayedPlannedMinutes)],
+            [`Post normasi · ${coverageModeLabel(detail)}`, formatMinutes(targetMinutes)],
+            ["Postga rejalashtirilgan", formatMinutes(displayedPlannedMinutes)],
             [displayedExcessMinutes ? "Oshib ketgan" : "Qolgan", formatMinutes(displayedExcessMinutes || displayedRemainingMinutes)],
+            ["Postdan tashqari", formatMinutes(liveCoverage.outsidePlannedMinutes)],
           ].map(([label, value]) => <Surface key={label} className="p-4"><p className="text-[11px] font-medium text-[var(--text-muted)]">{label}</p><p className="mt-1 font-bold text-[var(--text-primary)]">{value}</p></Surface>)}
         </div>
+
+        <div className="rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 py-3 text-xs text-sky-800 dark:text-sky-200">Har bir xodimni “Post xodimi” yoki “Postdan tashqari” deb belgilang. Kunlik 8 soatlik postdan tashqari xodimlar jadval va Excelda ko‘rinadi, ammo postning 720/744 soatlik normasiga qo‘shilmaydi.</div>
 
         <div className="flex flex-wrap gap-2">
           {isDraft && canWrite && <Button onClick={() => savePlan.mutate()} loading={savePlan.isPending} size="sm"><Save className="h-4 w-4" />Saqlash</Button>}
           {isDraft && canWrite && <Button onClick={() => statusMutation.mutate({ action: "submit" })} loading={statusMutation.isPending} variant="success" size="sm"><Send className="h-4 w-4" />Tasdiqlashga yuborish</Button>}
           {detail.status === "SUBMITTED" && canApprove && <Button onClick={() => statusMutation.mutate({ action: "approve" })} loading={statusMutation.isPending} variant="success" size="sm"><Check className="h-4 w-4" />Tasdiqlash</Button>}
           {detail.status === "SUBMITTED" && canApprove && <Button onClick={() => setRejectPlanOpen(true)} variant="danger" size="sm">Rad etish</Button>}
+          {detail.status === "APPROVED" && canApprove && <Button onClick={() => setReopenPlanOpen(true)} variant="warning" size="sm"><RotateCcw className="h-4 w-4" />Qayta tahrirlash</Button>}
           <Button onClick={downloadExcel} variant="secondary" size="sm"><Download className="h-4 w-4" />Excel</Button>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--bg-card)] p-3">
+          <div className="relative min-w-64 flex-1 sm:max-w-md">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
+            <Input
+              value={employeeSearch}
+              onChange={(event) => setEmployeeSearch(event.target.value)}
+              placeholder="Xodim, lavozim yoki bo‘limni qidiring..."
+              className="pl-9"
+              aria-label="Post rejasidagi xodimlarni qidirish"
+            />
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {([
+              ["ALL", "Barchasi"],
+              ["PLANNED", "Grafik bor"],
+              ["UNPLANNED", "Grafiksiz"],
+              ["OUTSIDE", "Postdan tashqari"],
+            ] as const).map(([value, label]) => (
+              <Button
+                key={value}
+                type="button"
+                size="sm"
+                variant={employeeView === value ? "primary" : "secondary"}
+                onClick={() => setEmployeeView(value)}
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
+          <span className="text-xs text-[var(--text-muted)]">{visibleEmployees.length}/{employees.length} xodim</span>
         </div>
 
         <TableShell>
@@ -490,18 +683,36 @@ export function PostSchedulePlanner({
               <thead className="ui-table-head sticky top-0 z-20">
                 <tr><th className="ui-table-head sticky left-0 z-30 min-w-56 border border-[var(--border)] p-2 text-left">Xodim</th>{days.map((day) => {
                   const plannedMinutes = liveCoverage.byDate[day.date] ?? 0;
-                  const overfilled = plannedMinutes > dailyCoverageMinutes;
-                  const complete = plannedMinutes === dailyCoverageMinutes;
+                  const outsideMinutes = liveCoverage.outsideByDate[day.date] ?? 0;
                   return <th key={day.date} title={`${day.date} — ${day.weekday}`} className={cn("w-20 min-w-20 border border-[var(--border)] p-1", day.carryIn ? "bg-amber-100 dark:bg-amber-500/10" : day.isWeekend && "bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-300")}>
                     <span className={cn("block", day.isWeekend && !day.carryIn && "text-rose-600 dark:text-rose-300")}>{day.label}</span>
                     <span className={cn("mt-0.5 block text-[8px] font-bold uppercase", day.isWeekend && !day.carryIn ? "text-rose-600 dark:text-rose-300" : "text-[var(--text-muted)]")}>{day.weekday}</span>
-                    {!day.carryIn && <span className={cn("mt-0.5 block font-mono text-[8px]", overfilled ? "text-rose-600 dark:text-rose-300" : complete ? "text-emerald-600 dark:text-emerald-300" : "text-amber-600 dark:text-amber-300")}>{formatCompactMinutes(plannedMinutes)}/{formatCompactMinutes(dailyCoverageMinutes)}</span>}
+                    {!day.carryIn && <span className={cn("mt-0.5 block font-mono text-[8px]", plannedMinutes ? "text-indigo-600 dark:text-indigo-300" : "text-[var(--text-muted)]")}>{formatCompactMinutes(plannedMinutes)}</span>}
+                    {!day.carryIn && !!outsideMinutes && <span className="mt-0.5 block font-mono text-[7px] text-slate-500">+{formatCompactMinutes(outsideMinutes)} tash.</span>}
                   </th>;
                 })}</tr>
               </thead>
               <tbody>
-                {employees.map((employee) => <tr key={employee.id} className="table-row-hover">
-                  <td className="sticky left-0 z-10 border border-[var(--border)] bg-[var(--bg-card)] p-2"><p className="font-semibold text-[var(--text-primary)]">{employee.fullName}</p><p className="text-[9px] text-[var(--text-muted)]">{employee.position?.name}</p></td>
+                {visibleEmployees.map((employee) => <tr key={employee.id} className="table-row-hover">
+                  <td className="sticky left-0 z-10 border border-[var(--border)] bg-[var(--bg-card)] p-2">
+                    <p className="font-semibold text-[var(--text-primary)]">{employee.fullName}</p>
+                    <p className="text-[9px] text-[var(--text-muted)]">{employee.position?.name}</p>
+                    <select
+                      aria-label={`${employee.fullName} post guruhi`}
+                      value={outsidePostEmployeeIds.has(employee.id) ? "OUTSIDE" : "POST"}
+                      disabled={!isDraft || !canWrite}
+                      onChange={(event) => setOutsidePostEmployeeIds((current) => {
+                        const next = new Set(current);
+                        if (event.target.value === "OUTSIDE") next.add(employee.id);
+                        else next.delete(employee.id);
+                        return next;
+                      })}
+                      className={cn("mt-1 h-6 w-full rounded-md border px-1 text-[9px] font-semibold", outsidePostEmployeeIds.has(employee.id) ? "border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200" : "border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300")}
+                    >
+                      <option value="POST">Post xodimi</option>
+                      <option value="OUTSIDE">Postdan tashqari</option>
+                    </select>
+                  </td>
                   {days.map((day) => {
                     const key = `${employee.id}:${day.date}`;
                     const selectedValue = cells[key] ?? "";
@@ -529,9 +740,10 @@ export function PostSchedulePlanner({
                     </td>;
                   })}
                 </tr>)}
+                {!visibleEmployees.length && <tr><td colSpan={days.length + 1} className="p-8 text-center text-sm text-[var(--text-muted)]">Qidiruv bo‘yicha xodim topilmadi</td></tr>}
               </tbody>
             </table>
-          <div className="border-t border-slate-200 dark:border-slate-800 px-4 py-3 text-[11px] text-slate-500"><FileSpreadsheet className="inline h-4 w-4 mr-1" />← ustuni oldingi oyning eng so‘nggi faol rejasidagi tungi smenadan avtomatik olinadi. Kun sarlavhasidagi ko‘rsatkich rejalashtirilgan/kerakli post soatini, katakdagi ko‘k belgi esa oldingi smenadan kirgan soatni ko‘rsatadi.</div>
+          <div className="border-t border-slate-200 dark:border-slate-800 px-4 py-3 text-[11px] text-slate-500"><FileSpreadsheet className="inline h-4 w-4 mr-1" />← ustuni oldingi oyning eng so‘nggi faol rejasidagi tungi smenadan olinadi. Kun sarlavhasidagi asosiy soat post normasiga kiradigan vaqtni, “tash.” esa postdan tashqari xodimlar vaqtini ko‘rsatadi.</div>
         </TableShell>
 
         {detail.status === "APPROVED" && <ScheduleChangePanel detail={detail} employees={employees} targetHospitalId={targetHospitalId} userRole={userRole} />}
@@ -576,6 +788,20 @@ export function PostSchedulePlanner({
         confirmLabel="Rad etish"
         tone="danger"
         loading={statusMutation.isPending}
+      />
+      <PromptDialog
+        open={reopenPlanOpen}
+        onClose={() => { setReopenPlanOpen(false); setReopenPlanReason(""); }}
+        onConfirm={(reason) => reopenPlan.mutate(reason)}
+        title="Grafikni qayta tahrirlash"
+        description="Bu amal faqat hali boshlanmagan oy uchun ishlaydi. Nashr qilingan grafik vaqtincha olib tashlanadi; tuzatib, qayta tasdiqlashingiz kerak. Sabab audit tarixida saqlanadi."
+        label="Qayta ochish sababi"
+        value={reopenPlanReason}
+        onValueChange={setReopenPlanReason}
+        placeholder="Masalan: xodim smenalari noto‘g‘ri qatorda saqlangan"
+        confirmLabel="Qayta tahrirlashga ochish"
+        tone="warning"
+        loading={reopenPlan.isPending}
       />
     </div>
   );
