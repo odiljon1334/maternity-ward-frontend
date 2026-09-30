@@ -575,6 +575,12 @@ export function PostSchedulePlanner({
   const displayedPlannedMinutes = isNaN(liveCoverage.plannedMinutes)
     ? summary?.plannedMinutes ?? 0
     : liveCoverage.plannedMinutes;
+  // Faqat postdan tashqari xodimlar grafigi post normasiga tekshirilmaydi
+  // (backend ham shunday: summary.postCoverageRequired)
+  const postCoverageRequired = Object.entries(cells).some(([key, value]) => {
+    if (!value || canonicalCarryInKeys.has(key)) return false;
+    return !outsidePostEmployeeIds.has(key.slice(0, key.indexOf(":")));
+  });
   const displayedRemainingMinutes = Math.max(0, targetMinutes - displayedPlannedMinutes);
   const displayedExcessMinutes = Math.max(0, displayedPlannedMinutes - targetMinutes);
   const canApprove = ADMIN_ROLES.includes(userRole ?? "");
@@ -656,7 +662,9 @@ export function PostSchedulePlanner({
             ["Holat", detail.status],
             [`Post normasi · ${coverageModeLabel(detail)}`, formatMinutes(targetMinutes)],
             ["Postga rejalashtirilgan", formatMinutes(displayedPlannedMinutes)],
-            [displayedExcessMinutes ? "Oshib ketgan" : "Qolgan", formatMinutes(displayedExcessMinutes || displayedRemainingMinutes)],
+            postCoverageRequired
+              ? [displayedExcessMinutes ? "Oshib ketgan" : "Qolgan", formatMinutes(displayedExcessMinutes || displayedRemainingMinutes)]
+              : ["Qolgan", "Talab qilinmaydi — faqat postdan tashqari xodimlar"],
             ["Postdan tashqari", formatMinutes(liveCoverage.outsidePlannedMinutes)],
           ].map(([label, value]) => <Surface key={label} className="p-4"><p className="text-[11px] font-medium text-[var(--text-muted)]">{label}</p><p className="mt-1 font-bold text-[var(--text-primary)]">{value}</p></Surface>)}
         </div>
