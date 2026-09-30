@@ -515,13 +515,13 @@ export function PostSchedulePlanner({
                         </div>
                       )}
                       {!!incomingMinutes && <div className="mt-1 rounded bg-sky-500/10 px-1 py-0.5 text-center font-mono text-[8px] font-semibold text-sky-700 dark:text-sky-300">← {formatCompactMinutes(incomingMinutes)} oldingi smenadan</div>}
-                      {isCanonicalCarryIn && <div className="mt-1 text-center text-[8px] font-medium text-amber-700 dark:text-amber-300">Tasdiqlangan oldingi oy</div>}
+                      {isCanonicalCarryIn && <div className="mt-1 text-center text-[8px] font-medium text-amber-700 dark:text-amber-300">Oldingi oy rejasidan</div>}
                     </td>;
                   })}
                 </tr>)}
               </tbody>
             </table>
-          <div className="border-t border-slate-200 dark:border-slate-800 px-4 py-3 text-[11px] text-slate-500"><FileSpreadsheet className="inline h-4 w-4 mr-1" />← ustuni oldingi tasdiqlangan oyning tungi smenasidan avtomatik olinadi. Kun sarlavhasidagi ko‘rsatkich rejalashtirilgan/kerakli post soatini, katakdagi ko‘k belgi esa oldingi smenadan kirgan soatni ko‘rsatadi.</div>
+          <div className="border-t border-slate-200 dark:border-slate-800 px-4 py-3 text-[11px] text-slate-500"><FileSpreadsheet className="inline h-4 w-4 mr-1" />← ustuni oldingi oyning eng so‘nggi faol rejasidagi tungi smenadan avtomatik olinadi. Kun sarlavhasidagi ko‘rsatkich rejalashtirilgan/kerakli post soatini, katakdagi ko‘k belgi esa oldingi smenadan kirgan soatni ko‘rsatadi.</div>
         </TableShell>
 
         {detail.status === "APPROVED" && <ScheduleChangePanel detail={detail} employees={employees} targetHospitalId={targetHospitalId} userRole={userRole} />}
