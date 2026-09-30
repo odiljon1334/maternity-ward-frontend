@@ -311,8 +311,15 @@ export const schedulePlanningApi = {
     data: { postId: string; year: number; month: number },
     params?: { targetHospitalId?: string },
   ) => api.post("/schedule-planning/plans", data, { params }).then((r) => r.data.data),
-  saveEntries: (id: string, entries: any[], params?: { targetHospitalId?: string }) =>
-    api.put(`/schedule-planning/plans/${id}/entries`, { entries }, { params }).then((r) => r.data.data),
+  saveEntries: (
+    id: string,
+    entries: any[],
+    params?: { targetHospitalId?: string },
+    expectedUpdatedAt?: string,
+  ) =>
+    api
+      .put(`/schedule-planning/plans/${id}/entries`, { entries, expectedUpdatedAt }, { params })
+      .then((r) => r.data.data),
   submitPlan: (id: string, params?: { targetHospitalId?: string }) =>
     api.post(`/schedule-planning/plans/${id}/submit`, {}, { params }).then((r) => r.data.data),
   approvePlan: (id: string, params?: { targetHospitalId?: string }) =>

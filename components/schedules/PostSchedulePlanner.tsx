@@ -496,14 +496,21 @@ export function PostSchedulePlanner({
             ...buildShiftInterval(workDate, shift),
           };
         });
-      return schedulePlanningApi.saveEntries(planId, entries, params);
+      // Tahrir boshlangan versiya: orada boshqa kishi saqlagan bo'lsa server 409 qaytaradi
+      return schedulePlanningApi.saveEntries(planId, entries, params, detail?.updatedAt);
     },
     onSuccess: () => {
       toast.success("Post grafigi saqlandi");
       qc.invalidateQueries({ queryKey: ["post-schedule-plan"] });
       qc.invalidateQueries({ queryKey: ["post-schedule-plans"] });
     },
-    onError: (error) => toast.error(getErrorMessage(error, error?.message || "Grafik saqlanmadi")),
+    onError: (error) => {
+      toast.error(getErrorMessage(error, error?.message || "Grafik saqlanmadi"), { duration: 8000 });
+      if ((error as { response?: { status?: number } })?.response?.status === 409) {
+        qc.invalidateQueries({ queryKey: ["post-schedule-plan"] });
+        qc.invalidateQueries({ queryKey: ["post-schedule-plans"] });
+      }
+    },
   });
 
   const statusMutation = useMutation({
@@ -513,8 +520,27 @@ export function PostSchedulePlanner({
       if (!reason?.trim()) throw new Error("Rad etish sababi kiritilmadi");
       return schedulePlanningApi.rejectPlan(planId, reason.trim(), params);
     },
-    onSuccess: () => {
+    onSuccess: (result: { leaveConflicts?: { employeeId: string; date: string }[] } | undefined) => {
       toast.success("Grafik holati yangilandi");
+      // Tasdiqlashda ta'tildagi xodim kunlari ish kuniga aylantirilmaydi —
+      // post qamrovidagi bo'shliqni rahbar ko'rishi kerak.
+      const conflicts = result?.leaveConflicts ?? [];
+      if (conflicts.length) {
+        const names = new Map<string, string>(
+          (detail?.entries ?? []).map((entry: { employeeId: string; employee?: { fullName?: string } }) => [
+            entry.employeeId,
+            entry.employee?.fullName ?? "Xodim",
+          ]),
+        );
+        const lines = conflicts
+          .slice(0, 5)
+          .map((item) => `${names.get(item.employeeId) ?? "Xodim"} — ${dayjs(item.date).format("DD.MM")}`)
+          .join(", ");
+        toast.error(
+          `${conflicts.length} ta ish kunida xodim tasdiqlangan ta'tilda: ${lines}${conflicts.length > 5 ? "…" : ""}. Ta'til saqlandi — bu kunlarga o'rinbosar tayinlang.`,
+          { duration: 15000 },
+        );
+      }
       setRejectPlanOpen(false);
       setRejectPlanReason("");
       qc.invalidateQueries({ queryKey: ["post-schedule-plan"] });
