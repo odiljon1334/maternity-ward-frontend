@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/auth";
 import { useRouter } from "next/navigation";
@@ -82,11 +82,12 @@ export default function AuditLogsPage() {
   const [clearModal, setClearModal]   = useState(false);
   const [clearDays, setClearDays]     = useState(90);
 
-  // ── Hooks dan keyin role check ──────────────────
-  if (user && user.role !== "SUPER_ADMIN") {
-    router.replace("/dashboard");
-    return null;
-  }
+  // Hook'lar har renderda bir xil tartibda chaqirilishi shart: user keyinroq
+  // yuklanganda erta `return` React'ni "Rendered fewer hooks" bilan yiqitardi.
+  const forbidden = !!user && user.role !== "SUPER_ADMIN";
+  useEffect(() => {
+    if (forbidden) router.replace("/dashboard");
+  }, [forbidden, router]);
 
   const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ["audit-logs", page, actionFilter, entityFilter],
@@ -99,6 +100,7 @@ export default function AuditLogsPage() {
       }),
     staleTime: 0,           // har doim fresh fetch
     placeholderData: (prev) => prev,
+    enabled: user?.role === "SUPER_ADMIN",
   });
 
   const clearMutation = useMutation({
@@ -119,6 +121,8 @@ export default function AuditLogsPage() {
     setter(e.target.value);
     setPage(1);
   };
+
+  if (forbidden) return null;
 
   return (
     <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
