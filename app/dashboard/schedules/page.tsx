@@ -364,13 +364,16 @@ function CellBadge({ sch }: { sch?: any }) {
   // Dam olish / ta'til / kasallik / bayram
   const nonWorking = NON_WORKING_BADGE[sch.status as string];
   if (nonWorking) {
+    const isUnpaidLeave =
+      sch.status === "OTHER_ABSENCE" &&
+      String(sch.note ?? "").toLocaleLowerCase("uz").includes("haqsiz");
     return (
       <span className="relative inline-flex min-h-6 min-w-6 items-center justify-center">
         <span
           className={cn("text-[11px] font-semibold", nonWorking.cls)}
           title={sch.note || nonWorking.title}
         >
-          {nonWorking.mark}
+          {isUnpaidLeave ? "HT" : nonWorking.mark}
         </span>
         {sourceLock}
       </span>

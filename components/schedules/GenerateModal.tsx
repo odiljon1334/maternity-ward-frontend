@@ -6,11 +6,20 @@ import { schedulesApi, shiftsApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import {
   X, Sun, Moon, Coffee, ChevronLeft, ChevronRight,
-  Copy, Zap, Users, User, Search, Check
+  Copy, Zap, Users, User, Search, Check, Palmtree, HeartPulse,
+  Baby, WalletCards, CircleEllipsis,
 } from "lucide-react";
 import dayjs from "dayjs";
 
-type ShiftType = "day" | "night" | "off";
+type ShiftType =
+  | "day"
+  | "night"
+  | "off"
+  | "vacation"
+  | "sick"
+  | "maternity"
+  | "unpaid"
+  | "other";
 
 interface ShiftPreset {
   type: ShiftType;
@@ -31,9 +40,26 @@ interface ShiftPreset {
  */
 type DayEntry = ShiftPreset;
 
+const ABSENCE_TYPES = ["vacation", "sick", "maternity", "unpaid", "other"] as const;
+
+const ENTRY_META: Record<ShiftType, { label: string; short: string; color: string; cell: string }> = {
+  day:       { label: "Kunduzgi",        short: "K",   color: "text-blue-500",    cell: "bg-blue-500/10 border-blue-500/50" },
+  night:     { label: "Tungi",           short: "Tu",  color: "text-violet-500",  cell: "bg-violet-500/10 border-violet-500/50" },
+  off:       { label: "Dam olish",       short: "Dam", color: "text-slate-500",   cell: "bg-[var(--bg-hover)] border-[var(--border)]" },
+  vacation:  { label: "Mehnat ta’tili", short: "MT",  color: "text-teal-500",    cell: "bg-teal-500/10 border-teal-500/40" },
+  sick:      { label: "Kasallik",        short: "Ka",  color: "text-pink-500",    cell: "bg-pink-500/10 border-pink-500/40" },
+  maternity: { label: "Tug‘ruq ta’tili",short: "TT",  color: "text-fuchsia-500", cell: "bg-fuchsia-500/10 border-fuchsia-500/40" },
+  unpaid:    { label: "Haqsiz ta’til",   short: "HT",  color: "text-amber-600",   cell: "bg-amber-500/10 border-amber-500/40" },
+  other:     { label: "Boshqa yo‘qlik", short: "B",   color: "text-orange-500",  cell: "bg-orange-500/10 border-orange-500/40" },
+};
+
+function isWorkingType(type: ShiftType) {
+  return type === "day" || type === "night";
+}
+
 /** Bir xil smenlarni guruhlash uchun kalit (ShiftTemplate ni qayta ishlatish) */
 function presetKey(p: ShiftPreset): string {
-  if (p.type === "off") return "off";
+  if (!isWorkingType(p.type)) return p.type;
   return [
     p.type,
     p.startTime,
@@ -226,21 +252,33 @@ const ActiveShiftBar = memo(function ActiveShiftBar({ activeShift, presets }: {
   const gross     = calcGross(safeStart, safeEnd);
   const lunchMin  = preset.lunchEnabled ? calcLunch(safeLs, safeLe) : 0;
   const net       = Math.max(0, gross - lunchMin);
+  const meta      = ENTRY_META[activeShift];
+  const working   = isWorkingType(activeShift);
 
   return (
     <div className={cn(
       "flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border",
       activeShift === "day"   && "bg-blue-500/10 border-blue-500/30 text-blue-500 dark:text-blue-400",
       activeShift === "night" && "bg-violet-500/10 border-violet-500/30 text-violet-500 dark:text-violet-400",
-      activeShift === "off"   && "bg-slate-500/10 border-slate-500/30 text-slate-500 dark:text-slate-400"
+      activeShift === "off"   && "bg-slate-500/10 border-slate-500/30 text-slate-500 dark:text-slate-400",
+      activeShift === "vacation" && "bg-teal-500/10 border-teal-500/30 text-teal-500",
+      activeShift === "sick" && "bg-pink-500/10 border-pink-500/30 text-pink-500",
+      activeShift === "maternity" && "bg-fuchsia-500/10 border-fuchsia-500/30 text-fuchsia-500",
+      activeShift === "unpaid" && "bg-amber-500/10 border-amber-500/30 text-amber-600",
+      activeShift === "other" && "bg-orange-500/10 border-orange-500/30 text-orange-500",
     )}>
       {activeShift === "day"   && <Sun className="w-3.5 h-3.5 flex-shrink-0" />}
       {activeShift === "night" && <Moon className="w-3.5 h-3.5 flex-shrink-0" />}
       {activeShift === "off"   && <Coffee className="w-3.5 h-3.5 flex-shrink-0" />}
+      {activeShift === "vacation" && <Palmtree className="w-3.5 h-3.5 flex-shrink-0" />}
+      {activeShift === "sick" && <HeartPulse className="w-3.5 h-3.5 flex-shrink-0" />}
+      {activeShift === "maternity" && <Baby className="w-3.5 h-3.5 flex-shrink-0" />}
+      {activeShift === "unpaid" && <WalletCards className="w-3.5 h-3.5 flex-shrink-0" />}
+      {activeShift === "other" && <CircleEllipsis className="w-3.5 h-3.5 flex-shrink-0" />}
       <span>
-        {activeShift === "off"
-          ? "Dam olish tanlangan — kunlarga bosing"
-          : `${activeShift === "day" ? "Kunduzgi" : "Tungi"} ${safeStart}–${safeEnd}${preset.lunchEnabled ? ` · ${fmtDur(net)} sof` : ` · ${fmtDur(gross)}`} tanlangan — kunlarga bosing`
+        {!working
+          ? `${meta.label} tanlangan — tegishli kunlarga bosing`
+          : `${meta.label} ${safeStart}–${safeEnd}${preset.lunchEnabled ? ` · ${fmtDur(net)} sof` : ` · ${fmtDur(gross)}`} tanlangan — kunlarga bosing`
         }
       </span>
     </div>
@@ -264,15 +302,18 @@ const ScheduleCalendar = memo(function ScheduleCalendar({
   const offset      = firstDow === 0 ? 6 : firstDow - 1;
 
   const entries    = Object.values(dayMap);
-  const workedDays = entries.filter((e) => e.type !== "off").length;
+  const workedDays = entries.filter((e) => isWorkingType(e.type)).length;
   const offDays    = entries.filter((e) => e.type === "off").length;
-  const emptyDays  = daysInMonth - workedDays - offDays;
+  const absenceDays = entries.filter((e) =>
+    ABSENCE_TYPES.includes(e.type as (typeof ABSENCE_TYPES)[number]),
+  ).length;
+  const emptyDays  = daysInMonth - workedDays - offDays - absenceDays;
 
   // Oyda nechta HAR XIL vaqt ishlatilgan — Kadr uchun ko'rinadigan xulosa
   const timeGroups = useMemo(() => {
     const map = new Map<string, { label: string; count: number; type: ShiftType }>();
     for (const e of entries) {
-      if (e.type === "off") continue;
+      if (!isWorkingType(e.type)) continue;
       const key = presetKey(e);
       const existing = map.get(key);
       if (existing) existing.count++;
@@ -291,6 +332,7 @@ const ScheduleCalendar = memo(function ScheduleCalendar({
           { cls: "bg-violet-500", label: "Tungi" },
           { cls: "bg-amber-500/40 border border-amber-500/50", label: "Tushlik" },
           { cls: "bg-[var(--bg-hover)] border border-[var(--border)]", label: "Dam olish" },
+          { cls: "bg-orange-500/20 border border-orange-500/40", label: "Ta’til / yo‘qlik" },
         ].map((l) => (
           <div key={l.label} className="flex items-center gap-1.5">
             <div className={cn("w-2.5 h-2.5 rounded-xs flex-shrink-0", l.cls)} />
@@ -320,7 +362,7 @@ const ScheduleCalendar = memo(function ScheduleCalendar({
           const entry  = dayMap[day];
           const type   = entry?.type;
           const preset = entry ?? null;
-          const hasLunch = preset?.lunchEnabled && type !== "off";
+          const hasLunch = preset?.lunchEnabled && type ? isWorkingType(type) : false;
 
           return (
             <div
@@ -331,6 +373,7 @@ const ScheduleCalendar = memo(function ScheduleCalendar({
                 type === "day"   && "bg-blue-500/10 border-blue-500/50",
                 type === "night" && "bg-violet-500/10 border-violet-500/50",
                 type === "off"   && "bg-[var(--bg-hover)] border-[var(--border)]",
+                type && ABSENCE_TYPES.includes(type as (typeof ABSENCE_TYPES)[number]) && ENTRY_META[type].cell,
                 !type && isWk   && "border-[var(--border)] bg-transparent hover:bg-red-500/5 hover:border-red-500/30",
                 !type && !isWk  && "border-[var(--border)] bg-transparent hover:bg-[var(--bg-hover)] hover:border-[var(--border-strong)]"
               )}
@@ -340,6 +383,7 @@ const ScheduleCalendar = memo(function ScheduleCalendar({
                 type === "day"   && "text-blue-400",
                 type === "night" && "text-violet-400",
                 type === "off"   && "text-[var(--text-muted)]",
+                type && ABSENCE_TYPES.includes(type as (typeof ABSENCE_TYPES)[number]) && ENTRY_META[type].color,
                 !type && isWk   && "text-red-400",
                 !type && !isWk  && "text-[var(--text-muted)]"
               )}>
@@ -350,11 +394,12 @@ const ScheduleCalendar = memo(function ScheduleCalendar({
                   "text-[8px] font-bold px-0.5 py-0.5 rounded text-center leading-tight",
                   type === "day"   && "bg-blue-500 text-white",
                   type === "night" && "bg-violet-500 text-white",
-                  type === "off"   && "bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-muted)]"
+                  type === "off"   && "bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-muted)]",
+                  ABSENCE_TYPES.includes(type as (typeof ABSENCE_TYPES)[number]) && "bg-[var(--bg-card)] border border-current"
                 )}>
-                  {type === "off"
-                    ? "Dam"
-                    : `${preset?.startTime?.slice(0,5)}–${preset?.endTime?.slice(0,5)}`}
+                  {isWorkingType(type)
+                    ? `${preset?.startTime?.slice(0,5)}–${preset?.endTime?.slice(0,5)}`
+                    : ENTRY_META[type].short}
                 </div>
               )}
               {hasLunch && (
@@ -382,6 +427,11 @@ const ScheduleCalendar = memo(function ScheduleCalendar({
           {emptyDays > 0 && (
             <span className="text-[var(--text-muted)]">
               Bo'sh: <span className="font-semibold text-amber-400">{emptyDays}</span>
+            </span>
+          )}
+          {absenceDays > 0 && (
+            <span className="text-[var(--text-muted)]">
+              Ta’til/yo‘qlik: <span className="font-semibold text-orange-500">{absenceDays}</span>
             </span>
           )}
         </div>
@@ -567,6 +617,11 @@ export function GenerateModal({
     day:   { type: "day",   startTime: "08:00", endTime: "20:00", lunchEnabled: false, lunchStart: "12:00", lunchEnd: "13:00" },
     night: { type: "night", startTime: "20:00", endTime: "08:00", lunchEnabled: false, lunchStart: "02:00", lunchEnd: "03:00" },
     off:   { type: "off",   startTime: "",       endTime: "",      lunchEnabled: false, lunchStart: "",      lunchEnd: ""      },
+    vacation:  { type: "vacation",  startTime: "", endTime: "", lunchEnabled: false, lunchStart: "", lunchEnd: "" },
+    sick:      { type: "sick",      startTime: "", endTime: "", lunchEnabled: false, lunchStart: "", lunchEnd: "" },
+    maternity: { type: "maternity", startTime: "", endTime: "", lunchEnabled: false, lunchStart: "", lunchEnd: "" },
+    unpaid:    { type: "unpaid",    startTime: "", endTime: "", lunchEnabled: false, lunchStart: "", lunchEnd: "" },
+    other:     { type: "other",     startTime: "", endTime: "", lunchEnabled: false, lunchStart: "", lunchEnd: "" },
   });
 
   useEffect(() => {
@@ -615,7 +670,7 @@ export function GenerateModal({
     preset: ShiftPreset,
     forEmployeeId?: string,
   ): Promise<string | undefined> => {
-    if (preset.type === "off") return undefined;
+    if (!isWorkingType(preset.type)) return undefined;
     const shiftType = preset.type === "day" ? "DAYTIME" : "NIGHTTIME";
     // Mavjud smenni qayta ishlatamiz — har safar yangi ShiftTemplate yaratmaslik uchun
     const found = (existingShifts as any[]).find(
@@ -664,14 +719,30 @@ export function GenerateModal({
       // Ilgari `Map<ShiftType, id>` edi — shuning uchun bir oydagi barcha
       // kunduzgi kunlar majburan bitta vaqtni olardi.
       const cache   = new Map<string, string | undefined>();
-      const entries: Array<{ date: string; status: string; shiftId?: string }> = [];
+      const entries: Array<{
+        date: string;
+        status: string;
+        shiftId?: string;
+        note?: string | null;
+      }> = [];
 
       for (const [dayStr, entry] of Object.entries(dayMap)) {
         const day     = Number(dayStr);
         const dateStr = `${calYear}-${String(calMonth).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 
-        if (entry.type === "off") {
-          entries.push({ date: dateStr, status: "DAY_OFF" });
+        if (!isWorkingType(entry.type)) {
+          const statusByType: Record<
+            Exclude<ShiftType, "day" | "night">,
+            { status: string; note?: string | null }
+          > = {
+            off:       { status: "DAY_OFF", note: null },
+            vacation:  { status: "VACATION", note: "Mehnat ta’tili" },
+            sick:      { status: "SICK", note: "Kasallik" },
+            maternity: { status: "MATERNITY_LEAVE", note: "Tug‘ruq ta’tili" },
+            unpaid:    { status: "OTHER_ABSENCE", note: "Haqsiz ta’til" },
+            other:     { status: "OTHER_ABSENCE", note: "Boshqa yo‘qlik" },
+          };
+          entries.push({ date: dateStr, ...statusByType[entry.type] });
           continue;
         }
 
@@ -680,7 +751,12 @@ export function GenerateModal({
           // Har xil vaqt uchun alohida ShiftTemplate topiladi yoki yaratiladi
           cache.set(key, await resolveShift(entry, empIds[0]));
         }
-        entries.push({ date: dateStr, status: "WORKING", shiftId: cache.get(key) });
+        entries.push({
+          date: dateStr,
+          status: "WORKING",
+          shiftId: cache.get(key),
+          note: null,
+        });
       }
 
       // ⚡ Barcha xodimlar uchun BITTA so'rov.
@@ -841,6 +917,35 @@ export function GenerateModal({
                   onChange={(patch) => updatePreset(type, patch)}
                 />
               ))}
+            </div>
+            <p className="mt-4 mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+              Ta’til va yo‘qlik
+            </p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {ABSENCE_TYPES.map((type) => {
+                const meta = ENTRY_META[type];
+                const Icon = type === "vacation" ? Palmtree
+                  : type === "sick" ? HeartPulse
+                    : type === "maternity" ? Baby
+                      : type === "unpaid" ? WalletCards
+                        : CircleEllipsis;
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setActiveShift(type)}
+                    className={cn(
+                      "flex min-h-16 items-center gap-2 rounded-xl border px-3 py-2 text-left transition-colors",
+                      activeShift === type
+                        ? `${meta.cell} ${meta.color}`
+                        : "border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:bg-[var(--bg-hover)]",
+                    )}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    <span className="text-xs font-semibold leading-tight">{meta.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
