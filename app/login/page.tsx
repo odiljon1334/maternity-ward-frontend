@@ -40,6 +40,16 @@ export default function LoginPage() {
       // oldin dashboard guardini ishga tushirar edi. Client navigation joriy
       // setAuth holatini saqlaydi va login sahifasiga qayta qaytishni oldini oladi.
       router.replace("/dashboard");
+      // Ayrim mobil WebView/PWA holatlarida App Router navigatsiyasi sessiya
+      // cookie'si yangilangan zahoti yutilib qolishi mumkin. Client o'tishiga
+      // vaqt beramiz; faqat login sahifasida qolib ketgan bo'lsa hard fallback
+      // ishlaydi. Zustand persist localStorage'ga sinxron yozadi, dashboard esa
+      // hydration tugaguncha render qilmaydi.
+      window.setTimeout(() => {
+        if (window.location.pathname === "/login") {
+          window.location.replace("/dashboard");
+        }
+      }, 800);
     } catch (err: any) {
       toast.error(err?.response?.data?.message || "Login yoki parol noto'g'ri");
     } finally {
@@ -167,10 +177,14 @@ export default function LoginPage() {
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
               {/* Username */}
               <div>
-                <label className="block text-sm font-medium dark:text-gray-300 text-gray-700 mb-1.5">
+                <label
+                  htmlFor="username"
+                  className="block text-sm font-medium dark:text-gray-300 text-gray-700 mb-1.5"
+                >
                   Foydalanuvchi nomi
                 </label>
                 <input
+                  id="username"
                   {...register("username", { required: "Login kiritish shart" })}
                   type="text"
                   autoComplete="username"
@@ -187,11 +201,15 @@ export default function LoginPage() {
 
               {/* Password */}
               <div>
-                <label className="block text-sm font-medium dark:text-gray-300 text-gray-700 mb-1.5">
+                <label
+                  htmlFor="password"
+                  className="block text-sm font-medium dark:text-gray-300 text-gray-700 mb-1.5"
+                >
                   Parol
                 </label>
                 <div className="relative">
                   <input
+                    id="password"
                     {...register("password", { required: "Parol kiritish shart" })}
                     type={showPass ? "text" : "password"}
                     autoComplete="current-password"

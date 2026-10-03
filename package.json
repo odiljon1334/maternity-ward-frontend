@@ -12,10 +12,11 @@
     "test:geofence-scope": "node scripts/test-geofence-hospital-scope.cjs",
     "test:post-schedule-visibility": "node scripts/test-post-schedule-visibility.cjs",
     "test:settings-layout": "node scripts/test-settings-tab-layout.cjs",
+    "test:e2e": "playwright test",
     "test:lint-baseline": "node scripts/test-eslint-baseline.cjs",
     "test:ci": "npm run test:live-map && npm run test:mobile-geolocation && npm run test:geofence-scope && npm run test:post-schedule-visibility && npm run test:settings-layout && npm run test:lint-baseline",
     "lint:ci": "node scripts/check-eslint-baseline.cjs",
-    "ci:verify": "npm run test:ci && npm run lint:ci && npm run build"
+    "ci:verify": "npm run test:ci && npm run lint:ci && npm run test:e2e && npm run build"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
@@ -50,6 +51,7 @@
     "react-dom": "^18",
     "react-hook-form": "^7.71.2",
     "react-hot-toast": "^2.6.0",
+    "react-is": "^18.3.1",
     "react-leaflet": "^4.2.1",
     "recharts": "^3.8.0",
     "socket.io-client": "^4.8.3",
@@ -59,6 +61,7 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/leaflet": "^1.9.22",
     "@types/mapbox-gl": "^3.4.1",
     "@types/node": "^20",
