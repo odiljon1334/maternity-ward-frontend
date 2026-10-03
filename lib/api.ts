@@ -576,6 +576,7 @@ export const usersApi = {
     search?: string;
     role?: string;
     status?: string;
+    emailVerified?: string;
     page?: number;
     limit?: number;
     targetHospitalId?: string;
