@@ -357,9 +357,26 @@ function SettingsTabs({
   // Mobilda faol tab ko'rinadigan joyga suriladi (?tab= bilan ochilganda ham)
   const tabBarRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    tabBarRef.current
-      ?.querySelector<HTMLElement>('[aria-selected="true"]')
-      ?.scrollIntoView({ block: "nearest", inline: "center" });
+    const container = tabBarRef.current;
+    const activeItem = container?.querySelector<HTMLElement>(
+      '[aria-selected="true"]',
+    );
+    if (!container || !activeItem) return;
+
+    // `scrollIntoView()` oxirgi tab (Bildirishnomalar) tanlanganda ichki tab
+    // lentasi bilan birga butun document viewportini ham gorizontal surishi
+    // mumkin. Faqat tab containerining o'zini markazlaymiz.
+    const containerRect = container.getBoundingClientRect();
+    const itemRect = activeItem.getBoundingClientRect();
+    const centeredDelta =
+      itemRect.left -
+      containerRect.left -
+      (containerRect.width - itemRect.width) / 2;
+
+    container.scrollTo({
+      left: Math.max(0, container.scrollLeft + centeredDelta),
+      behavior: "smooth",
+    });
   }, [current]);
 
   return (
