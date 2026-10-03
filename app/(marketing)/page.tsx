@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { leadsApi } from "@/lib/api";
 import { MarketingNav } from "@/components/marketing/MarketingNav";
 import { HeroSection } from "@/components/marketing/HeroSection";
 import { WhiteLabelStudio } from "@/components/marketing/WhiteLabelStudio";
@@ -39,6 +40,11 @@ export default function MarketingLandingPage() {
     monthlyLoss: number;
     savings: number;
   } | null>(null);
+
+  // Avvalgi tashrifda tarmoq xatosi sabab yuborilmay qolgan leadni qayta yuborish
+  useEffect(() => {
+    void leadsApi.flushPending();
+  }, []);
 
   const handleOpenTrialWithPlan = (
     plan: "start" | "biznes" | "korporativ",
