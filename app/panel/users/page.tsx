@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Search, ChevronLeft, ChevronRight, Users as UsersIcon, ShieldCheck } from "lucide-react";
 import { usersApi } from "@/lib/api";
 import { UserPermissionsModal } from "@/components/panel/UserPermissionsModal";
+import { CopyVerifiedEmailsButton, EMAIL_FILTER_LABELS, UserEmailCell } from "@/components/users/UserEmail";
 
 const ROLE_LABELS: Record<string, string> = {
   SUPER_ADMIN: "Super Admin",
@@ -51,6 +52,7 @@ export default function PanelUsersPage() {
   const [search, setSearch] = useState("");
   const [role, setRole] = useState("");
   const [status, setStatus] = useState("");
+  const [emailVerified, setEmailVerified] = useState("");
   const [page, setPage] = useState(1);
   const limit = 20;
   const [permissionsUser, setPermissionsUser] = useState<{ id: string; label: string } | null>(
@@ -68,12 +70,13 @@ export default function PanelUsersPage() {
   };
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ["panel-users", search, role, status, page],
+    queryKey: ["panel-users", search, role, status, emailVerified, page],
     queryFn: () =>
       usersApi.list({
         search: search || undefined,
         role: role || undefined,
         status: status || undefined,
+        emailVerified: emailVerified || undefined,
         page,
         limit,
       }),
@@ -123,7 +126,7 @@ export default function PanelUsersPage() {
           <input
             value={searchInput}
             onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder="Ism yoki login bo'yicha qidirish..."
+            placeholder="Ism, login yoki email bo'yicha qidirish..."
             className="input-field pl-9"
           />
         </div>
@@ -157,6 +160,24 @@ export default function PanelUsersPage() {
             </option>
           ))}
         </select>
+        <select
+          value={emailVerified}
+          onChange={(e) => {
+            setEmailVerified(e.target.value);
+            setPage(1);
+          }}
+          className="input-field w-auto"
+        >
+          <option value="">Email: hammasi</option>
+          {Object.entries(EMAIL_FILTER_LABELS).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+        <CopyVerifiedEmailsButton
+          filters={{ search: search || undefined, role: role || undefined, status: status || undefined }}
+        />
       </div>
 
       {/* Jadval */}
@@ -177,6 +198,7 @@ export default function PanelUsersPage() {
                 <tr className="border-b border-[var(--border)] text-left text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]">
                   <th className="px-5 py-3">F.I.Sh / Login</th>
                   <th className="px-5 py-3">Shifoxona</th>
+                  <th className="px-5 py-3">Email</th>
                   <th className="px-5 py-3">Rol</th>
                   <th className="px-5 py-3">Status</th>
                   <th className="px-5 py-3">Oxirgi kirish</th>
@@ -199,6 +221,9 @@ export default function PanelUsersPage() {
                       </td>
                       <td className="px-5 py-3 text-[var(--text-primary)]">
                         {u.hospital?.name || "—"}
+                      </td>
+                      <td className="px-5 py-3 text-xs">
+                        <UserEmailCell email={u.email} verifiedAt={u.emailVerifiedAt} />
                       </td>
                       <td className="px-5 py-3">
                         {isPlatform ? (
