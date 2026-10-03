@@ -11,7 +11,11 @@
     "test:mobile-geolocation": "node scripts/test-mobile-geolocation.cjs",
     "test:geofence-scope": "node scripts/test-geofence-hospital-scope.cjs",
     "test:post-schedule-visibility": "node scripts/test-post-schedule-visibility.cjs",
-    "test:settings-layout": "node scripts/test-settings-tab-layout.cjs"
+    "test:settings-layout": "node scripts/test-settings-tab-layout.cjs",
+    "test:lint-baseline": "node scripts/test-eslint-baseline.cjs",
+    "test:ci": "npm run test:live-map && npm run test:mobile-geolocation && npm run test:geofence-scope && npm run test:post-schedule-visibility && npm run test:settings-layout && npm run test:lint-baseline",
+    "lint:ci": "node scripts/check-eslint-baseline.cjs",
+    "ci:verify": "npm run test:ci && npm run lint:ci && npm run build"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
