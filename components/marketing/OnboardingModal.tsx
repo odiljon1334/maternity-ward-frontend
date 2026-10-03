@@ -31,6 +31,20 @@ interface OnboardingModalProps {
   isAnnual?: boolean;
 }
 
+/** "+998 90 123 45 67" ko'rinishidagi niqob; faqat raqamlar saqlanadi */
+function formatUzPhone(input: string): string {
+  const raw = input.trim();
+  let digits = raw.replace(/\D/g, "");
+  // Mamlakat kodi faqat "+998…" yoki to'liq 12 xonali raqamda olib tashlanadi —
+  // "99 812 34 56" kabi 99-kodli raqam buzilmasin
+  if (raw.startsWith("+998") || (digits.length >= 12 && digits.startsWith("998"))) digits = digits.slice(3);
+  digits = digits.slice(0, 9);
+  const parts = [digits.slice(0, 2), digits.slice(2, 5), digits.slice(5, 7), digits.slice(7, 9)].filter(Boolean);
+  return `+998 ${parts.join(" ")}`.trimEnd() + (parts.length ? "" : " ");
+}
+
+const phoneDigits = (phone: string) => phone.replace(/\D/g, "").replace(/^998/, "");
+
 const REGIONS = [
   "Toshkent shahri",
   "Toshkent viloyati",
@@ -57,6 +71,8 @@ export function OnboardingModal({
 }: OnboardingModalProps) {
   const [step, setStep] = useState<1 | 2>(1);
   const [loading, setLoading] = useState(false);
+  const [sendFailed, setSendFailed] = useState(false);
+  const [honeypot, setHoneypot] = useState("");
 
   const [formData, setFormData] = useState({
     hospitalName: "",
@@ -97,11 +113,11 @@ export function OnboardingModal({
       return;
     }
     if (!formData.directorName.trim()) {
-      toast.error("Iltimos, rahbar F.I.Sh. kiriting");
+      toast.error("Iltimos, ismingizni kiriting");
       return;
     }
-    if (formData.phone.length < 13) {
-      toast.error("Iltimos, to'liq telefon raqamingizni kiriting");
+    if (phoneDigits(formData.phone).length !== 9) {
+      toast.error("Telefon raqamini to'liq kiriting: +998 90 123 45 67");
       return;
     }
 
@@ -114,25 +130,49 @@ export function OnboardingModal({
       billingCycle: formData.billingCycle,
     });
 
+    const payload = {
+      hospitalName: formData.hospitalName.trim(),
+      orgType: formData.orgType,
+      directorName: formData.directorName.trim(),
+      phone: `+998${phoneDigits(formData.phone)}`,
+      region: formData.region,
+      staffCount: formData.staffCount,
+      plan: formData.plan,
+      billingCycle: formData.billingCycle,
+      utmSource: utm?.utm_source,
+      utmMedium: utm?.utm_medium,
+      utmCampaign: utm?.utm_campaign,
+      pageUrl: typeof window !== "undefined" ? window.location.href : undefined,
+      website: honeypot || undefined,
+    };
+
     try {
-      await leadsApi.trialRequest({
-        hospitalName: formData.hospitalName.trim(),
-        orgType: formData.orgType,
-        directorName: formData.directorName.trim(),
-        phone: formData.phone.trim(),
-        region: formData.region,
-        staffCount: formData.staffCount,
-        plan: formData.plan,
-        billingCycle: formData.billingCycle,
-        utmSource: utm?.utm_source,
-        utmMedium: utm?.utm_medium,
-        utmCampaign: utm?.utm_campaign,
-        pageUrl: typeof window !== "undefined" ? window.location.href : undefined,
-      });
+      try {
+        await leadsApi.trialRequest(payload);
+      } catch (e) {
+        // Tarmoq uzilishi yoki server xatosi — bir marta qayta urinamiz
+        const status = (e as { response?: { status?: number } })?.response?.status;
+        if (status && status < 500) throw e;
+        await new Promise((r) => setTimeout(r, 1500));
+        await leadsApi.trialRequest(payload);
+      }
+      setSendFailed(false);
       setStep(2);
       toast.success("So'rovingiz qabul qilindi!");
-    } catch {
-      toast.error("So'rovni yuborishda xatolik yuz berdi. Iltimos, birozdan so'ng qayta urinib ko'ring yoki Telegram orqali bog'laning.");
+    } catch (e) {
+      const status = (e as { response?: { status?: number } })?.response?.status;
+      if (status === 429) {
+        toast.error("Juda ko'p so'rov yuborildi. Iltimos, Telegram orqali bog'laning.");
+        return;
+      }
+      if (status === 400) {
+        toast.error("Ma'lumotlarni tekshirib, qayta yuboring.");
+        return;
+      }
+      // Lead yo'qolmasin: brauzerda saqlanadi va keyingi tashrifda qayta yuboriladi
+      leadsApi.savePending(payload);
+      setSendFailed(true);
+      setStep(2);
     } finally {
       setLoading(false);
     }
@@ -156,12 +196,14 @@ export function OnboardingModal({
             </div>
             <div>
               <h3 className="font-bold text-slate-900 dark:text-white text-base sm:text-lg">
-                {step === 1 ? "14 kunlik sinovni boshlash" : "Muassasangiz muvaffaqiyatli ulandi"}
+                {step === 1 ? "14 kunlik sinovni boshlash" : sendFailed ? "Aloqa vaqtincha uzildi" : "So'rovingiz qabul qilindi"}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 {step === 1
                   ? "Karta talab qilinmaydi • Barcha funksiyalar to'liq ochiq"
-                  : "Sinov davri muvaffaqiyatli faollashtirildi"}
+                  : sendFailed
+                    ? "Ma'lumotlaringiz saqlandi — Telegram orqali yozing"
+                    : "Operatorimiz tez orada qo'ng'iroq qiladi"}
               </p>
             </div>
           </div>
@@ -177,6 +219,17 @@ export function OnboardingModal({
         <div className="p-6 overflow-y-auto space-y-6">
           {step === 1 ? (
             <form onSubmit={handleSubmitStep1} className="space-y-4">
+              {/* Honeypot: ekranda ko'rinmaydi, botlar to'ldiradi */}
+              <input
+                type="text"
+                name="website"
+                tabIndex={-1}
+                autoComplete="off"
+                aria-hidden="true"
+                value={honeypot}
+                onChange={(e) => setHoneypot(e.target.value)}
+                className="absolute -left-[9999px] h-0 w-0 opacity-0"
+              />
               {/* Trust Badge */}
               <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/40 text-emerald-800 dark:text-emerald-300 text-xs">
                 <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
@@ -192,7 +245,7 @@ export function OnboardingModal({
                 </label>
                 <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 text-xs">
                   {[
-                    { id: "clinic", label: "🏥 Klinika", desc: "MaternityCare" },
+                    { id: "clinic", label: "🏥 Klinika", desc: "Tibbiyot" },
                     { id: "factory", label: "🏭 Zavod", desc: "Sanoat" },
                     { id: "office", label: "🏢 Ofis/IT", desc: "Biznes" },
                     { id: "retail", label: "🛒 Savdo", desc: "Do'kon" },
@@ -225,7 +278,7 @@ export function OnboardingModal({
                   <input
                     type="text"
                     required
-                    placeholder="Masalan: 3-son Tug'ruq Majmuasi, 14-son Oila Poliklinikasi, Medion..."
+                    placeholder="Masalan: «Navro'z» MChJ, 14-son poliklinika, «Medion»"
                     value={formData.hospitalName}
                     onChange={(e) => setFormData({ ...formData, hospitalName: e.target.value })}
                     className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -237,14 +290,14 @@ export function OnboardingModal({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                    Bosh shifokor / Rahbar F.I.Sh. *
+                    Ismingiz *
                   </label>
                   <div className="relative">
                     <User className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
                     <input
                       type="text"
                       required
-                      placeholder="Dr. Qosimov Alisher"
+                      placeholder="Alisher Qosimov"
                       value={formData.directorName}
                       onChange={(e) => setFormData({ ...formData, directorName: e.target.value })}
                       className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -260,10 +313,12 @@ export function OnboardingModal({
                     <Phone className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
                     <input
                       type="tel"
+                      inputMode="tel"
+                      autoComplete="tel"
                       required
                       placeholder="+998 90 123 45 67"
                       value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, phone: formatUzPhone(e.target.value) })}
                       className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
@@ -351,7 +406,7 @@ export function OnboardingModal({
                 {loading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Klinika kabineti tayyorlanmoqda...
+                    Yuborilmoqda...
                   </>
                 ) : (
                   <>
@@ -382,10 +437,14 @@ export function OnboardingModal({
                   <CheckCircle2 className="w-7 h-7" />
                 </div>
                 <h4 className="font-bold text-emerald-900 dark:text-emerald-200 text-base">
-                  &ldquo;{formData.hospitalName}&rdquo; uchun so&apos;rovingiz qabul qilindi!
+                  {sendFailed
+                    ? "Ma'lumotlaringiz saqlandi"
+                    : <>&ldquo;{formData.hospitalName}&rdquo; uchun so&apos;rovingiz qabul qilindi!</>}
                 </h4>
                 <p className="text-xs text-emerald-700 dark:text-emerald-300">
-                  Operatorlarimiz tez orada {formData.phone} raqami orqali siz bilan bog&apos;lanib, 14 kunlik bepul sinov hisobingizni faollashtiradi.
+                  {sendFailed
+                    ? "Internet yoki server bilan aloqa uzildi. So'rov keyingi safar saytga kirganingizda avtomatik yuboriladi — tezroq javob uchun hozir Telegram orqali yozing."
+                    : `Operatorlarimiz tez orada ${formData.phone} raqami orqali siz bilan bog'lanib, 14 kunlik bepul sinov hisobingizni faollashtiradi.`}
                 </p>
               </div>
 

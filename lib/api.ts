@@ -855,11 +855,41 @@ export interface TrialRequestPayload {
   utmMedium?: string;
   utmCampaign?: string;
   pageUrl?: string;
+  /** Honeypot — odam uchun bo'sh qoladi */
+  website?: string;
 }
+
+const PENDING_LEAD_KEY = "sp.pendingLead";
 
 export const leadsApi = {
   trialRequest: (data: TrialRequestPayload) =>
     publicApi.post("/public/trial-request", data).then((r) => r.data),
+
+  /** Yuborib bo'lmagan leadni brauzerda saqlaydi — keyingi tashrifda qayta yuboriladi */
+  savePending: (data: TrialRequestPayload) => {
+    try {
+      localStorage.setItem(PENDING_LEAD_KEY, JSON.stringify(data));
+    } catch {
+      /* private rejim — e'tiborsiz */
+    }
+  },
+
+  /** Saqlangan leadni jim qayta yuboradi; muvaffaqiyatli bo'lsa o'chiradi */
+  flushPending: async () => {
+    let raw: string | null = null;
+    try {
+      raw = localStorage.getItem(PENDING_LEAD_KEY);
+    } catch {
+      return;
+    }
+    if (!raw) return;
+    try {
+      await publicApi.post("/public/trial-request", JSON.parse(raw));
+      localStorage.removeItem(PENDING_LEAD_KEY);
+    } catch {
+      /* keyingi tashrifda yana urinib ko'riladi */
+    }
+  },
 };
 
 export interface WorkSite {
