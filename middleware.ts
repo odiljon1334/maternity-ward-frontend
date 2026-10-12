@@ -1,8 +1,27 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-/** Autentifikatsiya talab qilinmaydigan yo'llar */
-const PUBLIC_PATHS = ["/", "/tariflar", "/video-qollanma", "/ilova", "/app/android", "/login", "/register", "/forgot-password", "/reset-password"];
+/**
+ * Autentifikatsiya talab qilinmaydigan yo'llar.
+ *
+ * `app/(marketing)` guruhidagi HAR BIR sahifa shu ro'yxatda bo'lishi kerak —
+ * ular tashqi auditoriya uchun. `/maxfiylik` esa alohida muhim: Google Play
+ * maxfiylik siyosatini login so'ramaydigan ochiq havolada talab qiladi,
+ * aks holda ilova tekshiruvdan o'tmaydi.
+ */
+const PUBLIC_PATHS = [
+  "/",
+  "/tariflar",
+  "/video-qollanma",
+  "/ilova",
+  "/maxfiylik",
+  "/foydalanish-shartlari",
+  "/app/android",
+  "/login",
+  "/register",
+  "/forgot-password",
+  "/reset-password",
+];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
