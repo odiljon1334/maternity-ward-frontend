@@ -1,11 +1,12 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { Eye, EyeOff, Activity, Users, Clock, TrendingUp, Shield, Mail, Phone, Send, Headset } from "lucide-react";
-import { SUPPORT_BOT_URL, SUPPORT_BOT_USERNAME, SUPPORT_OPERATOR_URL, SUPPORT_OPERATOR_USERNAME } from "@/lib/contacts";
+import { Eye, EyeOff, Activity, Users, Clock, TrendingUp, Shield, Mail, Phone, Send, Headset, Lock } from "lucide-react";
+import { SUPPORT_BOT_URL, SUPPORT_BOT_USERNAME, SUPPORT_OPERATOR_URL, SUPPORT_OPERATOR_USERNAME, SUPPORT_PHONE_LABEL } from "@/lib/contacts";
+import { Dialog } from "@/components/ui/Dialog";
 import { authApi } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth";
 import { cn } from "@/lib/utils";
@@ -13,6 +14,13 @@ import { cn } from "@/lib/utils";
 type FormData = {
   username: string;
   password: string;
+};
+
+type BlockedContact = { telegram: string; phone: string };
+
+const DEFAULT_BLOCKED_CONTACT: BlockedContact = {
+  telegram: SUPPORT_OPERATOR_USERNAME,
+  phone: SUPPORT_PHONE_LABEL,
 };
 
 const features = [
@@ -27,6 +35,23 @@ export default function LoginPage() {
   const { setAuth } = useAuthStore();
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
+  // Muassasa admin tomonidan bloklangan: oddiy toast emas, aniq sabab va
+  // bog'lanish yo'li ko'rsatilgan modal oyna ochiladi.
+  const [blockedContact, setBlockedContact] = useState<BlockedContact | null>(null);
+
+  const closeBlocked = () => {
+    setBlockedContact(null);
+    if (window.location.search.includes("blocked=")) {
+      window.history.replaceState(null, "", "/login");
+    }
+  };
+
+  // Ochiq sessiya blok sababli yopilganda /login?blocked=1 ga qaytariladi.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("blocked") === "1") {
+      setBlockedContact(DEFAULT_BLOCKED_CONTACT);
+    }
+  }, []);
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>();
 
@@ -51,7 +76,15 @@ export default function LoginPage() {
         }
       }, 800);
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Login yoki parol noto'g'ri");
+      const body = err?.response?.data;
+      if (body?.code === "HOSPITAL_BLOCKED") {
+        setBlockedContact({
+          telegram: String(body.contact?.telegram || DEFAULT_BLOCKED_CONTACT.telegram).replace(/^@/, ""),
+          phone: body.contact?.phone || DEFAULT_BLOCKED_CONTACT.phone,
+        });
+        return;
+      }
+      toast.error(body?.message || "Login yoki parol noto'g'ri");
     } finally {
       setLoading(false);
     }
@@ -322,6 +355,49 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+
+      <Dialog
+        open={!!blockedContact}
+        onClose={closeBlocked}
+        title="Muassasa bloklangan"
+        description="Muassasangiz uchun tizimga kirish vaqtincha yopilgan. Qayta ochish uchun quyidagi Telegram yoki telefon raqami orqali bog‘laning."
+        footer={
+          <button type="button" onClick={closeBlocked} className="btn-ghost justify-center px-4 text-sm">
+            Yopish
+          </button>
+        }
+      >
+        {blockedContact && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-300">
+              <Lock className="h-5 w-5 flex-shrink-0" />
+              <span>Login va parolingiz to‘g‘ri, lekin muassasa bloklangan.</span>
+            </div>
+            <a
+              href={`https://t.me/${blockedContact.telegram}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 rounded-xl border border-[var(--border)] px-4 py-3 transition hover:border-sky-500/50 hover:bg-sky-500/5"
+            >
+              <Send className="h-5 w-5 flex-shrink-0 text-sky-500" />
+              <span>
+                <span className="block text-xs text-[var(--text-muted)]">Telegram orqali yozing</span>
+                <span className="block font-semibold text-[var(--text-primary)]">@{blockedContact.telegram}</span>
+              </span>
+            </a>
+            <a
+              href={`tel:${blockedContact.phone.replace(/[^+\d]/g, "")}`}
+              className="flex items-center gap-3 rounded-xl border border-[var(--border)] px-4 py-3 transition hover:border-emerald-500/50 hover:bg-emerald-500/5"
+            >
+              <Phone className="h-5 w-5 flex-shrink-0 text-emerald-500" />
+              <span>
+                <span className="block text-xs text-[var(--text-muted)]">Telefon orqali bog‘laning</span>
+                <span className="block font-semibold text-[var(--text-primary)]">{blockedContact.phone}</span>
+              </span>
+            </a>
+          </div>
+        )}
+      </Dialog>
     </div>
   );
 }

@@ -72,7 +72,10 @@ api.interceptors.response.use(
         .then(({ clearDeviceSession }) => clearDeviceSession({ notifyServer: false }))
         .catch(() => undefined)
         .finally(() => {
-          window.location.href = "/login";
+          // Muassasa bloklangani uchun chiqarilgan bo'lsa, login sahifasi
+          // sababini va bog'lanish ma'lumotini modal oynada ko'rsatadi.
+          window.location.href =
+            error.response?.data?.code === "HOSPITAL_BLOCKED" ? "/login?blocked=1" : "/login";
         });
     }
     return Promise.reject(error);
