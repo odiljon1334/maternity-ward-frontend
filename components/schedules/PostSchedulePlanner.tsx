@@ -1,6 +1,6 @@
 "use client";
 
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { Fragment, memo, useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { Archive, Check, Clock, Download, FileSpreadsheet, Pencil, Plus, RotateCcw, Save, Search, Send, Trash2, X } from "lucide-react";
@@ -18,6 +18,14 @@ import {
   filterAndOrderPostEmployees,
   type PostScheduleEmployeeView,
 } from "@/lib/post-schedule-view";
+import {
+  EMPTY_SHIFT_STATS,
+  addShiftToStats,
+  postNormBreakdown,
+  shiftKind,
+  sumShiftStats,
+  type EmployeeShiftStats,
+} from "@/lib/post-schedule-stats";
 import { Button } from "@/components/ui/Button";
 import { Field, Input, Select } from "@/components/ui/FormControls";
 import { ConfirmDialog, PromptDialog } from "@/components/ui/Dialog";
@@ -228,12 +236,24 @@ export function PostSchedulePlanner({
     }),
     enabled: !!departmentId,
   });
-  const employees: any[] = employeesResponse?.data ?? [];
+  const employees: any[] = useMemo(() => employeesResponse?.data ?? [], [employeesResponse]);
   // Keep rows stable while the user edits cells. Re-sorting from the mutable
   // `cells` state moves a row immediately after its first shift is selected,
   // which can make subsequent selections land on a different employee.
   const plannedEmployeeIds = useMemo(
     () => collectPersistedPlannedEmployeeIds(detail?.entries ?? []),
+    [detail?.entries],
+  );
+  // Bo'limlarga ajratish SAQLANGAN belgi bo'yicha: tanlov o'zgarganda qator
+  // darhol boshqa joyga sakramaydi (keyingi bosish boshqa xodimga tushmasin),
+  // saqlangandan keyin tegishli bo'limga o'tadi.
+  const persistedOutsideEmployeeIds = useMemo(
+    () => new Set<string>(
+      (detail?.entries ?? [])
+        .filter((entry: { isCarryIn?: boolean; countsTowardPostCoverage?: boolean }) =>
+          !entry.isCarryIn && entry.countsTowardPostCoverage === false)
+        .map((entry: { employeeId: string }) => entry.employeeId),
+    ),
     [detail?.entries],
   );
   const visibleEmployees = useMemo(() => filterAndOrderPostEmployees(
@@ -247,6 +267,11 @@ export function PostSchedulePlanner({
     outsidePostEmployeeIds,
     employeeView,
   ), [deferredEmployeeSearch, employeeView, employees, outsidePostEmployeeIds, plannedEmployeeIds]);
+  const employeeSections = useMemo(() => {
+    const post = visibleEmployees.filter((employee) => !persistedOutsideEmployeeIds.has(employee.id));
+    const outside = visibleEmployees.filter((employee) => persistedOutsideEmployeeIds.has(employee.id));
+    return { post, outside };
+  }, [persistedOutsideEmployeeIds, visibleEmployees]);
 
   useEffect(() => {
     if (!detail) {
@@ -270,7 +295,7 @@ export function PostSchedulePlanner({
   }, [detail]);
 
   const canonicalCarryInKeys = useMemo(
-    () => new Set(
+    () => new Set<string>(
       (detail?.entries ?? [])
         .filter((entry: any) => entry.isCanonicalCarryIn)
         .map((entry: any) => `${entry.employeeId}:${dayjs(entry.workDate).format("YYYY-MM-DD")}`),
@@ -315,6 +340,8 @@ export function PostSchedulePlanner({
     const outsideByDate: Record<string, number> = {};
     const incomingByCell: Record<string, number> = {};
     const sourceParts: Record<string, { sameDay: number; nextDays: number }> = {};
+    const employeeStats: Record<string, EmployeeShiftStats> = {};
+    const firstDayOfMonth = monthStart.format("YYYY-MM-DD");
 
     for (const [key, value] of Object.entries(cells)) {
       if (!value || value.startsWith("STATUS:")) continue;
@@ -348,6 +375,14 @@ export function PostSchedulePlanner({
         cursor = segmentEnd;
       }
       sourceParts[key] = { sameDay, nextDays };
+      // Son — shu oyda boshlangan smenalar; oldingi oydan o'tgan tun faqat
+      // soatga qo'shiladi (backend va Excel bilan bir xil).
+      addShiftToStats(
+        (employeeStats[employeeId] ??= { ...EMPTY_SHIFT_STATS }),
+        shiftKind(shift),
+        sameDay + nextDays,
+        workDate >= firstDayOfMonth,
+      );
     }
 
     return {
@@ -357,8 +392,22 @@ export function PostSchedulePlanner({
       outsideByDate,
       incomingByCell,
       sourceParts,
+      employeeStats,
     };
   }, [cells, month, outsidePostEmployeeIds, shiftsById, year]);
+
+  const onCellChange = useCallback((key: string, value: string) => {
+    setCells((current) => ({ ...current, [key]: value }));
+  }, []);
+
+  const onOutsideChange = useCallback((employeeId: string, outside: boolean) => {
+    setOutsidePostEmployeeIds((current) => {
+      const next = new Set(current);
+      if (outside) next.add(employeeId);
+      else next.delete(employeeId);
+      return next;
+    });
+  }, []);
 
   const parsedDailyCoverageHours = Number(dailyCoverageHours);
   const parsedWeeklyCoverageMinutes = weeklyCoverageHours.map((hours) => Math.round(Number(hours) * 60));
@@ -581,8 +630,32 @@ export function PostSchedulePlanner({
     if (!value || canonicalCarryInKeys.has(key)) return false;
     return !outsidePostEmployeeIds.has(key.slice(0, key.indexOf(":")));
   });
-  const displayedRemainingMinutes = Math.max(0, targetMinutes - displayedPlannedMinutes);
-  const displayedExcessMinutes = Math.max(0, displayedPlannedMinutes - targetMinutes);
+  // Bitta post normasi (744/720 soat). Xodim ko'p bo'lsa reja bir necha
+  // postga teng bo'ladi; tasdiqlashga faqat to'liq postlar soni bilan yuboriladi.
+  const postNormMinutes = summary?.postNormMinutes ?? targetMinutes;
+  const norm = postNormBreakdown(displayedPlannedMinutes, postNormMinutes);
+  const displayedTargetMinutes = postNormMinutes * Math.max(1, norm.postSlots);
+  const displayedRemainingMinutes = Math.max(0, displayedTargetMinutes - displayedPlannedMinutes);
+  const outsideEmployeeCount = useMemo(
+    () => employees.filter((employee) => outsidePostEmployeeIds.has(employee.id)).length,
+    [employees, outsidePostEmployeeIds],
+  );
+  const postTotals = useMemo(
+    () => sumShiftStats(
+      Object.entries(liveCoverage.employeeStats)
+        .filter(([employeeId]) => !outsidePostEmployeeIds.has(employeeId))
+        .map(([, stats]) => stats),
+    ),
+    [liveCoverage.employeeStats, outsidePostEmployeeIds],
+  );
+  const outsideTotals = useMemo(
+    () => sumShiftStats(
+      Object.entries(liveCoverage.employeeStats)
+        .filter(([employeeId]) => outsidePostEmployeeIds.has(employeeId))
+        .map(([, stats]) => stats),
+    ),
+    [liveCoverage.employeeStats, outsidePostEmployeeIds],
+  );
   const canApprove = ADMIN_ROLES.includes(userRole ?? "");
   const canWrite = [...ADMIN_ROLES, "ASSISTANT_ADMIN"].includes(userRole ?? "");
   const isDraft = detail?.status === "DRAFT";
@@ -660,16 +733,31 @@ export function PostSchedulePlanner({
         <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
           {[
             ["Holat", detail.status],
-            [`Post normasi · ${coverageModeLabel(detail)}`, formatMinutes(targetMinutes)],
-            ["Postga rejalashtirilgan", formatMinutes(displayedPlannedMinutes)],
+            [
+              `Post normasi · ${coverageModeLabel(detail)}`,
+              norm.postSlots > 1
+                ? `${formatMinutes(postNormMinutes)} × ${norm.postSlots} post = ${formatMinutes(displayedTargetMinutes)}`
+                : formatMinutes(postNormMinutes),
+            ],
+            [
+              "Postga rejalashtirilgan",
+              `${formatMinutes(displayedPlannedMinutes)}${norm.fullPostCount ? ` · ${norm.fullPostCount} to‘liq post` : ""}`,
+            ],
             postCoverageRequired
-              ? [displayedExcessMinutes ? "Oshib ketgan" : "Qolgan", formatMinutes(displayedExcessMinutes || displayedRemainingMinutes)]
+              ? ["Qolgan", displayedRemainingMinutes ? `${formatMinutes(displayedRemainingMinutes)} (${norm.postSlots}-postgacha)` : "Yo‘q — postlar to‘liq"]
               : ["Qolgan", "Talab qilinmaydi — faqat postdan tashqari xodimlar"],
-            ["Postdan tashqari", formatMinutes(liveCoverage.outsidePlannedMinutes)],
+            ["Postdan tashqari", `${formatMinutes(liveCoverage.outsidePlannedMinutes)} · ${outsideEmployeeCount} xodim`],
           ].map(([label, value]) => <Surface key={label} className="p-4"><p className="text-[11px] font-medium text-[var(--text-muted)]">{label}</p><p className="mt-1 font-bold text-[var(--text-primary)]">{value}</p></Surface>)}
         </div>
 
-        <div className="rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 py-3 text-xs text-sky-800 dark:text-sky-200">Har bir xodimni “Post xodimi” yoki “Postdan tashqari” deb belgilang. Kunlik 8 soatlik postdan tashqari xodimlar jadval va Excelda ko‘rinadi, ammo postning 720/744 soatlik normasiga qo‘shilmaydi.</div>
+        {postCoverageRequired && norm.fullPostCount > 0 && norm.remainderMinutes > 0 && (
+          <div role="status" className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-800 dark:text-amber-200">
+            <span className="font-bold">{norm.fullPostCount} ta post to‘liq ({formatMinutes(norm.fullPostCount * postNormMinutes)}), {formatMinutes(norm.remainderMinutes)} ortib qoldi.</span>{" "}
+            Oxirgi postni {formatMinutes(postNormMinutes)}ga to‘ldiring (yana {formatMinutes(norm.missingMinutes)}) yoki ortiqcha xodimni «Postdan tashqari» deb belgilang. Dastur hech kimni o‘zi postdan tashqari qilmaydi.
+          </div>
+        )}
+
+        <div className="rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 py-3 text-xs text-sky-800 dark:text-sky-200">Postdan tashqari xodim uchun alohida post ochish shart emas: shu jadvalda xodim nomi ostidan «Postdan tashqari»ni tanlang va saqlang. U pastdagi alohida bo‘limda, Excelda ham alohida ko‘rinadi va post normasiga (720/744 soat) qo‘shilmaydi.</div>
 
         <div className="flex flex-wrap gap-2">
           {isDraft && canWrite && <Button onClick={() => savePlan.mutate()} loading={savePlan.isPending} size="sm"><Save className="h-4 w-4" />Saqlash</Button>}
@@ -724,58 +812,53 @@ export function PostSchedulePlanner({
                     {!day.carryIn && <span className={cn("mt-0.5 block font-mono text-[8px]", plannedMinutes ? "text-indigo-600 dark:text-indigo-300" : "text-[var(--text-muted)]")}>{formatCompactMinutes(plannedMinutes)}</span>}
                     {!day.carryIn && !!outsideMinutes && <span className="mt-0.5 block font-mono text-[7px] text-slate-500">+{formatCompactMinutes(outsideMinutes)} tash.</span>}
                   </th>;
-                })}</tr>
+                })}
+                  <th className="min-w-20 border border-[var(--border)] bg-amber-50 p-1 text-amber-800 dark:bg-amber-500/10 dark:text-amber-200">Kunduzgi<span className="block text-[8px] font-medium">kun · soat</span></th>
+                  <th className="min-w-20 border border-[var(--border)] bg-indigo-50 p-1 text-indigo-800 dark:bg-indigo-500/10 dark:text-indigo-200">Kechki<span className="block text-[8px] font-medium">kun · soat</span></th>
+                  <th className="min-w-16 border border-[var(--border)] p-1">Jami</th>
+                </tr>
               </thead>
               <tbody>
-                {visibleEmployees.map((employee) => <tr key={employee.id} className="table-row-hover">
-                  <td className="sticky left-0 z-10 border border-[var(--border)] bg-[var(--bg-card)] p-2">
-                    <p className="font-semibold text-[var(--text-primary)]">{employee.fullName}</p>
-                    <p className="text-[9px] text-[var(--text-muted)]">{employee.position?.name}</p>
-                    <select
-                      aria-label={`${employee.fullName} post guruhi`}
-                      value={outsidePostEmployeeIds.has(employee.id) ? "OUTSIDE" : "POST"}
-                      disabled={!isDraft || !canWrite}
-                      onChange={(event) => setOutsidePostEmployeeIds((current) => {
-                        const next = new Set(current);
-                        if (event.target.value === "OUTSIDE") next.add(employee.id);
-                        else next.delete(employee.id);
-                        return next;
-                      })}
-                      className={cn("mt-1 h-6 w-full rounded-md border px-1 text-[9px] font-semibold", outsidePostEmployeeIds.has(employee.id) ? "border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200" : "border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300")}
-                    >
-                      <option value="POST">Post xodimi</option>
-                      <option value="OUTSIDE">Postdan tashqari</option>
-                    </select>
-                  </td>
-                  {days.map((day) => {
-                    const key = `${employee.id}:${day.date}`;
-                    const selectedValue = cells[key] ?? "";
-                    const selectedShift = shiftsById.get(selectedValue);
-                    const incomingMinutes = liveCoverage.incomingByCell[key] ?? 0;
-                    const sourcePart = liveCoverage.sourceParts[key];
-                    const isCanonicalCarryIn = canonicalCarryInKeys.has(key);
-                    return <td key={day.date} className={cn("border border-[var(--border)] p-1 align-top", day.carryIn ? "bg-amber-50 dark:bg-amber-500/5" : day.isWeekend && "bg-rose-50/60 dark:bg-rose-500/[0.04]")}>
-                      <select aria-label={`${employee.fullName}, ${day.label}-kun`} value={selectedValue} disabled={!isDraft || !canWrite || isCanonicalCarryIn} onChange={(event) => setCells((current) => ({ ...current, [key]: event.target.value }))} className="h-8 w-full rounded-lg border border-transparent bg-transparent px-1 text-[10px] text-[var(--text-primary)] hover:border-[var(--border)] focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/30 disabled:opacity-70">
-                        <option value="">—</option>
-                        {shifts.map((shift) => <option key={shift.id} value={shift.id}>{shift.name} {shift.startTime}-{shift.endTime}</option>)}
-                        {STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                      </select>
-                      {selectedShift && (
-                        <div
-                          className="mt-0.5 whitespace-nowrap text-center font-mono text-[9px] font-semibold leading-none text-indigo-600 dark:text-indigo-300"
-                          title={`${selectedShift.name}: ${selectedShift.startTime}–${selectedShift.endTime}${selectedShift.isOvernight ? " (ertangi kun)" : ""}`}
-                        >
-                          {selectedShift.startTime}–{selectedShift.endTime}{selectedShift.isOvernight ? <sup className="ml-0.5 text-[7px]">+1</sup> : null}
-                          {sourcePart && <span className="ml-1 text-[8px] text-[var(--text-muted)]">({formatCompactMinutes(sourcePart.sameDay)}{sourcePart.nextDays ? ` + ${formatCompactMinutes(sourcePart.nextDays)}→` : ""})</span>}
-                        </div>
-                      )}
-                      {!!incomingMinutes && <div className="mt-1 rounded bg-sky-500/10 px-1 py-0.5 text-center font-mono text-[8px] font-semibold text-sky-700 dark:text-sky-300">← {formatCompactMinutes(incomingMinutes)} oldingi smenadan</div>}
-                      {isCanonicalCarryIn && <div className="mt-1 text-center text-[8px] font-medium text-amber-700 dark:text-amber-300">Oldingi oy rejasidan</div>}
-                    </td>;
+                {([
+                  ["post", employeeSections.post],
+                  ["outside", employeeSections.outside],
+                ] as const).map(([section, list]) => <Fragment key={section}>
+                  {section === "outside" && list.length > 0 && <tr>
+                    <td colSpan={days.length + 4} className="sticky left-0 border border-[var(--border)] bg-slate-100 px-3 py-2 text-left text-[11px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                      Postdan tashqari xodimlar ({list.length}) — post normasiga kirmaydi
+                    </td>
+                  </tr>}
+                  {list.map((employee) => {
+                    const rowSignature = days
+                      .map((day) => {
+                        const key = `${employee.id}:${day.date}`;
+                        return `${cells[key] ?? ""}${canonicalCarryInKeys.has(key) ? "*" : ""}`;
+                      })
+                      .join("|");
+                    return <PlanEmployeeRow
+                      key={employee.id}
+                      employee={employee}
+                      days={days}
+                      shifts={shifts}
+                      shiftsById={shiftsById}
+                      cells={cells}
+                      liveCoverage={liveCoverage}
+                      canonicalCarryInKeys={canonicalCarryInKeys}
+                      stats={liveCoverage.employeeStats[employee.id] ?? EMPTY_SHIFT_STATS}
+                      outside={outsidePostEmployeeIds.has(employee.id)}
+                      editable={isDraft && canWrite}
+                      signature={rowSignature}
+                      onCellChange={onCellChange}
+                      onOutsideChange={onOutsideChange}
+                    />;
                   })}
-                </tr>)}
-                {!visibleEmployees.length && <tr><td colSpan={days.length + 1} className="p-8 text-center text-sm text-[var(--text-muted)]">Qidiruv bo‘yicha xodim topilmadi</td></tr>}
+                </Fragment>)}
+                {!visibleEmployees.length && <tr><td colSpan={days.length + 4} className="p-8 text-center text-sm text-[var(--text-muted)]">Qidiruv bo‘yicha xodim topilmadi</td></tr>}
               </tbody>
+              <tfoot>
+                <TotalsRow label="Post jami" days={days} byDate={liveCoverage.byDate} stats={postTotals} totalMinutes={liveCoverage.plannedMinutes} />
+                {liveCoverage.outsidePlannedMinutes > 0 && <TotalsRow label="Postdan tashqari jami" days={days} byDate={liveCoverage.outsideByDate} stats={outsideTotals} totalMinutes={liveCoverage.outsidePlannedMinutes} />}
+              </tfoot>
             </table>
           <div className="border-t border-slate-200 dark:border-slate-800 px-4 py-3 text-[11px] text-slate-500"><FileSpreadsheet className="inline h-4 w-4 mr-1" />← ustuni oldingi oyning eng so‘nggi faol rejasidagi tungi smenadan olinadi. Kun sarlavhasidagi asosiy soat post normasiga kiradigan vaqtni, “tash.” esa postdan tashqari xodimlar vaqtini ko‘rsatadi.</div>
         </TableShell>
@@ -838,6 +921,128 @@ export function PostSchedulePlanner({
         loading={reopenPlan.isPending}
       />
     </div>
+  );
+}
+
+type PlanDay = { date: string; label: string; weekday: string; isWeekend: boolean; carryIn: boolean };
+
+type PlanShift = { id: string; name: string; startTime: string; endTime: string; isOvernight?: boolean; type?: string };
+
+type PlanEmployeeRowProps = {
+  employee: { id: string; fullName: string; position?: { name?: string } | null };
+  days: PlanDay[];
+  shifts: PlanShift[];
+  shiftsById: Map<string, PlanShift>;
+  cells: Record<string, string>;
+  liveCoverage: {
+    incomingByCell: Record<string, number>;
+    sourceParts: Record<string, { sameDay: number; nextDays: number }>;
+  };
+  canonicalCarryInKeys: Set<string>;
+  stats: EmployeeShiftStats;
+  outside: boolean;
+  editable: boolean;
+  /** Shu qatordagi kataklar qiymati — faqat u o'zgarsa qator qayta chiziladi */
+  signature: string;
+  onCellChange: (key: string, value: string) => void;
+  onOutsideChange: (employeeId: string, outside: boolean) => void;
+};
+
+function StatsCell({ shifts, minutes, tone }: { shifts: number; minutes: number; tone: "day" | "night" }) {
+  return (
+    <td className={cn("border border-[var(--border)] p-1 text-center align-middle", tone === "day" ? "bg-amber-50/70 dark:bg-amber-500/[0.06]" : "bg-indigo-50/70 dark:bg-indigo-500/[0.06]")}>
+      <span className="block font-bold text-[var(--text-primary)]">{shifts} kun</span>
+      <span className="block font-mono text-[9px] text-[var(--text-muted)]">{formatCompactMinutes(minutes)}</span>
+    </td>
+  );
+}
+
+/**
+ * Bitta xodim qatori. Katakni o'zgartirganda butun jadval (40 × 32 ta
+ * select) emas, faqat shu qator qayta chiziladi.
+ */
+const PlanEmployeeRow = memo(function PlanEmployeeRow({
+  employee,
+  days,
+  shifts,
+  shiftsById,
+  cells,
+  liveCoverage,
+  canonicalCarryInKeys,
+  stats,
+  outside,
+  editable,
+  onCellChange,
+  onOutsideChange,
+}: PlanEmployeeRowProps) {
+  return (
+    <tr className="table-row-hover">
+      <td className="sticky left-0 z-10 border border-[var(--border)] bg-[var(--bg-card)] p-2">
+        <p className="font-semibold text-[var(--text-primary)]">{employee.fullName}</p>
+        <p className="text-[9px] text-[var(--text-muted)]">{employee.position?.name}</p>
+        <select
+          aria-label={`${employee.fullName} post guruhi`}
+          value={outside ? "OUTSIDE" : "POST"}
+          disabled={!editable}
+          onChange={(event) => onOutsideChange(employee.id, event.target.value === "OUTSIDE")}
+          className={cn("mt-1 h-6 w-full rounded-md border px-1 text-[9px] font-semibold", outside ? "border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200" : "border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300")}
+        >
+          <option value="POST">Post xodimi</option>
+          <option value="OUTSIDE">Postdan tashqari</option>
+        </select>
+      </td>
+      {days.map((day) => {
+        const key = `${employee.id}:${day.date}`;
+        const selectedValue = cells[key] ?? "";
+        const selectedShift = shiftsById.get(selectedValue);
+        const incomingMinutes = liveCoverage.incomingByCell[key] ?? 0;
+        const sourcePart = liveCoverage.sourceParts[key];
+        const isCanonicalCarryIn = canonicalCarryInKeys.has(key);
+        return <td key={day.date} className={cn("border border-[var(--border)] p-1 align-top", day.carryIn ? "bg-amber-50 dark:bg-amber-500/5" : day.isWeekend && "bg-rose-50/60 dark:bg-rose-500/[0.04]")}>
+          <select aria-label={`${employee.fullName}, ${day.label}-kun`} value={selectedValue} disabled={!editable || isCanonicalCarryIn} onChange={(event) => onCellChange(key, event.target.value)} className="h-8 w-full rounded-lg border border-transparent bg-transparent px-1 text-[10px] text-[var(--text-primary)] hover:border-[var(--border)] focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/30 disabled:opacity-70">
+            <option value="">—</option>
+            {shifts.map((shift) => <option key={shift.id} value={shift.id}>{shift.name} {shift.startTime}-{shift.endTime}</option>)}
+            {STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+          {selectedShift && (
+            <div
+              className="mt-0.5 whitespace-nowrap text-center font-mono text-[9px] font-semibold leading-none text-indigo-600 dark:text-indigo-300"
+              title={`${selectedShift.name}: ${selectedShift.startTime}–${selectedShift.endTime}${selectedShift.isOvernight ? " (ertangi kun)" : ""}`}
+            >
+              {selectedShift.startTime}–{selectedShift.endTime}{selectedShift.isOvernight ? <sup className="ml-0.5 text-[7px]">+1</sup> : null}
+              {sourcePart && <span className="ml-1 text-[8px] text-[var(--text-muted)]">({formatCompactMinutes(sourcePart.sameDay)}{sourcePart.nextDays ? ` + ${formatCompactMinutes(sourcePart.nextDays)}→` : ""})</span>}
+            </div>
+          )}
+          {!!incomingMinutes && <div className="mt-1 rounded bg-sky-500/10 px-1 py-0.5 text-center font-mono text-[8px] font-semibold text-sky-700 dark:text-sky-300">← {formatCompactMinutes(incomingMinutes)} oldingi smenadan</div>}
+          {isCanonicalCarryIn && <div className="mt-1 text-center text-[8px] font-medium text-amber-700 dark:text-amber-300">Oldingi oy rejasidan</div>}
+        </td>;
+      })}
+      <StatsCell shifts={stats.dayShifts} minutes={stats.dayMinutes} tone="day" />
+      <StatsCell shifts={stats.nightShifts} minutes={stats.nightMinutes} tone="night" />
+      <td className="border border-[var(--border)] p-1 text-center align-middle font-bold text-[var(--text-primary)]">{formatCompactMinutes(stats.dayMinutes + stats.nightMinutes)}</td>
+    </tr>
+  );
+}, (previous, next) =>
+  previous.signature === next.signature
+  && previous.outside === next.outside
+  && previous.editable === next.editable
+  && previous.employee === next.employee
+  && previous.days === next.days
+  && previous.shifts === next.shifts
+  && previous.shiftsById === next.shiftsById
+  && previous.onCellChange === next.onCellChange
+  && previous.onOutsideChange === next.onOutsideChange,
+);
+
+function TotalsRow({ label, days, byDate, stats, totalMinutes }: { label: string; days: PlanDay[]; byDate: Record<string, number>; stats: EmployeeShiftStats; totalMinutes: number }) {
+  return (
+    <tr className="bg-[var(--bg-card)] font-semibold">
+      <td className="sticky left-0 z-10 border border-[var(--border)] bg-[var(--bg-card)] p-2 text-[var(--text-primary)]">{label}</td>
+      {days.map((day) => <td key={day.date} className="border border-[var(--border)] p-1 text-center font-mono text-[9px] text-[var(--text-muted)]">{day.carryIn ? "" : formatCompactMinutes(byDate[day.date] ?? 0)}</td>)}
+      <StatsCell shifts={stats.dayShifts} minutes={stats.dayMinutes} tone="day" />
+      <StatsCell shifts={stats.nightShifts} minutes={stats.nightMinutes} tone="night" />
+      <td className="border border-[var(--border)] p-1 text-center font-bold text-[var(--text-primary)]">{formatCompactMinutes(totalMinutes)}</td>
+    </tr>
   );
 }
 
