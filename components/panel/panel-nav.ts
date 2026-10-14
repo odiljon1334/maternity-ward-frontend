@@ -25,7 +25,7 @@ export interface PanelNavItem {
  */
 export const PANEL_NAV: PanelNavItem[] = [
   { href: "/panel", label: "Umumiy ko'rinish", icon: LayoutDashboard },
-  { href: "/panel/hospitals", label: "Shifoxonalar", icon: Building2 },
+  { href: "/panel/hospitals", label: "Muassasalar", icon: Building2 },
   { href: "/panel/users", label: "Foydalanuvchilar", icon: Users },
   { href: "/panel/leads", label: "Yangi so'rovlar", icon: Inbox },
   { href: "/panel/payments", label: "To'lovlar", icon: CreditCard },

@@ -115,7 +115,7 @@ export default function PanelUsersPage() {
           Foydalanuvchilar
         </h1>
         <p className="mt-1 text-sm text-[var(--text-muted)]">
-          Barcha shifoxonalardagi foydalanuvchilar — rol va statusni shu yerdan boshqaring.
+          Barcha muassasalardagi foydalanuvchilar — rol va statusni shu yerdan boshqaring.
         </p>
       </div>
 
@@ -197,7 +197,7 @@ export default function PanelUsersPage() {
               <thead>
                 <tr className="border-b border-[var(--border)] text-left text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]">
                   <th className="px-5 py-3">F.I.Sh / Login</th>
-                  <th className="px-5 py-3">Shifoxona</th>
+                  <th className="px-5 py-3">Muassasa</th>
                   <th className="px-5 py-3">Email</th>
                   <th className="px-5 py-3">Rol</th>
                   <th className="px-5 py-3">Status</th>

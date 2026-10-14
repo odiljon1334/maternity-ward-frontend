@@ -24,7 +24,7 @@ export interface PanelStat {
 export const MOCK_STATS: PanelStat[] = [
   {
     key: "hospitals",
-    label: "Jami shifoxonalar",
+    label: "Jami muassasalar",
     value: "24",
     delta: { value: "+3", direction: "up", note: "shu oy qo'shildi" },
     icon: "hospitals",

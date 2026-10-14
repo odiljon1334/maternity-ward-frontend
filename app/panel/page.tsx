@@ -72,7 +72,7 @@ export default function PanelOverviewPage() {
   const panelStats: PanelStat[] = [
     {
       key: "hospitals",
-      label: "Jami shifoxonalar",
+      label: "Jami muassasalar",
       value: String(totalHospitals),
       delta: {
         value: `${activeHospitalsCount} faol`,
@@ -141,14 +141,14 @@ export default function PanelOverviewPage() {
             Umumiy ko&apos;rinish
           </h1>
           <p className="mt-1 text-sm text-[var(--text-muted)]">
-            Shifoxonalar, foydalanuvchilar va daromad — bir ko&apos;rinishda.
+            Muassasalar, foydalanuvchilar va daromad — bir ko&apos;rinishda.
           </p>
         </div>
         <Link
           href="/panel/hospitals"
           className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg shadow-indigo-500/25"
         >
-          <Building2 className="h-4 w-4" /> Shifoxonalar boshqaruvi
+          <Building2 className="h-4 w-4" /> Muassasalar boshqaruvi
         </Link>
       </div>
 
@@ -203,7 +203,7 @@ export default function PanelOverviewPage() {
 
           <div className="mt-6 border-t border-[var(--border)] pt-5">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-[var(--text-primary)]">So&apos;nggi qo&apos;shilgan shifoxonalar</h3>
+              <h3 className="text-sm font-semibold text-[var(--text-primary)]">So&apos;nggi qo&apos;shilgan muassasalar</h3>
               <Link href="/panel/hospitals" className="text-xs font-medium text-indigo-500">
                 Barchasini ko&apos;rish →
               </Link>
@@ -212,7 +212,7 @@ export default function PanelOverviewPage() {
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
-                    <th className="pb-2 font-medium">Shifoxona</th>
+                    <th className="pb-2 font-medium">Muassasa</th>
                     <th className="pb-2 font-medium">Xodimlar</th>
                     <th className="pb-2 font-medium">Holat</th>
                     <th className="pb-2 font-medium">Qo&apos;shildi</th>
@@ -222,7 +222,7 @@ export default function PanelOverviewPage() {
                   {recentHospitals.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="py-4 text-center text-[var(--text-muted)]">
-                        Hali shifoxona yo&apos;q
+                        Hali muassasa yo&apos;q
                       </td>
                     </tr>
                   ) : (
@@ -257,7 +257,7 @@ export default function PanelOverviewPage() {
           {/* Donut */}
           <div className="card rounded-2xl p-5">
             <h2 className="text-sm font-semibold text-[var(--text-primary)]">To&apos;lov holati taqsimoti</h2>
-            <p className="mt-0.5 text-xs text-[var(--text-muted)]">Joriy oy, shifoxonalar bo&apos;yicha</p>
+            <p className="mt-0.5 text-xs text-[var(--text-muted)]">Joriy oy, muassasalar bo&apos;yicha</p>
             <div className="relative mx-auto mt-2 h-[160px] w-[160px]">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -307,7 +307,7 @@ export default function PanelOverviewPage() {
                 <div className="flex-1">
                   <div className="text-xs font-medium text-[var(--text-primary)]">Kutilayotgan to&apos;lovlar</div>
                   <div className="text-[10px] text-[var(--text-muted)]">
-                    {pendingPaymentsCount} ta shifoxona
+                    {pendingPaymentsCount} ta muassasa
                   </div>
                 </div>
                 <ArrowRight className="h-3.5 w-3.5 text-[var(--text-muted)]" />
@@ -320,9 +320,9 @@ export default function PanelOverviewPage() {
                   <AlertCircle className="h-4 w-4" />
                 </span>
                 <div className="flex-1">
-                  <div className="text-xs font-medium text-[var(--text-primary)]">Nofaol shifoxonalar</div>
+                  <div className="text-xs font-medium text-[var(--text-primary)]">Nofaol muassasalar</div>
                   <div className="text-[10px] text-[var(--text-muted)]">
-                    {inactiveHospitalsCount} ta shifoxona
+                    {inactiveHospitalsCount} ta muassasa
                   </div>
                 </div>
                 <ArrowRight className="h-3.5 w-3.5 text-[var(--text-muted)]" />
