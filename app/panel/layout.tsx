@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/auth";
 import { PanelShell } from "@/components/panel/PanelShell";
+import { ConfirmationProvider } from "@/components/ui";
 
 /**
  * /panel — Superadmin boshqaruv paneli (Reja.md, FAZA 5).
@@ -51,5 +52,12 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
   const authorized = !!user && ALLOWED_ROLES.includes(user.role);
   if (!hydrated || !authorized) return null;
 
-  return <PanelShell>{children}</PanelShell>;
+  // Panel sahifalari (masalan Muassasalar — bloklashni tasdiqlash)
+  // useConfirmation ishlatadi; provider dashboard layout'ida bo'lgani kabi
+  // bu yerda ham bo'lishi shart, aks holda sahifa xato bilan yiqiladi.
+  return (
+    <ConfirmationProvider>
+      <PanelShell>{children}</PanelShell>
+    </ConfirmationProvider>
+  );
 }
