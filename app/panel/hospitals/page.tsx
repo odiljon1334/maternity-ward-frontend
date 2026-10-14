@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Building2, Plus, X, UserPlus } from "lucide-react";
+import { Building2, Plus, X, UserPlus, ShieldCheck, ShieldOff } from "lucide-react";
 import { hospitalsApi, usersApi } from "@/lib/api";
+import { useConfirmation } from "@/components/ui";
 
 // Bitta shifoxonaning "mas'ul Assistant Admin'lar" bo'limi — chip'lar +
 // biriktirish/bekor qilish. Odiljon so'rovi (2026-09-19): "Assistant admin
@@ -102,20 +103,53 @@ function AssistantsCell({ hospitalId }: { hospitalId: string }) {
 }
 
 export default function PanelHospitalsPage() {
+  const qc = useQueryClient();
+  const { confirm } = useConfirmation();
   const { data: hospitals = [], isLoading } = useQuery({
     queryKey: ["panel-hospitals"],
     queryFn: () => hospitalsApi.list(),
   });
+
+  const blockMutation = useMutation({
+    mutationFn: ({ id, block }: { id: string; block: boolean }) =>
+      block ? hospitalsApi.block(id) : hospitalsApi.unblock(id),
+    onSuccess: (_, { block }) => {
+      qc.invalidateQueries({ queryKey: ["panel-hospitals"] });
+      qc.invalidateQueries({ queryKey: ["hospitals"] });
+      toast.success(block ? "Muassasa bloklandi" : "Muassasa faollashtirildi");
+    },
+    onError: (e: any) => toast.error(e?.response?.data?.message || "Holat o‘zgarmadi"),
+  });
+
+  // Muassasa bloklansa uning barcha foydalanuvchilari (direktor va adminlar
+  // ham) tizimdan chiqariladi, Telegram jim turadi, terminal davomati esa
+  // yozilaveradi — oqibat tasdiqdan oldin aniq aytiladi.
+  const toggleBlock = async (h: any) => {
+    const block = !h.isBlocked;
+    const approved = await confirm(block
+      ? {
+          title: "Muassasa bloklansinmi?",
+          description: `“${h.name}” ishlamay qoladi: direktor, adminlar, bo‘lim boshliqlari va xodimlar tizimdan darhol chiqariladi va kira olmaydi, Telegram xabarlari yuborilmaydi. Terminal orqali davomat yozilishda davom etadi.`,
+          confirmLabel: "Bloklash",
+          tone: "danger",
+        }
+      : {
+          title: "Muassasa faollashtirilsinmi?",
+          description: `“${h.name}” yana to‘liq ishlaydi: foydalanuvchilar tizimga kiradi, Telegram xabarlari qayta yuboriladi.`,
+          confirmLabel: "Faollashtirish",
+        });
+    if (approved) blockMutation.mutate({ id: h.id, block });
+  };
 
   return (
     <div className="space-y-6">
       <div>
         <div className="text-[10px] font-semibold tracking-wider text-indigo-500">PLATFORMA BOSHQARUVI</div>
         <h1 className="mt-1 text-[26px] font-semibold tracking-tight text-[var(--text-primary)]">
-          Shifoxonalar
+          Muassasalar
         </h1>
         <p className="mt-1 text-sm text-[var(--text-muted)]">
-          Barcha shifoxonalar va ularga biriktirilgan Assistant Admin&apos;lar.
+          Barcha muassasalar va ularga biriktirilgan Assistant Admin&apos;lar.
         </p>
       </div>
 
@@ -125,7 +159,7 @@ export default function PanelHospitalsPage() {
         ) : hospitals.length === 0 ? (
           <div className="flex flex-col items-center gap-2 p-10 text-center">
             <Building2 className="h-8 w-8 text-[var(--text-muted)]" />
-            <p className="text-sm text-[var(--text-muted)]">Hech qanday shifoxona topilmadi</p>
+            <p className="text-sm text-[var(--text-muted)]">Hech qanday muassasa topilmadi</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -151,19 +185,31 @@ export default function PanelHospitalsPage() {
                     </td>
                     <td className="px-5 py-3 text-[var(--text-primary)]">{h._count?.employees ?? 0}</td>
                     <td className="px-5 py-3">
-                      {h.isBlocked ? (
-                        <span className="rounded-full border border-red-500/20 bg-red-500/10 px-2.5 py-1 text-xs font-medium text-red-500">
-                          Bloklangan
-                        </span>
-                      ) : h.isActive ? (
-                        <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-500">
-                          Faol
-                        </span>
-                      ) : (
-                        <span className="rounded-full border border-slate-500/20 bg-slate-500/10 px-2.5 py-1 text-xs font-medium text-slate-400">
-                          Nofaol
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {h.isBlocked ? (
+                          <span className="rounded-full border border-red-500/20 bg-red-500/10 px-2.5 py-1 text-xs font-medium text-red-500">
+                            Bloklangan
+                          </span>
+                        ) : h.isActive ? (
+                          <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-500">
+                            Faol
+                          </span>
+                        ) : (
+                          <span className="rounded-full border border-slate-500/20 bg-slate-500/10 px-2.5 py-1 text-xs font-medium text-slate-400">
+                            Nofaol
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => toggleBlock(h)}
+                          disabled={blockMutation.isPending}
+                          className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs font-medium transition disabled:opacity-50 ${h.isBlocked ? "border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/10 dark:text-emerald-400" : "border-red-500/30 text-red-600 hover:bg-red-500/10 dark:text-red-400"}`}
+                          title={h.isBlocked ? "Muassasani faollashtirish" : "Muassasani bloklash"}
+                        >
+                          {h.isBlocked ? <ShieldCheck className="h-3.5 w-3.5" /> : <ShieldOff className="h-3.5 w-3.5" />}
+                          {h.isBlocked ? "Faollashtirish" : "Bloklash"}
+                        </button>
+                      </div>
                     </td>
                     <td className="px-5 py-3">
                       <AssistantsCell hospitalId={h.id} />
