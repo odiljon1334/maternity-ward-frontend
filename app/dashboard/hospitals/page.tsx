@@ -502,6 +502,27 @@ export default function HospitalsPage() {
     });
   }, [setSelectedHospital, startTransition]);
 
+  // Blok qat'iy: muassasaning barcha foydalanuvchilari (direktor va adminlar
+  // ham) darhol tizimdan chiqariladi, Telegram jim turadi. Terminal davomati
+  // esa yozilaveradi — shuning uchun admin oqibatini oldindan ko'rishi kerak.
+  const handleToggleBlock = useCallback(async (h: any) => {
+    const block = !h.isBlocked;
+    const approved = await confirm(block
+      ? {
+          title: "Muassasa bloklansinmi?",
+          description: `“${h.name}” muassasasining barcha foydalanuvchilari — direktor, adminlar, bo‘lim boshliqlari va xodimlar — tizimdan darhol chiqariladi va login-parol bilan kira olmaydi. Telegram xabarlari yuborilmaydi. Terminal orqali davomat yozilishda davom etadi.`,
+          confirmLabel: "Bloklash",
+          tone: "danger",
+        }
+      : {
+          title: "Blok ochilsinmi?",
+          description: `“${h.name}” foydalanuvchilari yana tizimga kira oladi va Telegram xabarlari qayta yuboriladi.`,
+          confirmLabel: "Blokni ochish",
+        });
+    if (!approved) return;
+    blockMutation.mutate({ id: h.id, block });
+  }, [blockMutation, confirm]);
+
   const handleResetTelegram = useCallback(async (h: any) => {
     const approved = await confirm({
       title: "Telegram obunalari uzilsinmi?",
@@ -579,7 +600,7 @@ export default function HospitalsPage() {
                   {isBlocked && (
                     <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-medium">
                       <span>🔴</span>
-                      <span>{h.isBlocked && !isOverdue ? "Admin tomonidan bloklangan" : "To'lov kechikkan — tizim bloklangan"}</span>
+                      <span>{h.isBlocked && !isOverdue ? "Admin tomonidan bloklangan — kirish va Telegram yopiq, davomat yozilmoqda" : "To'lov kechikkan — tizim bloklangan"}</span>
                     </div>
                   )}
 
@@ -744,7 +765,7 @@ export default function HospitalsPage() {
                     {isSuperAdmin && (
                       <>
                         <button
-                          onClick={() => blockMutation.mutate({ id: h.id, block: !h.isBlocked })}
+                          onClick={() => handleToggleBlock(h)}
                           disabled={blockMutation.isPending}
                           className={`btn-ghost text-xs px-3 justify-center ${h.isBlocked ? "text-emerald-400 hover:bg-emerald-500/10" : "text-amber-400 hover:bg-amber-500/10"}`}
                           title={h.isBlocked ? "Blokni ochish" : "Muassasani bloklash"}
