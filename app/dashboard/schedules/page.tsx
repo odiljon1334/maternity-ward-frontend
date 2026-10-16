@@ -652,6 +652,7 @@ export default function SchedulesPage() {
   const [rollingOver, setRollingOver] = useState(false);
   const [rolloverConfirmOpen, setRolloverConfirmOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const requestedViewScopeRef = useRef<string | null>(null);
 
   const { selectedHospital, user } = useAuthStore();
   const targetHospitalId = selectedHospital?.id;
@@ -665,8 +666,21 @@ export default function SchedulesPage() {
   const postCoverageEnabled = planningConfig?.postCoverageEnabled === true;
 
   useEffect(() => {
-    if (!postCoverageEnabled && view === "postlar") setView("grafik");
-  }, [postCoverageEnabled, view]);
+    if (!planningConfig) return;
+
+    const scopeKey = `${targetHospitalId ?? user?.hospitalId ?? ""}:${postCoverageEnabled}`;
+    if (requestedViewScopeRef.current !== scopeKey) {
+      requestedViewScopeRef.current = scopeKey;
+      const requestedView = new URLSearchParams(window.location.search).get("view");
+      if (requestedView === "postlar" && postCoverageEnabled) {
+        setView("postlar");
+      }
+    }
+
+    if (!postCoverageEnabled) {
+      setView((currentView) => currentView === "postlar" ? "grafik" : currentView);
+    }
+  }, [planningConfig, postCoverageEnabled, targetHospitalId, user?.hospitalId]);
 
   // Scroll konteyner ref'i Infinite Scroll uchun
   const scrollContainerRef = useRef<HTMLDivElement>(null);

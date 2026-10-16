@@ -11,7 +11,7 @@ import {
   CreditCard, UserPlus, Shield, Send, Eye, X, Video, 
   ScanFace, UserCircle, Palmtree, BarChart2, Wallet, Bot, Archive, UserCog,
   Sparkles, BookOpen, HandCoins,
-  MapPin, Clock3, ArrowLeftRight
+  MapPin, Clock3, ArrowLeftRight, ShieldCheck
 } from "lucide-react";
 import { cn, getInitials, getAvatarColor } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth";
@@ -42,6 +42,7 @@ const mainNavItems: NavItem[] = [
   { href: "/dashboard/employees",         label: "Xodimlar",           icon: Users,          exact: true,  roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/schedules",         label: "Grafik",             icon: CalendarDays,   exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/attendance",        label: "Davomat",            icon: ClipboardList,  exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
+  { href: "/dashboard/operational-center", label: "Operativ markaz",    icon: ShieldCheck,    exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/employees/archive", label: "Xodimlar arxivi",    icon: Archive,        exact: false, roles: ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR", "DEPARTMENT_HEAD"] },
   { href: "/dashboard/admin/users",       label: "Hodimlar hisoblari", icon: UserCog,       exact: false, roles: ["ADMIN", "DIRECTOR"] },
   { 

@@ -137,6 +137,12 @@ export const dashboardApi = {
     api.get("/dashboard/analytics/checkin-heatmap", { params }).then((r) => r.data.data),
 };
 
+// ─── Operativ markaz ──────────────────────────
+export const operationalCenterApi = {
+  overview: (params?: { targetHospitalId?: string }) =>
+    api.get("/operational-center/overview", { params }).then((r) => r.data.data),
+};
+
 // ─── Departments ────────────────────────────────
 export const departmentsApi = {
   list: (params?: { targetHospitalId?: string }) =>
