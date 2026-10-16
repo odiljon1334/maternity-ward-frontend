@@ -671,8 +671,17 @@ export default function SchedulesPage() {
     const scopeKey = `${targetHospitalId ?? user?.hospitalId ?? ""}:${postCoverageEnabled}`;
     if (requestedViewScopeRef.current !== scopeKey) {
       requestedViewScopeRef.current = scopeKey;
-      const requestedView = new URLSearchParams(window.location.search).get("view");
+      const searchParams = new URLSearchParams(window.location.search);
+      const requestedView = searchParams.get("view");
       if (requestedView === "postlar" && postCoverageEnabled) {
+        const requestedMonth = Number(searchParams.get("month"));
+        const requestedYear = Number(searchParams.get("year"));
+        if (Number.isInteger(requestedMonth) && requestedMonth >= 1 && requestedMonth <= 12) {
+          setMonth(requestedMonth);
+        }
+        if (Number.isInteger(requestedYear) && requestedYear >= 2020 && requestedYear <= 2100) {
+          setYear(requestedYear);
+        }
         setView("postlar");
       }
     }

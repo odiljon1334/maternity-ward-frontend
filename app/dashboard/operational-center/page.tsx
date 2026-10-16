@@ -11,7 +11,6 @@ import {
   CalendarRange,
   ChevronRight,
   Clock3,
-  FilePenLine,
   Hospital,
   Loader2,
   LockKeyhole,
@@ -220,22 +219,17 @@ function DetailPanel({ item, mode }: { item: RiskItem; mode: ModeKey }) {
 
         <div className="mt-4 flex gap-2 rounded-xl border border-indigo-500/20 bg-indigo-500/[0.06] p-3 text-[10px] leading-relaxed text-[var(--text-muted)]">
           <LockKeyhole className="h-4 w-4 flex-shrink-0 text-indigo-500" />
-          <span>Operativ markaz hozircha faqat tahlil qiladi. Rahbar amalisiz grafik yoki davomat o‘zgarmaydi.</span>
+          <span>
+            Kadr inspektori (ADMIN) qoralamani tayyorlab, tasdiqlashga yuboradi.
+            Rahbar (DIRECTOR) shu Post reja sahifasida yuborilgan rejani tasdiqlaydi yoki rad etadi.
+            Tasdiqqacha amaldagi grafik va davomat o‘zgarmaydi.
+          </span>
         </div>
 
-        <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
-          <Link href={item.action.href} className="btn-primary min-h-11 text-xs">
+        <div className="mt-4">
+          <Link href={item.action.href} className="btn-primary min-h-11 w-full text-xs">
             {item.action.label} <ArrowRight className="h-4 w-4" />
           </Link>
-          <button
-            type="button"
-            disabled
-            aria-label="Qoralama yaratish hozircha mavjud emas"
-            className="btn-secondary min-h-11 px-3 opacity-50"
-            title="Qoralama yaratish — keyingi bosqichda"
-          >
-            <FilePenLine className="h-4 w-4" />
-          </button>
         </div>
         {mode === "FLEXIBLE" ? (
           <p className="mt-3 text-[10px] leading-relaxed text-[var(--text-muted)]">

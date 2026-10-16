@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, memo, useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { Fragment, memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { Archive, Check, Clock, Download, FileSpreadsheet, Pencil, Plus, RotateCcw, Save, Search, Send, Trash2, X } from "lucide-react";
@@ -51,7 +51,8 @@ const STATUS_OPTIONS = [
   { value: "STATUS:OTHER_ABSENCE", label: "B — Boshqa" },
 ];
 
-const ADMIN_ROLES = ["SUPER_ADMIN", "ADMIN", "DIRECTOR"];
+const PLAN_APPROVER_ROLES = ["SUPER_ADMIN", "DIRECTOR"];
+const PLAN_EDITOR_ROLES = ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN"];
 const WEEKDAY_LABELS = ["Ya", "Du", "Se", "Cho", "Pa", "Ju", "Sha"];
 const COVERAGE_MODES = [
   { value: "CONTINUOUS_24_7", label: "24 soat × kalendar kuni" },
@@ -124,6 +125,11 @@ export function PostSchedulePlanner({
 }: Props) {
   const qc = useQueryClient();
   const params = requestParams(targetHospitalId);
+  const requestedSelectionRef = useRef({
+    departmentId: typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("departmentId") ?? "",
+    postId: typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("postId") ?? "",
+    planId: typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("planId") ?? "",
+  });
   const [departmentId, setDepartmentId] = useState("");
   const [postId, setPostId] = useState("");
   const [planId, setPlanId] = useState("");
@@ -152,10 +158,22 @@ export function PostSchedulePlanner({
   const [reopenPlanReason, setReopenPlanReason] = useState("");
 
   useEffect(() => {
-    if (!departmentId && departments.length) setDepartmentId(departments[0].id);
+    if (!departments.length) return;
+    const requestedDepartmentId = requestedSelectionRef.current.departmentId;
+    const requestedDepartmentExists = departments.some(
+      (department) => department.id === requestedDepartmentId,
+    );
+    if (requestedDepartmentExists && departmentId !== requestedDepartmentId) {
+      setDepartmentId(requestedDepartmentId);
+      requestedSelectionRef.current.departmentId = "";
+      return;
+    }
+    if (!departments.some((department) => department.id === departmentId)) {
+      setDepartmentId(departments[0].id);
+    }
   }, [departmentId, departments]);
 
-  const { data: posts = [], isLoading: postsLoading } = useQuery({
+  const { data: posts = [], isLoading: postsLoading, isFetched: postsFetched } = useQuery({
     queryKey: ["schedule-posts", targetHospitalId, departmentId, showArchivedPosts],
     queryFn: () => schedulePlanningApi.posts({
       ...(targetHospitalId && { targetHospitalId }),
@@ -166,11 +184,20 @@ export function PostSchedulePlanner({
   });
 
   useEffect(() => {
+    const requestedPostId = requestedSelectionRef.current.postId;
+    if (requestedPostId && posts.some((post: any) => post.id === requestedPostId)) {
+      setPostId(requestedPostId);
+      setPlanId("");
+      requestedSelectionRef.current.postId = "";
+      return;
+    }
+    if (!departmentId || postsLoading || !postsFetched) return;
+    requestedSelectionRef.current.postId = "";
     if (!posts.some((post: any) => post.id === postId)) {
       setPostId(posts.find((post: any) => post.isActive)?.id ?? posts[0]?.id ?? "");
       setPlanId("");
     }
-  }, [posts, postId]);
+  }, [departmentId, posts, postId, postsFetched, postsLoading]);
 
   const selectedPost = posts.find((post: any) => post.id === postId);
 
@@ -203,7 +230,7 @@ export function PostSchedulePlanner({
     setPostFormOpen(true);
   };
 
-  const { data: plans = [] } = useQuery({
+  const { data: plans = [], isLoading: plansLoading, isFetched: plansFetched } = useQuery({
     queryKey: ["post-schedule-plans", targetHospitalId, postId, year, month],
     queryFn: () => schedulePlanningApi.plans({
       ...(targetHospitalId && { targetHospitalId }),
@@ -215,10 +242,18 @@ export function PostSchedulePlanner({
   });
 
   useEffect(() => {
+    const requestedPlanId = requestedSelectionRef.current.planId;
+    if (requestedPlanId && plans.some((plan: any) => plan.id === requestedPlanId)) {
+      setPlanId(requestedPlanId);
+      requestedSelectionRef.current.planId = "";
+      return;
+    }
+    if (!postId || plansLoading || !plansFetched) return;
+    requestedSelectionRef.current.planId = "";
     if (!plans.some((plan: any) => plan.id === planId)) {
       setPlanId(plans[0]?.id ?? "");
     }
-  }, [plans, planId]);
+  }, [planId, plans, plansFetched, plansLoading, postId]);
 
   const { data: detail, isLoading: detailLoading } = useQuery({
     queryKey: ["post-schedule-plan", targetHospitalId, planId],
@@ -656,9 +691,18 @@ export function PostSchedulePlanner({
     ),
     [liveCoverage.employeeStats, outsidePostEmployeeIds],
   );
-  const canApprove = ADMIN_ROLES.includes(userRole ?? "");
-  const canWrite = [...ADMIN_ROLES, "ASSISTANT_ADMIN"].includes(userRole ?? "");
+  const canApprove = PLAN_APPROVER_ROLES.includes(userRole ?? "");
+  const canWrite = PLAN_EDITOR_ROLES.includes(userRole ?? "");
   const isDraft = detail?.status === "DRAFT";
+  const workflowMessage = isDraft
+    ? canWrite
+      ? "Kadr inspektori sifatida rejani tayyorlang, saqlang va «Tasdiqlashga yuborish»ni bosing. Yuborilgandan keyin rahbar qarorini kutadi."
+      : "Reja hali Kadr inspektorida qoralama holatida. U tasdiqlashga yuborgach, bu yerda rahbar uchun «Tasdiqlash» va «Rad etish» amallari ochiladi."
+    : detail?.status === "SUBMITTED"
+      ? canApprove
+        ? "Reja Kadr inspektori tomonidan yuborilgan. Quyida «Tasdiqlash» yoki «Rad etish» orqali rahbar qarorini kiriting."
+        : "Reja rahbar tasdig‘iga yuborildi. Qaror chiqmaguncha uni tahrirlab bo‘lmaydi va amaldagi grafik o‘zgarmaydi."
+      : "Tasdiqlangan reja amaldagi grafik sifatida qo‘llanadi. Keyingi o‘zgarishlar alohida so‘rov va rahbar tasdig‘i orqali bajariladi.";
   const canCreatePlan = !!postId && selectedPost?.isActive && canWrite && !plans.some((plan: any) =>
     ["DRAFT", "SUBMITTED", "APPROVED"].includes(plan.status),
   );
@@ -758,6 +802,10 @@ export function PostSchedulePlanner({
         )}
 
         <div className="rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 py-3 text-xs text-sky-800 dark:text-sky-200">Postdan tashqari xodim uchun alohida post ochish shart emas: shu jadvalda xodim nomi ostidan «Postdan tashqari»ni tanlang va saqlang. U pastdagi alohida bo‘limda, Excelda ham alohida ko‘rinadi va post normasiga (720/744 soat) qo‘shilmaydi.</div>
+
+        <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/[0.07] px-4 py-3 text-xs leading-relaxed text-indigo-800 dark:text-indigo-200">
+          <span className="font-bold">Amal tartibi:</span> {workflowMessage}
+        </div>
 
         <div className="flex flex-wrap gap-2">
           {isDraft && canWrite && <Button onClick={() => savePlan.mutate()} loading={savePlan.isPending} size="sm"><Save className="h-4 w-4" />Saqlash</Button>}
@@ -1105,7 +1153,7 @@ function ScheduleChangePanel({ detail, employees, targetHospitalId, userRole }: 
       {(detail.changeRequests ?? []).map((request: any) => <div key={request.id} className="flex flex-wrap items-center gap-2 rounded-xl bg-slate-50 dark:bg-white/[0.03] p-3 text-xs">
         <span className="font-semibold">{request.type}</span><span>{request.primaryEntry.employee.fullName}</span><span className="text-slate-500">{request.reason}</span><span className="ml-auto rounded-full bg-slate-200 dark:bg-white/10 px-2 py-1 font-semibold">{request.status}</span>
         {request.status === "REQUESTED" && <Button onClick={() => act("accept", request.id)} variant="secondary" size="sm">Qabul qilish</Button>}
-        {["REQUESTED", "ACCEPTED"].includes(request.status) && ADMIN_ROLES.includes(userRole ?? "") && <><Button onClick={() => act("approve", request.id)} variant="success" size="sm">Tasdiqlash</Button><Button onClick={() => setRejectRequestId(request.id)} variant="danger" size="sm">Rad etish</Button></>}
+        {["REQUESTED", "ACCEPTED"].includes(request.status) && PLAN_APPROVER_ROLES.includes(userRole ?? "") && <><Button onClick={() => act("approve", request.id)} variant="success" size="sm">Tasdiqlash</Button><Button onClick={() => setRejectRequestId(request.id)} variant="danger" size="sm">Rad etish</Button></>}
       </div>)}
     </div>
     <PromptDialog
