@@ -2,8 +2,9 @@
 "use client";
 import { useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import { toast } from "sonner";
-import { Search, ChevronLeft, ChevronRight, Users as UsersIcon, ShieldCheck } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Users as UsersIcon, ShieldCheck, UserPlus } from "lucide-react";
 import { usersApi } from "@/lib/api";
 import { UserPermissionsModal } from "@/components/panel/UserPermissionsModal";
 import { CopyVerifiedEmailsButton, EMAIL_FILTER_LABELS, UserEmailCell } from "@/components/users/UserEmail";
@@ -109,14 +110,20 @@ export default function PanelUsersPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <div className="text-[10px] font-semibold tracking-wider text-indigo-500">PLATFORMA BOSHQARUVI</div>
-        <h1 className="mt-1 text-[26px] font-semibold tracking-tight text-[var(--text-primary)]">
-          Foydalanuvchilar
-        </h1>
-        <p className="mt-1 text-sm text-[var(--text-muted)]">
-          Barcha muassasalardagi foydalanuvchilar — rol va statusni shu yerdan boshqaring.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="text-[10px] font-semibold tracking-wider text-indigo-500">PLATFORMA BOSHQARUVI</div>
+          <h1 className="mt-1 text-[26px] font-semibold tracking-tight text-[var(--text-primary)]">
+            Foydalanuvchilar
+          </h1>
+          <p className="mt-1 text-sm text-[var(--text-muted)]">
+            Barcha muassasalardagi foydalanuvchilar — rol va statusni shu yerdan boshqaring.
+          </p>
+        </div>
+        <Link href="/register" className="btn-primary inline-flex items-center gap-2 px-4 py-2.5 text-sm">
+          <UserPlus className="h-4 w-4" />
+          Yangi foydalanuvchi
+        </Link>
       </div>
 
       {/* Filtrlar */}

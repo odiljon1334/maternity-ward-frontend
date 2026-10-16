@@ -52,7 +52,7 @@ const STATUS_OPTIONS = [
 ];
 
 const PLAN_APPROVER_ROLES = ["SUPER_ADMIN", "DIRECTOR"];
-const PLAN_EDITOR_ROLES = ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN"];
+const PLAN_EDITOR_ROLES = ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR"];
 const WEEKDAY_LABELS = ["Ya", "Du", "Se", "Cho", "Pa", "Ju", "Sha"];
 const COVERAGE_MODES = [
   { value: "CONTINUOUS_24_7", label: "24 soat × kalendar kuni" },

@@ -91,7 +91,13 @@ export const authApi = {
       headers: { Authorization: `Bearer ${token}` },
     }).then((r) => r.data.data),
   profile: () => api.get("/auth/profile").then((r) => r.data.data),
-  register: (data: { username: string; password: string; role?: string }) =>
+  register: (data: {
+    username: string;
+    password: string;
+    role?: string;
+    hospitalId?: string;
+    employeeId?: string;
+  }) =>
     api.post("/auth/register", data).then((r) => r.data.data),
   changePassword: (data: { currentPassword: string; newPassword: string }) =>
     api.put("/auth/change-password", data).then((r) => r.data.data),

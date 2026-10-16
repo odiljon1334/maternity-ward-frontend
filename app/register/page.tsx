@@ -2,20 +2,51 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Eye, EyeOff, Activity, UserPlus, ShieldCheck, Eye as EyeIcon } from "lucide-react";
-import { authApi } from "@/lib/api";
+import {
+  Eye,
+  EyeOff,
+  Activity,
+  UserPlus,
+  ShieldCheck,
+  Eye as EyeIcon,
+  Building2,
+  Crown,
+  UsersRound,
+  UserRoundCog,
+} from "lucide-react";
+import { authApi, employeesApi, hospitalsApi } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth";
 import { cn } from "@/lib/utils";
 
-type Role = "ASSISTANT_ADMIN" | "MINISTRY";
+type Role =
+  | "ASSISTANT_ADMIN"
+  | "MINISTRY"
+  | "ADMIN"
+  | "DIRECTOR"
+  | "DEPARTMENT_HEAD"
+  | "EMPLOYEE";
 
 type FormData = {
   username:        string;
   password:        string;
   confirmPassword: string;
   role:            Role;
+  hospitalId:      string;
+  employeeId:      string;
 };
+
+type HospitalOption = { id: string; name: string; code: string };
+type EmployeeOption = {
+  id: string;
+  fullName: string;
+  position?: { name?: string | null } | null;
+  user?: { username?: string } | null;
+};
+
+const TENANT_ROLES: Role[] = ["ADMIN", "DIRECTOR", "DEPARTMENT_HEAD", "EMPLOYEE"];
+const EMPLOYEE_REQUIRED_ROLES: Role[] = ["DEPARTMENT_HEAD", "EMPLOYEE"];
 
 const ROLE_CONFIG: Record<Role, {
   label:       string;
@@ -52,6 +83,52 @@ const ROLE_CONFIG: Record<Role, {
       { label: "Xodim / kasalxona qo'shish",       ok: false },
     ],
   },
+  ADMIN: {
+    label:       "Muassasa Admini",
+    description: "Faqat biriktirilgan muassasani boshqaradi",
+    icon:        <Building2 className="w-5 h-5" />,
+    color:       "blue",
+    permissions: [
+      { label: "Faqat tanlangan muassasani ko'rish", ok: true },
+      { label: "Xodim, grafik va davomatni boshqarish", ok: true },
+      { label: "Hisobot va maosh bilan ishlash", ok: true },
+      { label: "Boshqa muassasalarni ko'rish", ok: false },
+    ],
+  },
+  DIRECTOR: {
+    label:       "Direktor",
+    description: "O'z muassasasidagi barcha amallar va tasdiqlar",
+    icon:        <Crown className="w-5 h-5" />,
+    color:       "amber",
+    permissions: [
+      { label: "Muassasadagi barcha boshqaruv amallari", ok: true },
+      { label: "Grafikni yaratish, saqlash va tasdiqlash", ok: true },
+      { label: "Davomat va maoshni boshqarish", ok: true },
+      { label: "Boshqa muassasalarni ko'rish", ok: false },
+    ],
+  },
+  DEPARTMENT_HEAD: {
+    label:       "Bo'lim boshlig'i",
+    description: "Biriktirilgan xodim va uning bo'limi doirasida",
+    icon:        <UserRoundCog className="w-5 h-5" />,
+    color:       "cyan",
+    permissions: [
+      { label: "O'z bo'limi xodimlarini ko'rish", ok: true },
+      { label: "Bo'lim grafik va davomatini ko'rish", ok: true },
+      { label: "Boshqa bo'limlarni boshqarish", ok: false },
+    ],
+  },
+  EMPLOYEE: {
+    label:       "Xodim",
+    description: "Mavjud xodim kartasiga login biriktiriladi",
+    icon:        <UsersRound className="w-5 h-5" />,
+    color:       "emerald",
+    permissions: [
+      { label: "Shaxsiy grafik va davomatni ko'rish", ok: true },
+      { label: "Mobil ilovada check-in qilish", ok: true },
+      { label: "Boshqa xodimlar ma'lumotini ko'rish", ok: false },
+    ],
+  },
 };
 
 export default function RegisterPage() {
@@ -66,10 +143,41 @@ export default function RegisterPage() {
     watch,
     setValue,
     formState: { errors },
-  } = useForm<FormData>({ defaultValues: { role: "ASSISTANT_ADMIN" } });
+  } = useForm<FormData>({
+    defaultValues: {
+      role: "ASSISTANT_ADMIN",
+      hospitalId: "",
+      employeeId: "",
+    },
+  });
 
   const selectedRole = watch("role");
+  const hospitalId = watch("hospitalId");
   const config       = ROLE_CONFIG[selectedRole];
+  const isTenantRole = TENANT_ROLES.includes(selectedRole);
+  const employeeIsRequired = EMPLOYEE_REQUIRED_ROLES.includes(selectedRole);
+
+  const { data: hospitals = [], isLoading: hospitalsLoading } = useQuery<HospitalOption[]>({
+    queryKey: ["register-hospitals"],
+    queryFn: () => hospitalsApi.list(),
+    enabled: ready && isTenantRole,
+  });
+
+  const { data: employeesResult, isLoading: employeesLoading } = useQuery<{
+    data: EmployeeOption[];
+  }>({
+    queryKey: ["register-employees", hospitalId],
+    queryFn: () =>
+      employeesApi.list({
+        targetHospitalId: hospitalId,
+        employeeStatus: "ACTIVE",
+        limit: 500,
+      }),
+    enabled: ready && isTenantRole && !!hospitalId,
+  });
+  const availableEmployees = (employeesResult?.data ?? []).filter(
+    (employee) => !employee.user,
+  );
 
   useEffect(() => {
     const check = () => {
@@ -81,7 +189,7 @@ export default function RegisterPage() {
       }
     };
 
-    const persist = (useAuthStore as any).persist;
+    const persist = useAuthStore.persist;
     if (persist?.hasHydrated?.()) {
       check();
     } else {
@@ -94,11 +202,19 @@ export default function RegisterPage() {
   const onSubmit = async (data: FormData) => {
     setLoading(true);
     try {
-      await authApi.register({ username: data.username, password: data.password, role: data.role });
+      await authApi.register({
+        username: data.username,
+        password: data.password,
+        role: data.role,
+        ...(isTenantRole && { hospitalId: data.hospitalId }),
+        ...(data.employeeId && { employeeId: data.employeeId }),
+      });
       toast.success(`"${data.username}" (${ROLE_CONFIG[data.role].label}) yaratildi!`);
-      router.push("/dashboard");
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Xatolik yuz berdi");
+      router.push("/panel/users");
+    } catch (err: unknown) {
+      const message = (err as { response?: { data?: { message?: string } } })
+        ?.response?.data?.message;
+      toast.error(message || "Xatolik yuz berdi");
     } finally {
       setLoading(false);
     }
@@ -112,12 +228,12 @@ export default function RegisterPage() {
     );
   }
 
-  const isIndigo = selectedRole === "ASSISTANT_ADMIN";
+  const isViolet = selectedRole === "MINISTRY";
 
   return (
     <div className="min-h-screen flex dark:bg-[#0d0f17] bg-gray-50">
       {/* ── Left panel ── */}
-      <div className="flex-1 flex flex-col justify-center px-8 sm:px-16 lg:px-24 max-w-xl">
+      <div className="flex-1 flex flex-col justify-center px-8 py-10 sm:px-12 lg:px-16 max-w-2xl">
         {/* Logo */}
         <div className="mb-10">
           <div className="flex items-center gap-3">
@@ -138,7 +254,7 @@ export default function RegisterPage() {
           </h1>
         </div>
         <p className="dark:text-gray-400 text-gray-500 mb-8 text-sm">
-          Yangi foydalanuvchi uchun rol va ma'lumotlarni kiriting
+          Yangi foydalanuvchi uchun rol va ma&apos;lumotlarni kiriting
         </p>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
@@ -148,7 +264,7 @@ export default function RegisterPage() {
             <label className="block text-sm font-medium dark:text-gray-300 text-gray-700 mb-2">
               Rol tanlang
             </label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {(Object.keys(ROLE_CONFIG) as Role[]).map((role) => {
                 const cfg      = ROLE_CONFIG[role];
                 const selected = selectedRole === role;
@@ -156,20 +272,22 @@ export default function RegisterPage() {
                   <button
                     key={role}
                     type="button"
-                    onClick={() => setValue("role", role)}
+                    onClick={() => {
+                      setValue("role", role, { shouldValidate: true });
+                      setValue("employeeId", "");
+                      if (!TENANT_ROLES.includes(role)) setValue("hospitalId", "");
+                    }}
                     className={cn(
                       "flex flex-col items-start gap-1 p-3 rounded-xl border-2 text-left transition-all",
                       selected
-                        ? role === "ASSISTANT_ADMIN"
-                          ? "border-indigo-500 bg-indigo-500/10"
-                          : "border-violet-500 bg-violet-500/10"
+                        ? "border-indigo-500 bg-indigo-500/10"
                         : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
                     )}
                   >
                     <div className={cn(
                       "flex items-center gap-2 font-medium text-sm",
                       selected
-                        ? role === "ASSISTANT_ADMIN" ? "text-indigo-400" : "text-violet-400"
+                        ? "text-indigo-500"
                         : "dark:text-gray-300 text-gray-700"
                     )}>
                       {cfg.icon}
@@ -185,6 +303,72 @@ export default function RegisterPage() {
             <input type="hidden" {...register("role")} />
           </div>
 
+          {isTenantRole && (
+            <div>
+              <label className="block text-sm font-medium dark:text-gray-300 text-gray-700 mb-1.5">
+                Muassasa
+              </label>
+              <select
+                {...register("hospitalId", {
+                  validate: (value) => !isTenantRole || !!value || "Muassasa tanlash shart",
+                  onChange: () => setValue("employeeId", ""),
+                })}
+                className={cn("input-field", errors.hospitalId && "border-red-500 focus:ring-red-500")}
+                disabled={hospitalsLoading}
+              >
+                <option value="">{hospitalsLoading ? "Yuklanmoqda..." : "Muassasani tanlang"}</option>
+                {hospitals.map((hospital) => (
+                  <option key={hospital.id} value={hospital.id}>
+                    {hospital.name} ({hospital.code})
+                  </option>
+                ))}
+              </select>
+              {errors.hospitalId && (
+                <p className="mt-1 text-xs text-red-400">{errors.hospitalId.message}</p>
+              )}
+              <p className="mt-1 text-xs dark:text-gray-500 text-gray-400">
+                Ushbu hisob faqat tanlangan muassasa ma&apos;lumotlarini ko&apos;radi.
+              </p>
+            </div>
+          )}
+
+          {isTenantRole && hospitalId && (
+            <div>
+              <label className="block text-sm font-medium dark:text-gray-300 text-gray-700 mb-1.5">
+                Mavjud xodim {employeeIsRequired ? "(majburiy)" : "(ixtiyoriy)"}
+              </label>
+              <select
+                {...register("employeeId", {
+                  validate: (value) =>
+                    !employeeIsRequired || !!value || "Bu rol mavjud xodimga biriktirilishi shart",
+                })}
+                className={cn("input-field", errors.employeeId && "border-red-500 focus:ring-red-500")}
+                disabled={employeesLoading}
+              >
+                <option value="">
+                  {employeesLoading
+                    ? "Xodimlar yuklanmoqda..."
+                    : employeeIsRequired
+                      ? "Xodimni tanlang"
+                      : "Xodimga biriktirmaslik"}
+                </option>
+                {availableEmployees.map((employee) => (
+                  <option key={employee.id} value={employee.id}>
+                    {employee.fullName} · {employee.position?.name || "Lavozimsiz"}
+                  </option>
+                ))}
+              </select>
+              {errors.employeeId && (
+                <p className="mt-1 text-xs text-red-400">{errors.employeeId.message}</p>
+              )}
+              {availableEmployees.length === 0 && !employeesLoading && (
+                <p className="mt-1 text-xs text-amber-500">
+                  Login biriktirilmagan faol xodim topilmadi.
+                </p>
+              )}
+            </div>
+          )}
+
           {/* ── Username ── */}
           <div>
             <label className="block text-sm font-medium dark:text-gray-300 text-gray-700 mb-1.5">
@@ -197,7 +381,15 @@ export default function RegisterPage() {
                 pattern:   { value: /^[a-z0-9_]+$/, message: "Faqat kichik harf, raqam va _" },
               })}
               type="text"
-              placeholder={selectedRole === "MINISTRY" ? "toshkent_ministry" : "assistant_admin"}
+              placeholder={
+                selectedRole === "MINISTRY"
+                  ? "toshkent_ministry"
+                  : selectedRole === "ADMIN"
+                    ? "muassasa_admin"
+                    : selectedRole === "DIRECTOR"
+                      ? "direktor"
+                      : "foydalanuvchi"
+              }
               className={cn("input-field", errors.username && "border-red-500 focus:ring-red-500")}
             />
             {errors.username && (
@@ -255,21 +447,23 @@ export default function RegisterPage() {
           {/* ── Info box ── */}
           <div className={cn(
             "p-3 rounded-lg border text-xs",
-            isIndigo
-              ? "bg-indigo-500/10 border-indigo-500/20 dark:text-indigo-300 text-indigo-700"
-              : "bg-violet-500/10 border-violet-500/20 dark:text-violet-300 text-violet-700"
+            isViolet
+              ? "bg-violet-500/10 border-violet-500/20 dark:text-violet-300 text-violet-700"
+              : "bg-indigo-500/10 border-indigo-500/20 dark:text-indigo-300 text-indigo-700"
           )}>
             Bu foydalanuvchi <strong>{config.label}</strong> roli bilan yaratiladi.{" "}
-            {selectedRole === "MINISTRY"
-              ? "Faqat statistika va hisobotlarni ko'ra oladi."
-              : "To'lovni tahrirlashdan tashqari barcha superadmin imkoniyatlariga ega bo'ladi."}
+            {isTenantRole
+              ? "Uning barcha tenant so'rovlari tanlangan muassasa bilan cheklanadi."
+              : selectedRole === "MINISTRY"
+                ? "Faqat statistika va hisobotlarni ko'ra oladi."
+                : "Faqat o'ziga biriktirilgan muassasalarni boshqaradi."}
           </div>
 
           {/* ── Buttons ── */}
           <div className="flex gap-3">
             <button
               type="button"
-              onClick={() => router.push("/dashboard")}
+              onClick={() => router.push("/panel/users")}
               className="btn-secondary flex-1"
             >
               Bekor qilish
@@ -294,9 +488,9 @@ export default function RegisterPage() {
       {/* ── Right panel — dinamik ── */}
       <div className={cn(
         "hidden lg:flex flex-1 relative overflow-hidden",
-        isIndigo
-          ? "bg-gradient-to-br from-indigo-900 via-indigo-800 to-violet-900"
-          : "bg-gradient-to-br from-violet-900 via-violet-800 to-purple-900"
+        isViolet
+          ? "bg-gradient-to-br from-violet-900 via-violet-800 to-purple-900"
+          : "bg-gradient-to-br from-indigo-900 via-indigo-800 to-violet-900"
       )}>
         <div
           className="absolute inset-0 opacity-20"
@@ -308,14 +502,14 @@ export default function RegisterPage() {
         <div className="relative z-10 flex flex-col justify-center px-16 text-white">
           <div className={cn(
             "inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium mb-6 w-fit",
-            isIndigo ? "bg-indigo-500/30" : "bg-violet-500/30"
+            isViolet ? "bg-violet-500/30" : "bg-indigo-500/30"
           )}>
             {config.icon}
             {config.label}
           </div>
           <h2 className="text-4xl font-bold leading-tight mb-4">
             {config.label}<br />
-            <span className={isIndigo ? "text-indigo-300" : "text-violet-300"}>
+            <span className={isViolet ? "text-violet-300" : "text-indigo-300"}>
               huquqlari
             </span>
           </h2>
