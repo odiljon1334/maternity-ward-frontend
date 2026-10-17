@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { cn, getAvatarColor, getInitials } from "@/lib/utils";
 import { EmployeeScreen } from "@/components/employee/EmployeeScreen";
+import { TelegramLinkCard } from "@/components/employee/TelegramLinkCard";
 
 export default function ProfilePage() {
   const { user } = useAuthStore();
@@ -201,6 +202,9 @@ export default function ProfilePage() {
             ))}
           </div>
         </div>
+
+        {/* ── Telegram (shaxsiy) ───────────────────────────── */}
+        <TelegramLinkCard />
 
         {/* ── Email tasdiqlash ──────────────────────────────── */}
         <div className="rounded-3xl bg-[var(--bg-card)] border border-[var(--border)] p-6 shadow-xl space-y-4">

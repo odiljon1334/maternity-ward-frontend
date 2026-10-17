@@ -654,7 +654,20 @@ export const trialLeadsApi = {
     api.patch(`/trial-leads/${id}/status`, { status, note }).then((r) => r.data.data),
 };
 
+export type PersonalTelegram = {
+  linked: boolean;
+  linkedAt: string | null;
+  remindersEnabled: boolean;
+  botUsername: string | null;
+  botAvailable: boolean;
+};
+
 export const telegramApi = {
+  // Xodimning shaxsiy Telegrami (eslatmalar, bo'sh smena takliflari)
+  me: () => api.get("/telegram/me").then((r) => r.data.data as PersonalTelegram),
+  createMyLink: () =>
+    api.post("/telegram/me/link").then((r) => r.data.data as { url: string; appUrl: string; expiresAt: string }),
+  unlinkMe: () => api.delete("/telegram/me").then((r) => r.data.data),
   status: () =>
     api.get("/telegram/status").then((r) => r.data.data as { active: boolean; count: number }),
   subscriptions: () =>
