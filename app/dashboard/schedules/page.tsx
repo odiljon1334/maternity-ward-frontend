@@ -1483,7 +1483,7 @@ export default function SchedulesPage() {
         onClose={() => setRolloverConfirmOpen(false)}
         onConfirm={handleRollover}
         title="Oldingi oy grafigi nusxalansinmi?"
-        description={`${dayjs(`${year}-${String(month).padStart(2, "0")}-01`).subtract(1, "month").format("MMMM YYYY")} grafigi ${dayjs(`${year}-${String(month).padStart(2, "0")}-01`).format("MMMM YYYY")} oyiga ko‘chiriladi.`}
+        description={`${dayjs(`${year}-${String(month).padStart(2, "0")}-01`).subtract(1, "month").format("MMMM YYYY")} grafigi ${dayjs(`${year}-${String(month).padStart(2, "0")}-01`).format("MMMM YYYY")} oyiga ko‘chiriladi. Faqat ish va dam olish kunlari ko‘chadi — ta’til, kasallik va boshqa yo‘qliklar ko‘chirilmaydi (ular faqat tasdiqlangan ta’til so‘rovidan yoziladi). Grafigi allaqachon kiritilgan xodimlar o‘zgarmaydi.`}
         confirmLabel="Nusxa olish"
         loading={rollingOver}
       />
