@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { Activity, ArrowLeft, Mail, Send } from "lucide-react";
-import { SUPPORT_BOT_URL, SUPPORT_BOT_USERNAME, SUPPORT_OPERATOR_URL, SUPPORT_OPERATOR_USERNAME } from "@/lib/contacts";
+import { Activity, ArrowLeft, Bot, Mail, Send } from "lucide-react";
+import { SUPPORT_BOT_URL, SUPPORT_BOT_USERNAME, SUPPORT_EMAIL, SUPPORT_OPERATOR_URL, SUPPORT_OPERATOR_USERNAME } from "@/lib/contacts";
 
 export type LegalSection = {
   title: string;
@@ -72,7 +72,10 @@ export function LegalDocumentPage({
                 <Send className="h-4 w-4" /> @{SUPPORT_OPERATOR_USERNAME}
               </a>
               <a href={SUPPORT_BOT_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-white px-4 py-2.5 text-indigo-700">
-                <Mail className="h-4 w-4" /> @{SUPPORT_BOT_USERNAME}
+                <Bot className="h-4 w-4" /> @{SUPPORT_BOT_USERNAME}
+              </a>
+              <a href={`mailto:${SUPPORT_EMAIL}`} className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-white px-4 py-2.5 text-indigo-700">
+                <Mail className="h-4 w-4" /> {SUPPORT_EMAIL}
               </a>
             </div>
           </aside>

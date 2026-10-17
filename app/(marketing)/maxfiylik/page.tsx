@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { LegalDocumentPage, type LegalSection } from "@/components/marketing/LegalDocumentPage";
+import { SUPPORT_EMAIL } from "@/lib/contacts";
 
 export const metadata: Metadata = {
   title: "Maxfiylik siyosati",
@@ -51,6 +52,7 @@ const sections: LegalSection[] = [
     title: "Foydalanuvchi murojaatlari",
     paragraphs: [
       "Ma'lumotni ko'rish, aniqlashtirish, tuzatish yoki o'chirish masalasida avvalo muassasa administratoriga murojaat qiling. Hisobni o'chirish davomat va qonuniy hisobot yozuvlarini avtomatik yo'q qilmasligi mumkin; bunday yozuvlar vakolatli muassasa qarori bilan ko'rib chiqiladi.",
+      `Maxfiylik bo'yicha savollar uchun StaffPlusPRO bilan bevosita bog'lanish: ${SUPPORT_EMAIL}.`,
     ],
   },
 ];
@@ -60,7 +62,7 @@ export default function PrivacyPage() {
     <LegalDocumentPage
       title="Maxfiylik siyosati"
       summary="Qaysi ma'lumotlar olinishi, nima uchun ishlatilishi va ayniqsa ish vaqtidagi GPS kuzatuvi qanday chegaralanishini ochiq bayon qilamiz."
-      updatedAt="28-sentabr 2026"
+      updatedAt="17-oktabr 2026"
       sections={sections}
     />
   );
