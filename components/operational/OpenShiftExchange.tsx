@@ -141,6 +141,10 @@ export function OpenShiftDialog({
   });
 
   const linkedCount = candidates.filter((c) => selected.has(c.employeeId) && c.telegramLinked).length;
+  // Kimga ketishi tugma yonida aniq ko'rinsin: "Kim o'rniga"dagi xodimga
+  // taklif yuborilmaydi va buni adashtirish oson.
+  const selectedNames = candidates.filter((c) => selected.has(c.employeeId)).map((c) => c.fullName);
+  const absentName = departmentEmployees.find((employee) => employee.id === absentEmployeeId)?.fullName;
 
   const toggle = (id: string) =>
     setSelected((current) => {
@@ -159,6 +163,11 @@ export function OpenShiftDialog({
       className="max-w-2xl"
       footer={
         <>
+          {selectedNames.length > 0 && (
+            <span className="mr-auto min-w-0 truncate text-xs text-[var(--text-secondary)]" title={selectedNames.join(", ")}>
+              Kimga: <b className="text-[var(--text-primary)]">{selectedNames.join(", ")}</b>
+            </span>
+          )}
           <Button variant="ghost" onClick={onClose}>Bekor qilish</Button>
           <Button onClick={() => create.mutate()} loading={create.isPending} disabled={!input || !selected.size}>
             <Send className="h-4 w-4" /> {selected.size ? `${selected.size} xodimga yuborish` : "Xodim tanlang"}
@@ -192,7 +201,7 @@ export function OpenShiftDialog({
             </Field>
           )}
         </div>
-        <Field label={postCoverage ? "Kim o‘rniga (majburiy)" : "Kim o‘rniga (ixtiyoriy)"}>
+        <Field label={postCoverage ? "Kim o‘rniga — ishga kelmagan xodim (majburiy)" : "Kim o‘rniga — ishga kelmagan xodim (ixtiyoriy)"}>
           <Select value={absentEmployeeId ?? ""} onChange={(event) => setAbsentEmployeeId(event.target.value || undefined)} className="text-xs" disabled={!departmentId}>
             <option value="">{postCoverage ? "Kelmagan xodimni tanlang" : "Tanlanmagan"}</option>
             {departmentEmployees.map((employee) => <option key={employee.id} value={employee.id}>{employee.fullName}</option>)}
@@ -201,9 +210,10 @@ export function OpenShiftDialog({
         {!!absentEmployeeId && (
           <p className="flex items-center gap-2 rounded-xl bg-[var(--bg-secondary)] px-3 py-2 text-xs text-[var(--text-secondary)]">
             <UserRound className="h-4 w-4" />
-            {postCoverage
-              ? "Shu xodimning post rejadagi smenasi boshqa xodimga o‘tkaziladi (tasdiqlangan “o‘rnini bosish”), post rejaning o‘zi o‘zgarmaydi."
-              : "Kelmagan xodim o‘rniga — u ro‘yxatga kiritilmaydi."}
+            <span>
+              <b className="text-[var(--text-primary)]">{absentName ?? "Bu xodim"}</b> ishga kelmagan deb belgilanadi — taklif unga yuborilmaydi.
+              {postCoverage && " Uning post rejadagi smenasi taklifni olgan xodimga o‘tkaziladi (tasdiqlangan “o‘rnini bosish”), post rejaning o‘zi o‘zgarmaydi."}
+            </span>
           </p>
         )}
 
@@ -215,6 +225,7 @@ export function OpenShiftDialog({
           <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-700 dark:text-rose-300">{errorMessage(preview.error, "Xodimlarni tekshirib bo‘lmadi")}</p>
         ) : (
           <div>
+            <p className="mb-1 text-xs font-bold text-[var(--text-primary)]">Taklif kimga yuboriladi — belgilanganlarga</p>
             <div className="mb-2 flex items-center justify-between text-[11px] text-[var(--text-muted)]">
               <span>{candidates.filter((c) => c.eligible).length} ta mos · {candidates.filter((c) => !c.eligible).length} ta band</span>
               <span>Telegram orqali: {linkedCount} ta · qolganlari web saytda ko‘radi</span>
