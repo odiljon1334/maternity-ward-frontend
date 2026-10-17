@@ -15,6 +15,7 @@ import {
   Loader2,
   LockKeyhole,
   MapPin,
+  Megaphone,
   Navigation,
   RefreshCw,
   ShieldCheck,
@@ -26,6 +27,7 @@ import { StatePanel } from "@/components/ui";
 import { operationalCenterApi } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth";
 import { cn, isSuperLike } from "@/lib/utils";
+import { OpenShiftBoard, OpenShiftDialog, type OpenShiftPrefill } from "@/components/operational/OpenShiftExchange";
 
 type ModeKey = "STANDARD" | "POST_COVERAGE" | "FLEXIBLE";
 type RiskLevel = "CRITICAL" | "WARNING" | "SAFE";
@@ -52,7 +54,11 @@ type RiskItem = {
   evidence: Array<{ label: string; value: string }>;
   candidates?: Candidate[];
   action: { label: string; href: string };
+  openShift?: { departmentId: string; shiftId: string; date: string; absentEmployeeId: string };
 };
+
+/** Bo'sh smenani e'lon qila oladigan rollar (backend bilan bir xil) */
+const OPEN_SHIFT_MANAGERS = ["DIRECTOR", "ADMIN", "SUPER_ADMIN", "ASSISTANT_ADMIN"];
 
 type ModeData = {
   enabled: boolean;
@@ -175,7 +181,7 @@ function RiskRow({ item, active, onClick }: { item: RiskItem; active: boolean; o
   );
 }
 
-function DetailPanel({ item, mode }: { item: RiskItem; mode: ModeKey }) {
+function DetailPanel({ item, mode, onOpenShift }: { item: RiskItem; mode: ModeKey; onOpenShift?: (prefill: OpenShiftPrefill) => void }) {
   const meta = LEVEL_META[item.level];
   const Icon = meta.icon;
   return (
@@ -226,8 +232,14 @@ function DetailPanel({ item, mode }: { item: RiskItem; mode: ModeKey }) {
           </span>
         </div>
 
-        <div className="mt-4">
-          <Link href={item.action.href} className="btn-primary min-h-11 w-full text-xs">
+        {item.openShift && onOpenShift ? (
+          <button type="button" onClick={() => onOpenShift(item.openShift!)} className="btn-primary mt-4 min-h-11 w-full text-xs">
+            <Megaphone className="h-4 w-4" /> Birjaga chiqarish
+          </button>
+        ) : null}
+
+        <div className="mt-2">
+          <Link href={item.action.href} className={cn(item.openShift && onOpenShift ? "btn-secondary" : "btn-primary", "min-h-11 w-full text-xs")}>
             {item.action.label} <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
@@ -247,6 +259,9 @@ export default function OperationalCenterPage() {
   const needsHospitalSelection = isSuperLike(user?.role) && !targetHospitalId;
   const [mode, setMode] = useState<ModeKey>("STANDARD");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [openShiftPrefill, setOpenShiftPrefill] = useState<OpenShiftPrefill>(null);
+  const [openShiftDialog, setOpenShiftDialog] = useState(false);
+  const hospitalParams = targetHospitalId ? { targetHospitalId } : undefined;
 
   const query = useQuery<Overview>({
     queryKey: ["operational-center", targetHospitalId, user?.hospitalId],
@@ -264,6 +279,15 @@ export default function OperationalCenterPage() {
   useEffect(() => {
     setSelectedId(null);
   }, [mode, targetHospitalId]);
+
+  // Birja faqat oddiy grafikli muassasada (post rejali muassasada grafik
+  // post rejadan nashr qilinadi).
+  const canUseOpenShifts =
+    OPEN_SHIFT_MANAGERS.includes(user?.role ?? "") && query.data?.hospital.schedulePlanningMode !== "POST_COVERAGE";
+  const startOpenShift = (prefill: OpenShiftPrefill) => {
+    setOpenShiftPrefill(prefill);
+    setOpenShiftDialog(true);
+  };
 
   return (
     <div className="min-h-screen bg-[var(--bg-primary)]">
@@ -377,7 +401,7 @@ export default function OperationalCenterPage() {
                 </article>
 
                 {selected ? (
-                  <DetailPanel item={selected} mode={mode} />
+                  <DetailPanel item={selected} mode={mode} onOpenShift={canUseOpenShifts ? startOpenShift : undefined} />
                 ) : (
                   <div className="ui-surface p-5 shadow-sm">
                     <StatePanel title="Xavf tafsiloti" description="Ko‘rib chiqish uchun chap tomondagi holatlardan birini tanlang." icon={MapPin} />
@@ -386,12 +410,22 @@ export default function OperationalCenterPage() {
               </section>
             )}
 
+            {canUseOpenShifts && <OpenShiftBoard params={hospitalParams} onCreate={() => startOpenShift(null)} />}
+
             <p className="flex items-center gap-2 px-1 text-[10px] text-[var(--text-muted)]">
               <Clock3 className="h-3.5 w-3.5" /> Oxirgi tahlil: {new Date(query.data.generatedAt).toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit" })}
             </p>
           </>
         )}
       </div>
+      {canUseOpenShifts && (
+        <OpenShiftDialog
+          open={openShiftDialog}
+          onClose={() => setOpenShiftDialog(false)}
+          prefill={openShiftPrefill}
+          params={hospitalParams}
+        />
+      )}
     </div>
   );
 }
