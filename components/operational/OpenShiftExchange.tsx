@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { toast } from "sonner";
 import { AlertTriangle, Ban, Check, Megaphone, Send, UserRound, X } from "lucide-react";
-import { departmentsApi, openShiftsApi, shiftsApi, type OpenShiftInput } from "@/lib/api";
+import { departmentsApi, employeesApi, openShiftsApi, shiftsApi, type OpenShiftInput } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
 import { Dialog } from "@/components/ui/Dialog";
 import { Field, Input, Select, Textarea } from "@/components/ui/FormControls";
@@ -63,11 +63,14 @@ export function OpenShiftDialog({
   onClose,
   prefill,
   params,
+  postCoverage = false,
 }: {
   open: boolean;
   onClose: () => void;
   prefill: OpenShiftPrefill;
   params: HospitalParams;
+  /** Post rejali muassasa: "kim o'rniga" majburiy, smena post rejadan olinadi */
+  postCoverage?: boolean;
 }) {
   const qc = useQueryClient();
   const [departmentId, setDepartmentId] = useState("");
@@ -98,10 +101,23 @@ export function OpenShiftDialog({
     enabled: open,
   });
 
-  const input: OpenShiftInput | null =
-    departmentId && shiftId && date ? { departmentId, shiftId, date, ...(absentEmployeeId && { absentEmployeeId }) } : null;
+  // Bo'limdagi xodimlar — "kim o'rniga" ro'yxati uchun
+  const { data: departmentEmployees = [] } = useQuery<Array<{ id: string; fullName: string }>>({
+    queryKey: ["open-shift-dept-employees", params?.targetHospitalId, departmentId],
+    queryFn: () =>
+      employeesApi
+        .list({ departmentId, limit: 1000, employeeStatus: "ACTIVE", ...(params ?? {}) })
+        .then((r: { data?: Array<{ id: string; fullName: string }> }) => r?.data ?? []),
+    enabled: open && !!departmentId,
+  });
 
-  const preview = useQuery<{ candidates: Candidate[] }>({
+  const input: OpenShiftInput | null = !departmentId || !date
+    ? null
+    : postCoverage
+      ? absentEmployeeId ? { departmentId, date, absentEmployeeId } : null
+      : shiftId ? { departmentId, shiftId, date, ...(absentEmployeeId && { absentEmployeeId }) } : null;
+
+  const preview = useQuery<{ candidates: Candidate[]; shift?: { id: string; name: string; startTime: string; endTime: string } }>({
     queryKey: ["open-shift-preview", params?.targetHospitalId, input],
     queryFn: () => openShiftsApi.preview(input!, params),
     enabled: open && !!input,
@@ -161,22 +177,38 @@ export function OpenShiftDialog({
           <Field label="Sana">
             <Input type="date" value={date} min={dayjs().format("YYYY-MM-DD")} max={dayjs().add(14, "day").format("YYYY-MM-DD")} onChange={(event) => setDate(event.target.value)} className="text-xs" />
           </Field>
-          <Field label="Smena">
-            <Select value={shiftId} onChange={(event) => setShiftId(event.target.value)} className="text-xs">
-              <option value="">Tanlang</option>
-              {shifts.map((shift) => <option key={shift.id} value={shift.id}>{shift.name} {shift.startTime}–{shift.endTime}</option>)}
-            </Select>
-          </Field>
+          {postCoverage ? (
+            <Field label="Smena">
+              <div className="flex min-h-10 items-center rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] px-3 text-xs text-[var(--text-secondary)]">
+                {preview.data?.shift ? `${preview.data.shift.startTime}–${preview.data.shift.endTime} · post rejadan` : "Post rejadan olinadi"}
+              </div>
+            </Field>
+          ) : (
+            <Field label="Smena">
+              <Select value={shiftId} onChange={(event) => setShiftId(event.target.value)} className="text-xs">
+                <option value="">Tanlang</option>
+                {shifts.map((shift) => <option key={shift.id} value={shift.id}>{shift.name} {shift.startTime}–{shift.endTime}</option>)}
+              </Select>
+            </Field>
+          )}
         </div>
+        <Field label={postCoverage ? "Kim o‘rniga (majburiy)" : "Kim o‘rniga (ixtiyoriy)"}>
+          <Select value={absentEmployeeId ?? ""} onChange={(event) => setAbsentEmployeeId(event.target.value || undefined)} className="text-xs" disabled={!departmentId}>
+            <option value="">{postCoverage ? "Kelmagan xodimni tanlang" : "Tanlanmagan"}</option>
+            {departmentEmployees.map((employee) => <option key={employee.id} value={employee.id}>{employee.fullName}</option>)}
+          </Select>
+        </Field>
         {!!absentEmployeeId && (
           <p className="flex items-center gap-2 rounded-xl bg-[var(--bg-secondary)] px-3 py-2 text-xs text-[var(--text-secondary)]">
-            <UserRound className="h-4 w-4" /> Kelmagan xodim o‘rniga — u ro‘yxatga kiritilmaydi.
-            <button type="button" className="ml-auto text-[11px] font-semibold text-indigo-600" onClick={() => setAbsentEmployeeId(undefined)}>Olib tashlash</button>
+            <UserRound className="h-4 w-4" />
+            {postCoverage
+              ? "Shu xodimning post rejadagi smenasi boshqa xodimga o‘tkaziladi (tasdiqlangan “o‘rnini bosish”), post rejaning o‘zi o‘zgarmaydi."
+              : "Kelmagan xodim o‘rniga — u ro‘yxatga kiritilmaydi."}
           </p>
         )}
 
         {!input ? (
-          <p className="rounded-xl border border-dashed border-[var(--border)] p-4 text-center text-xs text-[var(--text-muted)]">Bo‘lim, sana va smenani tanlang — mos xodimlar ko‘rsatiladi.</p>
+          <p className="rounded-xl border border-dashed border-[var(--border)] p-4 text-center text-xs text-[var(--text-muted)]">{postCoverage ? "Bo‘lim, sana va kelmagan xodimni tanlang — mos xodimlar ko‘rsatiladi." : "Bo‘lim, sana va smenani tanlang — mos xodimlar ko‘rsatiladi."}</p>
         ) : preview.isLoading ? (
           <p className="p-4 text-center text-xs text-[var(--text-muted)]">Xodimlar tekshirilmoqda…</p>
         ) : preview.isError ? (
