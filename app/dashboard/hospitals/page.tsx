@@ -3,6 +3,7 @@
 "use client";
 import { useState, useEffect, useTransition, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { hospitalsApi, employeesApi, paymentsApi, downloadBlob, hikvisionApi } from "@/lib/api";
 import { Topbar } from "@/components/layout/Topbar";
@@ -403,6 +404,7 @@ function TerminalModal({ open, onClose, hospital }: {
 // ── Main Page ──────────────────────────────────
 export default function HospitalsPage() {
   const qc = useQueryClient();
+  const router = useRouter();
   const { confirm } = useConfirmation();
   const { user, setSelectedHospital } = useAuthStore();
   const [, startTransition] = useTransition();
@@ -493,14 +495,14 @@ export default function HospitalsPage() {
   });
 
   // useCallback — har render da yangi funksiya yaratishdan saqlanadi
+  // "Ko'rish": muassasani tanlab, uning Dashboard sahifasiga o'tadi.
   const handleSelectHospital = useCallback((h: any) => {
-    // Toast darhol — UI javob beradi
+    setSelectedHospital(h);
     toast.success(`${h.name} tanlandi`);
-    // Store update va navigation non-blocking
     startTransition(() => {
-      setSelectedHospital(h);
+      router.push("/dashboard");
     });
-  }, [setSelectedHospital, startTransition]);
+  }, [router, setSelectedHospital, startTransition]);
 
   // Blok qat'iy: muassasaning barcha foydalanuvchilari (direktor va adminlar
   // ham) darhol tizimdan chiqariladi, Telegram jim turadi. Terminal davomati

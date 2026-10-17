@@ -35,7 +35,7 @@ dayjs.extend(isoWeek);
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
-type StatusFilter = "ALL" | "PRESENT" | "LATE" | "ABSENT" | "EARLY_LEAVE" | "OFF_DUTY" | "NO_SCHEDULE";
+type StatusFilter = "ALL" | "PRESENT" | "LATE" | "ABSENT" | "SCHEDULED" | "EARLY_LEAVE" | "OFF_DUTY" | "NO_SCHEDULE";
 type ShiftFilter  = "ALL" | "DAY" | "NIGHT";
 
 // ─── STATUS CONFIG ────────────────────────────────────────────────────────────
@@ -44,6 +44,8 @@ const STATUS_CONFIG: Record<string, { label: string; badgeCls: string }> = {
   PRESENT:     { label: "Keldi",        badgeCls: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" },
   LATE:        { label: "Kechikdi",     badgeCls: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20" },
   ABSENT:      { label: "Kelmadi",      badgeCls: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20" },
+  // Smenasi hali boshlanmagan (masalan 20:00 dagi kechki smena) — backend virtual
+  SCHEDULED:   { label: "Rejada",       badgeCls: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border-indigo-500/20" },
   EARLY_LEAVE: { label: "Erta ketdi",   badgeCls: "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20" },
   LATE_EARLY:  { label: "Kech+Erta",    badgeCls: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20" },
   // ─── Grafik bo'yicha ishlamaydigan kunlar (backend dan virtual keladi) ──────
@@ -132,16 +134,18 @@ export default function AttendancePage() {
     const total      = all.length;
     const present    = all.filter(r => PRESENT_STATUSES.has(r.status)).length;
     const absent     = all.filter(r => r.status === "ABSENT").length;
+    const upcoming   = all.filter(r => r.status === "SCHEDULED").length;
     const late       = all.filter(r => r.status === "LATE" || r.status === "LATE_EARLY").length;
     const lunchLate  = all.filter(r => (r.lunchLateMin ?? 0) > 0).length;
     const noSchedule = all.filter(r => r.status === "NO_SCHEDULE").length;
     const offDuty    = all.filter(r => OFF_DUTY_STATUSES.has(r.status)).length;
 
     // Rate: bugun ishlashi kerak bo'lganlar = jami − (dam olish/ta'til/kasallik) − grafik yo'q
-    const scheduledTotal = all.filter(r => !NOT_EXPECTED_STATUSES.has(r.status)).length;
+    // Smenasi hali boshlanmaganlar hozircha kutilmaydi — foizni pasaytirmaydi.
+    const scheduledTotal = all.filter(r => !NOT_EXPECTED_STATUSES.has(r.status) && r.status !== "SCHEDULED").length;
     const rate = scheduledTotal > 0 ? Math.round((present / scheduledTotal) * 100) : 0;
 
-    return { total, present, absent, late, lunchLate, noSchedule, offDuty, scheduledTotal, rate };
+    return { total, present, absent, upcoming, late, lunchLate, noSchedule, offDuty, scheduledTotal, rate };
   }, [records]);
 
   // ── Client-side Filtering ─────────────────────────────────────────────────────
@@ -165,6 +169,7 @@ export default function AttendancePage() {
         case "PRESENT":     if (!PRESENT_STATUSES.has(r.status)) return false; break;
         case "LATE":        if (r.status !== "LATE" && r.status !== "LATE_EARLY") return false; break;
         case "ABSENT":      if (r.status !== "ABSENT") return false; break;
+        case "SCHEDULED":   if (r.status !== "SCHEDULED") return false; break;
         case "EARLY_LEAVE": if (r.status !== "EARLY_LEAVE" && r.status !== "LATE_EARLY") return false; break;
         case "OFF_DUTY":    if (!OFF_DUTY_STATUSES.has(r.status)) return false; break;
         case "NO_SCHEDULE": if (r.status !== "NO_SCHEDULE") return false; break;
@@ -258,7 +263,7 @@ export default function AttendancePage() {
           <span>
             {dayjs(date).day() === 6 ? "Shanba" : "Yakshanba"}.
             Holat grafik bo&apos;yicha aniqlanadi — grafigida ish kuni bo&apos;lganlargina
-            &quot;Kelmadi&quot; deb belgilanadi.
+            smenasi boshlangandan keyin &quot;Kelmadi&quot; deb belgilanadi.
           </span>
         </Surface>
       )}
@@ -322,7 +327,7 @@ export default function AttendancePage() {
         <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
           Davomat ko&apos;rsatkichi
           <span className="ml-1.5 text-slate-400 dark:text-slate-500">
-            ({summary.present}/{summary.scheduledTotal} ishlashi kerak)
+            ({summary.present}/{summary.scheduledTotal} ishlashi kerak{summary.upcoming ? ` · ${summary.upcoming} tasining smenasi hali boshlanmagan` : ""})
           </span>
         </span>
         <div className="flex-1 bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
@@ -407,7 +412,7 @@ export default function AttendancePage() {
       <span className="text-slate-400 px-1 flex items-center gap-1 whitespace-nowrap">
         <Filter className="w-3 h-3" /> Holat:
       </span>
-      {(["ALL", "PRESENT", "ABSENT", "LATE", "EARLY_LEAVE", "OFF_DUTY", "NO_SCHEDULE"] as StatusFilter[]).map(st => (
+      {(["ALL", "PRESENT", "ABSENT", "SCHEDULED", "LATE", "EARLY_LEAVE", "OFF_DUTY", "NO_SCHEDULE"] as StatusFilter[]).map(st => (
         <button
           key={st}
           onClick={() => setStatusFilter(st)}
