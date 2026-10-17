@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { Eye, EyeOff, Activity, Users, Clock, TrendingUp, Shield, Mail, Phone, Send, Headset, Lock } from "lucide-react";
-import { SUPPORT_BOT_URL, SUPPORT_BOT_USERNAME, SUPPORT_OPERATOR_URL, SUPPORT_OPERATOR_USERNAME, SUPPORT_PHONE_LABEL } from "@/lib/contacts";
+import { SUPPORT_BOT_URL, SUPPORT_BOT_USERNAME, SUPPORT_EMAIL, SUPPORT_OPERATOR_URL, SUPPORT_OPERATOR_USERNAME, SUPPORT_PHONE_LABEL } from "@/lib/contacts";
 import { Dialog } from "@/components/ui/Dialog";
 import { authApi } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth";
@@ -302,14 +302,14 @@ export default function LoginPage() {
             </p>
             <div className="space-y-2.5">
               <a
-                href={`mailto:${process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'info@maternity.uz'}`}
+                href={`mailto:${process.env.NEXT_PUBLIC_CONTACT_EMAIL || SUPPORT_EMAIL}`}
                 className="flex items-center gap-3 group"
               >
                 <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center flex-shrink-0 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-500/20 transition-colors">
                   <Mail className="w-3.5 h-3.5 text-indigo-500" />
                 </div>
                 <span className="text-sm dark:text-gray-300 text-gray-700 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                  {process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'info@maternity.uz'}
+                  {process.env.NEXT_PUBLIC_CONTACT_EMAIL || SUPPORT_EMAIL}
                 </span>
               </a>
               {process.env.NEXT_PUBLIC_CONTACT_PHONE && (

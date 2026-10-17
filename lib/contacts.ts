@@ -11,6 +11,8 @@ export const SUPPORT_BOT_URL = `https://t.me/${SUPPORT_BOT_USERNAME}`;
 export const SUPPORT_OPERATOR_USERNAME = "staffpluse_support";
 export const SUPPORT_OPERATOR_URL = `https://t.me/${SUPPORT_OPERATOR_USERNAME}`;
 
+export const SUPPORT_EMAIL = "staffpluspro@gmail.com";
+
 export const SUPPORT_PHONE = "+998955775454";
 export const SUPPORT_PHONE_LABEL = "+998 95 577 54 54";
 
