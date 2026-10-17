@@ -54,7 +54,12 @@ type EmpForm = {
   username:     string;
   password:     string;
   birthDate?:   string;
+  /** JSHSHIR (PINFL) — ixtiyoriy, 14 raqam */
+  pinfl:        string;
 };
+
+/** JSHSHIR'ni ko'ra va tahrirlay oladigan rollar (backend bilan bir xil) */
+const PINFL_ROLES = ["SUPER_ADMIN", "ASSISTANT_ADMIN", "ADMIN", "DIRECTOR"];
 
 // ── Employee Form Modal ──────────────────────────
 function EmployeeModal({
@@ -68,8 +73,18 @@ function EmployeeModal({
   targetHospitalId?: string;
   currentUserRole?: string;
 }) {
-  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<EmpForm>({
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors, dirtyFields } } = useForm<EmpForm>({
     defaultValues: { gender: "FEMALE" },
+  });
+  const { user } = useAuthStore();
+  const canSeePinfl = PINFL_ROLES.includes(user?.role ?? "");
+  const pinflParams = targetHospitalId ? { targetHospitalId } : undefined;
+  // Ro'yxatdagi xodim obyektida JSHSHIR yo'q (shaxsiy ma'lumot) — kartochka
+  // ochilganda alohida olinadi.
+  const { data: employeeDetail } = useQuery({
+    queryKey: ["employee-detail", employee?.id, targetHospitalId],
+    queryFn: () => employeesApi.get(employee.id, pinflParams),
+    enabled: open && !!employee?.id && canSeePinfl,
   });
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -132,6 +147,7 @@ function EmployeeModal({
         username:     employee.user?.username || "",
         password:     "",
         birthDate:    employee.birthDate ? employee.birthDate.split('T')[0] : "",
+        pinfl:        "",
       });
     } else {
       reset({ 
@@ -147,12 +163,20 @@ function EmployeeModal({
         birthDate: employee?.birthDate
           ? new Date(employee.birthDate).toISOString().slice(0, 10)
           : "",
+        pinfl: "",
       });
     }
     setPhotoFile(null);
     setPhotoPreview(null);
     setShowPassword(false);
   }, [employee, reset, open]);
+
+  // Kartochkadan kelgan JSHSHIR — "o'zgartirilmagan" holatda qo'yiladi.
+  useEffect(() => {
+    if (employeeDetail && employeeDetail.id === employee?.id) {
+      setValue("pinfl", employeeDetail.pinfl ?? "", { shouldDirty: false });
+    }
+  }, [employeeDetail, employee?.id, setValue]);
 
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -165,15 +189,20 @@ function EmployeeModal({
 
   const mutation = useMutation({
     mutationFn: async (data: EmpForm) => {
-      const { birthDate, ...rest } = data;
+      const { birthDate, pinfl, ...rest } = data;
+      // JSHSHIR faqat foydalanuvchi o'zgartirganda yuboriladi — aks holda
+      // (masalan ruxsati yo'q rol) mavjud qiymat tasodifan o'chib ketmaydi.
+      const pinflPatch = canSeePinfl && dirtyFields.pinfl
+        ? { pinfl: (pinfl ?? "").replace(/[\s-]/g, "") }
+        : {};
       const emp = employee
         ? await employeesApi.update(
             employee.id,
-            { ...rest, birthDate: birthDate || undefined },
+            { ...rest, birthDate: birthDate || undefined, ...pinflPatch },
             params
           )
         : await employeesApi.create(
-            { ...rest, birthDate: birthDate || undefined },
+            { ...rest, birthDate: birthDate || undefined, ...pinflPatch },
             params
           );
       if (photoFile) {
@@ -185,6 +214,7 @@ function EmployeeModal({
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["employees"] });
+      qc.invalidateQueries({ queryKey: ["employee-detail"] });
       toast.success(employee ? "Xodim yangilandi" : "Xodim qo'shildi");
       onClose();
       reset();
@@ -346,6 +376,26 @@ function EmployeeModal({
               <label className="block text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider mb-1.5">Telefon</label>
               <input {...register("phone")} className="input-field w-full font-medium" placeholder="+998901234567" />
             </div>
+
+            {canSeePinfl && (
+              <div>
+                <label className="block text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider mb-1.5">
+                  JSHSHIR <span className="normal-case font-medium text-[var(--text-muted)]">(ixtiyoriy)</span>
+                </label>
+                <input
+                  {...register("pinfl", {
+                    validate: (value) =>
+                      !value || /^\d{14}$/.test(value.replace(/[\s-]/g, "")) || "JSHSHIR 14 ta raqamdan iborat bo‘lishi kerak",
+                  })}
+                  inputMode="numeric"
+                  autoComplete="off"
+                  maxLength={20}
+                  className="input-field w-full font-mono font-medium"
+                  placeholder="14 ta raqam"
+                />
+                {errors.pinfl && <p className="mt-1 text-xs text-red-500">{errors.pinfl.message}</p>}
+              </div>
+            )}
 
             <div>
               <label className="block text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider mb-1.5">Tug&apos;ilgan sana</label>
