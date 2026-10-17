@@ -280,10 +280,10 @@ export default function OperationalCenterPage() {
     setSelectedId(null);
   }, [mode, targetHospitalId]);
 
-  // Birja faqat oddiy grafikli muassasada (post rejali muassasada grafik
-  // post rejadan nashr qilinadi).
-  const canUseOpenShifts =
-    OPEN_SHIFT_MANAGERS.includes(user?.role ?? "") && query.data?.hospital.schedulePlanningMode !== "POST_COVERAGE";
+  // Birja ikkala rejimda ham: post rejali muassasada smena kelmagan
+  // xodimning post rejadagi smenasidan olinadi va "o'rnini bosish" bo'lib yoziladi.
+  const canUseOpenShifts = OPEN_SHIFT_MANAGERS.includes(user?.role ?? "") && !!query.data;
+  const postCoverage = query.data?.hospital.schedulePlanningMode === "POST_COVERAGE";
   const startOpenShift = (prefill: OpenShiftPrefill) => {
     setOpenShiftPrefill(prefill);
     setOpenShiftDialog(true);
@@ -424,6 +424,7 @@ export default function OperationalCenterPage() {
           onClose={() => setOpenShiftDialog(false)}
           prefill={openShiftPrefill}
           params={hospitalParams}
+          postCoverage={postCoverage}
         />
       )}
     </div>

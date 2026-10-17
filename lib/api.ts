@@ -154,7 +154,8 @@ type HospitalParams = { targetHospitalId?: string };
 export type OpenShiftInput = {
   departmentId: string;
   date: string;
-  shiftId: string;
+  /** Post rejali muassasada yuborilmaydi — smena rejadan olinadi */
+  shiftId?: string;
   absentEmployeeId?: string;
 };
 export const openShiftsApi = {
