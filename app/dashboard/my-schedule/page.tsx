@@ -18,6 +18,7 @@ import { Field, Select, Textarea } from "@/components/ui/FormControls";
 import { Surface } from "@/components/ui/Surface";
 import { StatePanel } from "@/components/ui/StatePanel";
 import { EmployeeScreen } from "@/components/employee/EmployeeScreen";
+import { MyOpenShiftOffers } from "@/components/operational/MyOpenShiftOffers";
 
 const WEEKDAYS = ["Du", "Se", "Ch", "Pa", "Ju", "Sh", "Ya"];
 
@@ -317,6 +318,8 @@ export default function MySchedulePage() {
     >
 
       <div className="max-w-4xl mx-auto px-4 lg:px-6 pt-2 sm:pt-6 space-y-4 sm:space-y-5">
+
+        <MyOpenShiftOffers />
 
         {/* Banner */}
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-600/90 via-purple-600/70 to-indigo-700/90 border border-indigo-500/30 p-6 shadow-2xl text-white">

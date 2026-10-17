@@ -149,6 +149,30 @@ export const operationalCenterApi = {
     api.get("/operational-center/overview", { params }).then((r) => r.data.data),
 };
 
+// ─── Bo'sh smena birjasi (Operativ markaz) ─────
+type HospitalParams = { targetHospitalId?: string };
+export type OpenShiftInput = {
+  departmentId: string;
+  date: string;
+  shiftId: string;
+  absentEmployeeId?: string;
+};
+export const openShiftsApi = {
+  list: (params?: HospitalParams) =>
+    api.get("/open-shifts", { params }).then((r) => r.data.data),
+  preview: (data: OpenShiftInput, params?: HospitalParams) =>
+    api.post("/open-shifts/preview", data, { params }).then((r) => r.data.data),
+  create: (data: OpenShiftInput & { employeeIds: string[]; note?: string }, params?: HospitalParams) =>
+    api.post("/open-shifts", data, { params }).then((r) => r.data.data),
+  review: (id: string, decision: "APPROVED" | "REJECTED", params?: HospitalParams) =>
+    api.patch(`/open-shifts/${id}/review`, { decision }, { params }).then((r) => r.data.data),
+  cancel: (id: string, params?: HospitalParams) =>
+    api.patch(`/open-shifts/${id}/cancel`, undefined, { params }).then((r) => r.data.data),
+  my: () => api.get("/open-shifts/my").then((r) => r.data.data),
+  claim: (id: string) => api.post(`/open-shifts/${id}/claim`).then((r) => r.data.data),
+  decline: (id: string) => api.post(`/open-shifts/${id}/decline`).then((r) => r.data.data),
+};
+
 // ─── Departments ────────────────────────────────
 export const departmentsApi = {
   list: (params?: { targetHospitalId?: string }) =>
