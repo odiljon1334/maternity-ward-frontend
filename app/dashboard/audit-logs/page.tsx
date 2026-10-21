@@ -10,8 +10,25 @@ import {
   FileUp, DollarSign, ChevronLeft, ChevronRight,
   Search, AlertTriangle, RefreshCw,
 } from "lucide-react";
+import { Dialog } from "@/components/ui/Dialog";
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
+
+interface AuditRecord {
+  id: string;
+  action: string;
+  entity: string;
+  entityId: string | null;
+  userId: string | null;
+  hospitalId: string | null;
+  createdAt: string;
+  ip: string | null;
+  details: {
+    username?: string; role?: string; reason?: string;
+    fullName?: string; filename?: string; imported?: number; deletedCount?: number;
+    [key: string]: unknown;
+  } | null;
+}
 
 // ─── Action badge config ──────────────────────────
 const ACTION_CONFIG: Record<string, { label: string; color: string; icon: React.ElementType }> = {
@@ -41,6 +58,14 @@ const ENTITY_LABELS: Record<string, string> = {
   AuditLog:      "Audit log",
 };
 
+const REASONS: Record<string, string> = {
+  user_not_found: "Bunday login topilmadi",
+  wrong_password: "Parol noto‘g‘ri",
+  account_blocked: "Hisob bloklangan",
+  hospital_blocked: "Muassasa bloklangan",
+};
+const inputClass = "px-3 py-2 rounded-lg bg-[var(--card-bg)] border border-[var(--border)] text-sm text-white";
+
 const ACTIONS   = Object.keys(ACTION_CONFIG);
 const ENTITIES  = Object.keys(ENTITY_LABELS);
 const PAGE_SIZE = 20;
@@ -67,8 +92,8 @@ function ActionBadge({ action }: { action: string }) {
 
 function formatDate(iso: string) {
   const d = new Date(iso);
-  return d.toLocaleDateString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric" })
-    + " " + d.toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  return d.toLocaleDateString("uz-UZ", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Asia/Tashkent" })
+    + " " + d.toLocaleTimeString("uz-UZ", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: "Asia/Tashkent" });
 }
 
 export default function AuditLogsPage() {
@@ -79,6 +104,12 @@ export default function AuditLogsPage() {
   const [page, setPage]               = useState(1);
   const [actionFilter, setActionFilter] = useState("");
   const [entityFilter, setEntityFilter] = useState("");
+  const [searchDraft, setSearchDraft] = useState("");
+  const [ipDraft, setIpDraft] = useState("");
+  const [fromDraft, setFromDraft] = useState("");
+  const [toDraft, setToDraft] = useState("");
+  const [filters, setFilters] = useState({ search: "", ip: "", from: "", to: "" });
+  const [selectedLog, setSelectedLog] = useState<AuditRecord | null>(null);
   const [clearModal, setClearModal]   = useState(false);
   const [clearDays, setClearDays]     = useState(90);
 
@@ -89,31 +120,32 @@ export default function AuditLogsPage() {
     if (forbidden) router.replace("/dashboard");
   }, [forbidden, router]);
 
-  const { data, isLoading, isFetching, refetch } = useQuery({
-    queryKey: ["audit-logs", page, actionFilter, entityFilter],
+  const { data, isLoading, isFetching, isError, dataUpdatedAt, refetch } = useQuery({
+    queryKey: ["audit-logs", user?.id, page, actionFilter, entityFilter, filters],
     queryFn: () =>
       auditLogsApi.list({
+        ...filters,
         page,
         limit: PAGE_SIZE,
         action: actionFilter || undefined,
         entity: entityFilter || undefined,
       }),
     staleTime: 0,           // har doim fresh fetch
-    placeholderData: (prev) => prev,
     enabled: user?.role === "SUPER_ADMIN",
   });
 
   const clearMutation = useMutation({
     mutationFn: (days: number) => auditLogsApi.clearOldLogs(days),
-    onSuccess: (result: any) => {
+    onSuccess: (result: { deleted?: number }) => {
       toast.success(`${result?.deleted ?? 0} ta log o'chirildi`);
       setClearModal(false);
+      setPage(1);
       qc.invalidateQueries({ queryKey: ["audit-logs"] });
     },
     onError: () => toast.error("O'chirishda xato"),
   });
 
-  const logs: any[]   = data?.records ?? [];
+  const logs: AuditRecord[]   = data?.records ?? [];
   const total: number = data?.total   ?? 0;
   const pages: number = data?.pages   ?? 1;
 
@@ -127,15 +159,15 @@ export default function AuditLogsPage() {
   return (
     <div className="p-4 lg:p-6 space-y-4 lg:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white flex items-center gap-2">
             <Shield className="w-6 h-6 text-indigo-400" />
             Audit Log
           </h1>
-          <p className="text-sm text-gray-400 mt-1">Tizimda amalga oshirilgan barcha amallar</p>
+          <p className="text-sm text-gray-400 mt-1">Tizimda qayd etilgan amallar · Toshkent vaqti (UTC+5)</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={() => refetch()}
             disabled={isFetching}
@@ -154,11 +186,41 @@ export default function AuditLogsPage() {
         </div>
       </div>
 
+      <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-3 text-sm text-gray-300 space-y-1">
+        <p>Muvaffaqiyatsiz login — hisobga kirilganini anglatmaydi. IP manzil shaxsni tasdiqlamaydi.</p>
+        <p className="text-xs text-gray-400">IP himoyasi tuzatilishidan oldingi yozuvlarda manzil soxtalashtirilgan bo‘lishi mumkin. Nginx rad etgan so‘rovlar bu ilova jurnaliga tushmasligi mumkin.</p>
+        {dataUpdatedAt > 0 && <p className="text-xs text-gray-400">Oxirgi yuklash: {formatDate(new Date(dataUpdatedAt).toISOString())}</p>}
+      </div>
+      <form className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5" onSubmit={(event) => {
+        event.preventDefault();
+        if (fromDraft && toDraft && fromDraft > toDraft) { toast.error("Sana oralig‘i noto‘g‘ri"); return; }
+        setFilters({ search: searchDraft.trim(), ip: ipDraft.trim(),
+          from: fromDraft ? new Date(`${fromDraft}T00:00:00+05:00`).toISOString() : "",
+          to: toDraft ? new Date(`${toDraft}T23:59:59.999+05:00`).toISOString() : "",
+        });
+        setPage(1);
+      }}>
+        <label className="min-w-0 text-xs text-gray-400 space-y-1">Login yoki ID / IP
+          <input className={cn(inputClass, "w-full")} value={searchDraft} maxLength={100} onChange={e => setSearchDraft(e.target.value)} placeholder="Login: katta-kichik harf hisobga olinadi" />
+        </label>
+        <label className="min-w-0 text-xs text-gray-400 space-y-1">Aniq IP manzil
+          <input className={cn(inputClass, "w-full")} value={ipDraft} maxLength={45} onChange={e => setIpDraft(e.target.value)} placeholder="IPv4 yoki IPv6" />
+        </label>
+        <label className="min-w-0 text-xs text-gray-400 space-y-1">Boshlanish sanasi
+          <input className={cn(inputClass, "w-full")} type="date" value={fromDraft} onChange={e => setFromDraft(e.target.value)} />
+        </label>
+        <label className="min-w-0 text-xs text-gray-400 space-y-1">Tugash sanasi
+          <input className={cn(inputClass, "w-full")} type="date" value={toDraft} onChange={e => setToDraft(e.target.value)} />
+        </label>
+        <button type="submit" className="self-end rounded-lg bg-indigo-600 px-4 py-2 text-sm text-white">Qidirish</button>
+      </form>
+
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
           <select
+            aria-label="Amal bo‘yicha filtr"
             value={actionFilter}
             onChange={handleFilterChange(setActionFilter)}
             className="pl-9 pr-4 py-2 rounded-lg bg-[var(--card-bg)] border border-[var(--border)] text-sm text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 appearance-none cursor-pointer"
@@ -173,20 +235,21 @@ export default function AuditLogsPage() {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
           <select
+            aria-label="Obyekt bo‘yicha filtr"
             value={entityFilter}
             onChange={handleFilterChange(setEntityFilter)}
             className="pl-9 pr-4 py-2 rounded-lg bg-[var(--card-bg)] border border-[var(--border)] text-sm text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 appearance-none cursor-pointer"
           >
-            <option value="">Barcha ob'ektlar</option>
+            <option value="">Barcha obyektlar</option>
             {ENTITIES.map((e) => (
               <option key={e} value={e}>{ENTITY_LABELS[e] ?? e}</option>
             ))}
           </select>
         </div>
 
-        {(actionFilter || entityFilter) && (
+        {(actionFilter || entityFilter || filters.search || filters.ip || filters.from || filters.to) && (
           <button
-            onClick={() => { setActionFilter(""); setEntityFilter(""); setPage(1); }}
+            onClick={() => { setActionFilter(""); setEntityFilter(""); setSearchDraft(""); setIpDraft(""); setFromDraft(""); setToDraft(""); setFilters({ search: "", ip: "", from: "", to: "" }); setPage(1); }}
             className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm hover:bg-red-500/20 transition-colors"
           >
             Filtrni tozalash
@@ -194,7 +257,7 @@ export default function AuditLogsPage() {
         )}
 
         <span className="ml-auto flex items-center text-sm text-gray-400">
-          Jami: <strong className="ml-1 text-white">{total}</strong> ta yozuv
+          Filtr bo‘yicha: <strong className="mx-1 text-white">{isError ? "—" : total}</strong> ta yozuv
         </span>
       </div>
 
@@ -206,14 +269,19 @@ export default function AuditLogsPage() {
               <tr className="bg-white/5 border-b border-[var(--border)]">
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Vaqt</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Amal</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Ob'ekt</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Foydalanuvchi</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Obyekt</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Ijrochi / kiritilgan login</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Tafsilot</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">IP</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border)]">
-              {isLoading ? (
+              {isError ? (
+                <tr><td colSpan={6} className="p-8 text-center text-red-400" role="alert">
+                  Ma’lumot yuklanmadi. Filtrlar va ulanishni tekshiring.
+                  <button className="ml-3 underline" onClick={() => refetch()}>Qayta urinish</button>
+                </td></tr>
+              ) : isLoading ? (
                 Array.from({ length: 8 }).map((_, i) => (
                   <tr key={i} className="animate-pulse">
                     {Array.from({ length: 6 }).map((_, j) => (
@@ -248,9 +316,10 @@ export default function AuditLogsPage() {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      {log.details?.username ? (
+                      {log.action.startsWith("LOGIN") && log.details?.username ? (
                         <div>
                           <span className="text-white font-medium">{log.details.username}</span>
+                          {log.action === "LOGIN_FAILED" && <span className="block text-xs text-gray-400">Kiritilgan login</span>}
                           {log.details?.role && (
                             <span className="ml-1 text-xs text-gray-500">({log.details.role})</span>
                           )}
@@ -265,7 +334,7 @@ export default function AuditLogsPage() {
                       {log.details ? (
                         <span className="text-xs text-gray-400 truncate block">
                           {log.details.reason
-                            ? <span className="text-red-400">{log.details.reason}</span>
+                            ? <span className="text-red-400">{REASONS[log.details.reason] ?? log.details.reason}</span>
                             : log.details.fullName ?? log.details.filename
                             ?? (log.details.imported !== undefined ? `${log.details.imported} ta import` : null)
                             ?? (log.details.deletedCount !== undefined ? `${log.details.deletedCount} ta o'chirildi` : null)
@@ -275,8 +344,9 @@ export default function AuditLogsPage() {
                         <span className="text-gray-600">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 font-mono text-xs text-gray-500">
-                      {log.ip ?? "—"}
+                    <td className="px-4 py-3 font-mono text-xs text-gray-400">
+                      {log.ip || "Qayd etilmagan"}
+                      <button className="block mt-2 text-indigo-400 underline" onClick={() => setSelectedLog(log)} aria-label={`Yozuv tafsilotlari: ${log.id}`}>Batafsil</button>
                     </td>
                   </tr>
                 ))
@@ -287,13 +357,14 @@ export default function AuditLogsPage() {
       </div>
 
       {/* Pagination */}
-      {pages > 1 && (
+      {!isError && pages > 1 && (
         <div className="flex items-center justify-between">
           <span className="text-sm text-gray-400">
             {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} / {total}
           </span>
           <div className="flex items-center gap-2">
             <button
+              aria-label="Oldingi sahifa"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1 || isFetching}
               className="p-2 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
@@ -302,6 +373,7 @@ export default function AuditLogsPage() {
             </button>
             <span className="text-sm text-white">{page} / {pages}</span>
             <button
+              aria-label="Keyingi sahifa"
               onClick={() => setPage((p) => Math.min(pages, p + 1))}
               disabled={page === pages || isFetching}
               className="p-2 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
@@ -311,6 +383,22 @@ export default function AuditLogsPage() {
           </div>
         </div>
       )}
+
+      <Dialog open={!!selectedLog} onClose={() => setSelectedLog(null)} title="Audit yozuvi tafsilotlari" description="Saqlangan qiymatlar. Bo‘sh maydonlar jurnalga yozilmagan.">
+        {selectedLog && <div className="space-y-4 text-sm break-words">
+          <ActionBadge action={selectedLog.action} />
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
+            <dt>Yozuv ID</dt><dd className="font-mono">{selectedLog.id}</dd>
+            <dt>Toshkent vaqti</dt><dd>{formatDate(selectedLog.createdAt)}</dd>
+            <dt>UTC</dt><dd>{selectedLog.createdAt}</dd>
+            <dt>Foydalanuvchi ID</dt><dd>{selectedLog.userId || "Qayd etilmagan"}</dd>
+            <dt>Muassasa ID</dt><dd>{selectedLog.hospitalId || "Qayd etilmagan"}</dd>
+            <dt>Obyekt ID</dt><dd>{selectedLog.entityId || "Qayd etilmagan"}</dd>
+            <dt>IP</dt><dd>{selectedLog.ip || "Qayd etilmagan"}</dd>
+          </dl>
+          <pre className="max-h-80 overflow-auto whitespace-pre-wrap rounded-lg bg-black/20 p-3 text-xs">{JSON.stringify(selectedLog.details ?? {}, null, 2)}</pre>
+        </div>}
+      </Dialog>
 
       {/* Clear old logs modal */}
       {clearModal && (
@@ -322,12 +410,12 @@ export default function AuditLogsPage() {
               </div>
               <div>
                 <h3 className="font-semibold text-white">Eski loglarni tozalash</h3>
-                <p className="text-xs text-gray-400">Bu amal qaytarib bo'lmaydi</p>
+                <p className="text-xs text-gray-400">Bu amalni qaytarib bo‘lmaydi</p>
               </div>
             </div>
 
             <div className="space-y-2">
-              <p className="text-sm text-gray-400">Qaysi loglarni o'chirish:</p>
+              <p className="text-sm text-gray-400">Qaysi loglarni o‘chirish:</p>
               <div className="grid grid-cols-2 gap-2">
                 {CLEAR_OPTIONS.map((opt) => (
                   <button

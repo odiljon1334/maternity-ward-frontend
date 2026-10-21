@@ -764,6 +764,10 @@ export const paymentsApi = {
 // ─── Audit Logs (SUPER_ADMIN) ────────────────────
 export const auditLogsApi = {
   list: (params?: {
+    search?: string;
+    ip?: string;
+    from?: string;
+    to?: string;
     entity?: string;
     action?: string;
     page?: number;
