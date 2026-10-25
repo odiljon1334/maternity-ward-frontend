@@ -24,6 +24,7 @@ function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
     PRESENT:     "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
     LATE:        "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+    INCOMPLETE: "bg-amber-500/20 text-amber-400 border-amber-500/30",
     ABSENT:      "bg-red-500/20 text-red-400 border-red-500/30",
     EARLY_LEAVE: "bg-blue-500/20 text-blue-400 border-blue-500/30",
     LATE_EARLY:  "bg-orange-500/20 text-orange-400 border-orange-500/30",
@@ -33,7 +34,7 @@ function StatusBadge({ status }: { status: string }) {
     SICK:        "bg-pink-500/20 text-pink-400 border-pink-500/30",
   };
   const labels: Record<string, string> = {
-    PRESENT: "Keldi", LATE: "Kechikdi", ABSENT: "Kelmadi",
+    INCOMPLETE: "Kirish qaydi yo‘q", PRESENT: "Keldi", LATE: "Kechikdi", ABSENT: "Kelmadi",
     EARLY_LEAVE: "Erta ketdi", LATE_EARLY: "Kech+Erta",
     WORKING: "Ish kuni", DAY_OFF: "Dam olish",
     VACATION: "Ta'til", SICK: "Kasallik",

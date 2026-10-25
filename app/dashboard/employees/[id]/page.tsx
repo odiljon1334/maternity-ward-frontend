@@ -29,7 +29,7 @@ interface AttendanceRecord {
   netWorkMin?: number;
   // Backend davomat statuslari + grafikdan keladigan virtual statuslar
   status:
-    | "PRESENT" | "LATE" | "LATE_EARLY" | "ABSENT" | "EARLY_LEAVE"
+    | "PRESENT" | "LATE" | "LATE_EARLY" | "ABSENT" | "INCOMPLETE" | "EARLY_LEAVE"
     | "PLANNED" | "DAY_OFF" | "VACATION" | "SICK" | "HOLIDAY"
     | "MATERNITY_LEAVE" | "TRAINING" | "OTHER_ABSENCE";
   schedule?: {
@@ -93,6 +93,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string; bg: string; 
   PRESENT:     { label: "Keldi",      color: "text-emerald-700 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-500/10", border: "border-emerald-200 dark:border-emerald-500/20" },
   LATE:        { label: "Kech keldi", color: "text-amber-700 dark:text-amber-400",   bg: "bg-amber-50 dark:bg-amber-500/10",   border: "border-amber-200 dark:border-amber-500/20" },
   LATE_EARLY:  { label: "Kech+Erta",  color: "text-orange-700 dark:text-orange-400", bg: "bg-orange-50 dark:bg-orange-500/10", border: "border-orange-200 dark:border-orange-500/20" },
+  INCOMPLETE: { label: "Kirish qaydi yo‘q", color: "text-amber-700 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-500/10", border: "border-amber-200 dark:border-amber-500/20" },
   ABSENT:      { label: "Kelmadi",    color: "text-rose-700 dark:text-rose-400",     bg: "bg-rose-50 dark:bg-rose-500/10",    border: "border-rose-200 dark:border-rose-500/20" },
   EARLY_LEAVE: { label: "Erta ketdi", color: "text-sky-700 dark:text-sky-400",      bg: "bg-sky-50 dark:bg-sky-500/10",     border: "border-sky-200 dark:border-sky-500/20" },
   // ─── Davomat yozuvi yo'q, faqat grafik bor bo'lgan kunlar ──────────────────

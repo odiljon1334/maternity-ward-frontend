@@ -35,7 +35,7 @@ dayjs.extend(isoWeek);
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
-type StatusFilter = "ALL" | "PRESENT" | "LATE" | "ABSENT" | "SCHEDULED" | "EARLY_LEAVE" | "OFF_DUTY" | "NO_SCHEDULE";
+type StatusFilter = "ALL" | "PRESENT" | "LATE" | "ABSENT" | "INCOMPLETE" | "SCHEDULED" | "EARLY_LEAVE" | "OFF_DUTY" | "NO_SCHEDULE";
 type ShiftFilter  = "ALL" | "DAY" | "NIGHT";
 
 // ─── STATUS CONFIG ────────────────────────────────────────────────────────────
@@ -43,6 +43,7 @@ type ShiftFilter  = "ALL" | "DAY" | "NIGHT";
 const STATUS_CONFIG: Record<string, { label: string; badgeCls: string }> = {
   PRESENT:     { label: "Keldi",        badgeCls: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" },
   LATE:        { label: "Kechikdi",     badgeCls: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20" },
+  INCOMPLETE:  { label: "Kirish qaydi yo‘q", badgeCls: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20" },
   ABSENT:      { label: "Kelmadi",      badgeCls: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20" },
   // Smenasi hali boshlanmagan (masalan 20:00 dagi kechki smena) — backend virtual
   SCHEDULED:   { label: "Rejada",       badgeCls: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border-indigo-500/20" },
@@ -134,6 +135,7 @@ export default function AttendancePage() {
     const total      = all.length;
     const present    = all.filter(r => PRESENT_STATUSES.has(r.status)).length;
     const absent     = all.filter(r => r.status === "ABSENT").length;
+    const incomplete = all.filter(r => r.status === "INCOMPLETE").length;
     const upcoming   = all.filter(r => r.status === "SCHEDULED").length;
     const late       = all.filter(r => r.status === "LATE" || r.status === "LATE_EARLY").length;
     const lunchLate  = all.filter(r => (r.lunchLateMin ?? 0) > 0).length;
@@ -145,7 +147,7 @@ export default function AttendancePage() {
     const scheduledTotal = all.filter(r => !NOT_EXPECTED_STATUSES.has(r.status) && r.status !== "SCHEDULED").length;
     const rate = scheduledTotal > 0 ? Math.round((present / scheduledTotal) * 100) : 0;
 
-    return { total, present, absent, upcoming, late, lunchLate, noSchedule, offDuty, scheduledTotal, rate };
+    return { total, present, absent, incomplete, upcoming, late, lunchLate, noSchedule, offDuty, scheduledTotal, rate };
   }, [records]);
 
   // ── Client-side Filtering ─────────────────────────────────────────────────────
@@ -168,6 +170,7 @@ export default function AttendancePage() {
       switch (statusFilter) {
         case "PRESENT":     if (!PRESENT_STATUSES.has(r.status)) return false; break;
         case "LATE":        if (r.status !== "LATE" && r.status !== "LATE_EARLY") return false; break;
+        case "INCOMPLETE": if (r.status !== "INCOMPLETE") return false; break;
         case "ABSENT":      if (r.status !== "ABSENT") return false; break;
         case "SCHEDULED":   if (r.status !== "SCHEDULED") return false; break;
         case "EARLY_LEAVE": if (r.status !== "EARLY_LEAVE" && r.status !== "LATE_EARLY") return false; break;
@@ -412,7 +415,7 @@ export default function AttendancePage() {
       <span className="text-slate-400 px-1 flex items-center gap-1 whitespace-nowrap">
         <Filter className="w-3 h-3" /> Holat:
       </span>
-      {(["ALL", "PRESENT", "ABSENT", "SCHEDULED", "LATE", "EARLY_LEAVE", "OFF_DUTY", "NO_SCHEDULE"] as StatusFilter[]).map(st => (
+      {(["ALL", "PRESENT", "ABSENT", "INCOMPLETE", "SCHEDULED", "LATE", "EARLY_LEAVE", "OFF_DUTY", "NO_SCHEDULE"] as StatusFilter[]).map(st => (
         <button
           key={st}
           onClick={() => setStatusFilter(st)}
@@ -468,6 +471,12 @@ export default function AttendancePage() {
   </Select>
 </div>
       </Surface>
+
+      {summary.incomplete > 0 && (
+        <div role="status" className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
+          {summary.incomplete} ta davomatni tekshirish kerak: chiqish qaydi bor, kirish vaqti noma’lum. Ishlangan vaqt hisoblanmagan. Xodim kartasida asl hodisalarni tekshiring.
+        </div>
+      )}
 
       {/* Main Table */}
       {isError ? (
