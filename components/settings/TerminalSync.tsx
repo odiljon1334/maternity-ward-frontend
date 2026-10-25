@@ -71,7 +71,7 @@ export function TerminalSyncStatus({ job }: { job: TerminalSyncJob | null }) {
     return (
       <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-hover)] p-4 space-y-2" aria-live="polite">
         <div className="flex items-center justify-between text-xs">
-          <p className="font-semibold text-[var(--text-primary)]">Sinxronlanmoqda…</p>
+          <p className="font-semibold text-[var(--text-primary)]">{job.queuePhase === "WAITING" ? "Navbatda — vazifa saqlangan" : "Sinxronlanmoqda…"}</p>
           <p className="font-mono text-[var(--text-muted)]">
             {job.units > 0 ? `${job.done} / ${job.units}` : "tayyorlanmoqda"}
           </p>
@@ -80,6 +80,8 @@ export function TerminalSyncStatus({ job }: { job: TerminalSyncJob | null }) {
           <div className="h-full rounded-full bg-indigo-500 transition-all duration-500" style={{ width: `${pct}%` }} />
         </div>
         <p className="text-[11px] text-[var(--text-muted)]">
+          {job.message && <span className="block mb-1">{job.message}</span>}
+          {job.attempt ? <span className="block mb-1">Urinish: {job.attempt} / 5</span> : null}
           {job.created} yangi · {job.skipped} mavjud · {job.failed} xato. Oynani yopsangiz ham jarayon serverda davom etadi.
         </p>
       </div>

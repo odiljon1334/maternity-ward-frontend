@@ -530,6 +530,8 @@ export const hikvisionApi = {
 export interface TerminalSyncJob {
   id: string;
   hospitalId: string;
+  queuePhase?: "WAITING" | "ACTIVE" | "DONE" | "FAILED";
+  attempt?: number;
   state: "RUNNING" | "DONE" | "FAILED";
   /** Rasmli faol xodimlar */
   total: number;
