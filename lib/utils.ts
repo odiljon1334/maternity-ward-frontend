@@ -56,9 +56,13 @@ function formatTashkentDateTime(value: string | Date): string {
 
 export function formatTerminalConnectivity(terminal: {
   onlineStatus?: string;
+  gatewayReachable?: boolean;
+  statusCheckedAt?: string | null;
   lastSeenAt?: string | null;
   offlineSince?: string | null;
 }): string {
+  if (terminal.gatewayReachable === false) return "Gateway bilan aloqa yo‘q · terminal holati noma’lum";
+  if (terminal.onlineStatus === "unknown") return "Terminal holati tasdiqlanmadi";
   if (terminal.onlineStatus === "online") {
     return terminal.lastSeenAt
       ? `Online · ${formatTashkentDateTime(terminal.lastSeenAt)}`
