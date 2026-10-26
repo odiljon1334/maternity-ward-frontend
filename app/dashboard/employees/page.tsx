@@ -2,7 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
-import { EmployeeTerminalBadge } from "@/components/employees/EmployeeTerminalBadge";
+import { EmployeeTerminalBadge, EmployeeTerminalBadgeIcon } from "@/components/employees/EmployeeTerminalBadge";
 import { useState, useEffect, useRef, useCallback, memo, useMemo, useTransition } from "react";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -740,6 +740,7 @@ const EmpRow = memo(function EmpRow({
                 <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               </div>
             )}
+            {emp.photoUrl && uploadingId !== emp.id && <span className="absolute -bottom-0.5 -right-0.5"><EmployeeTerminalBadgeIcon status={emp.terminalPhotoStatus} compact /></span>}
           </button>
           <div className="min-w-0">
           <button onClick={() => router.push(`/dashboard/employees/${emp.id}`)} className="block text-left group/name">
@@ -898,6 +899,7 @@ export default function EmployeesPage() {
       return meta.page < meta.totalPages ? meta.page + 1 : undefined;
     },
     initialPageParam: 1,
+    refetchInterval: q => q.state.data?.pages.some((p: any) => p.data?.some((e: any) => e.terminalPhotoStatus === "WAITING")) ? 15000 : false,
   });
 
   const allLoaded  = data?.pages.flatMap((p: any) => p?.data ?? []) ?? [];
@@ -1187,12 +1189,13 @@ const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
           pages: old.pages.map((page: any) => ({
             ...page,
             data: page.data.map((e: any) =>
-              e.id === uploadingEmpId ? { ...e, photoUrl: updatedEmp?.photoUrl } : e
+              e.id === uploadingEmpId ? { ...e, photoUrl: updatedEmp?.photoUrl, terminalPhotoStatus: "WAITING" } : e
             ),
           })),
         };
       });
   
+      void qc.invalidateQueries({ queryKey: ["employees"] });
       showPhotoResult(updatedEmp, toastId);
     } catch (err: any) {
       toast.error(describeUploadError(err), { id: toastId, duration: 8000 });
@@ -1397,6 +1400,7 @@ const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
                   <div className="absolute inset-0 rounded-full bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                     <Camera className="w-4 h-4 text-white" />
                   </div>
+                  {emp.photoUrl && uploadingEmpId !== emp.id && <span className="absolute -bottom-0.5 -right-0.5"><EmployeeTerminalBadgeIcon status={emp.terminalPhotoStatus} compact /></span>}
                 </button>
 
                 <button className="flex-1 min-w-0 text-left" onClick={() => router.push(`/dashboard/employees/${emp.id}`)}>

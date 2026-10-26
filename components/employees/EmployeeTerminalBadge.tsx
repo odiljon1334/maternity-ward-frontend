@@ -37,16 +37,44 @@ export function EmployeeTerminalBadge({
   });
   if (!hospitalId || !photoUrl) return null;
   const counts = query.data?.counts;
-  const uploaded = !query.isError && (counts?.DELIVERED ?? 0) === 1;
-  const failed = !query.isError && (counts?.ERROR ?? 0) > 0;
-  const waiting = !query.isError && (counts?.WAITING ?? 0) > 0;
+  const status: TerminalPhotoStatus = query.isError
+    ? "UNCONFIRMED"
+    : (counts?.ERROR ?? 0) > 0
+      ? "ERROR"
+      : (counts?.WAITING ?? 0) > 0
+        ? "WAITING"
+        : counts?.DELIVERED === 1
+          ? "DELIVERED"
+          : "UNCONFIRMED";
+  return (
+    <EmployeeTerminalBadgeIcon status={status} loading={query.isLoading} />
+  );
+}
+
+export type TerminalPhotoStatus =
+  "DELIVERED" | "WAITING" | "ERROR" | "UNCONFIRMED" | "NO_PHOTO";
+
+/** Pure icon for list rows: uses their batched API status, never fetches. */
+export function EmployeeTerminalBadgeIcon({
+  status,
+  loading = false,
+  compact = false,
+}: {
+  status?: TerminalPhotoStatus;
+  loading?: boolean;
+  compact?: boolean;
+}) {
+  if (status === "NO_PHOTO") return null;
+  const uploaded = status === "DELIVERED";
+  const failed = status === "ERROR";
+  const waiting = status === "WAITING";
   const label = uploaded
     ? "Surat barcha tegishli terminallarga yuklangan"
     : failed
       ? "Suratni terminalga yuklashda xatolik"
       : waiting
         ? "Surat terminalga yuklanmoqda"
-        : query.isLoading
+        : loading
           ? "Terminal holati tekshirilmoqda"
           : "Surat terminalga yuklangani tasdiqlanmagan";
   const Icon = uploaded
@@ -55,7 +83,7 @@ export function EmployeeTerminalBadge({
       ? AlertCircle
       : waiting
         ? Clock3
-        : query.isLoading
+        : loading
           ? Loader2
           : CloudUpload;
   return (
@@ -63,11 +91,11 @@ export function EmployeeTerminalBadge({
       role="img"
       aria-label={label}
       title={label}
-      className={`inline-flex rounded-full p-1 bg-[var(--bg-card)] ring-2 ring-[var(--bg-card)] shadow ${uploaded ? "text-emerald-500" : failed ? "text-red-400" : waiting ? "text-amber-400" : "text-[var(--text-muted)]"}`}
+      className={`inline-flex rounded-full ${compact ? "p-0.5" : "p-1"} bg-[var(--bg-card)] ring-2 ring-[var(--bg-card)] shadow ${uploaded ? "text-emerald-500" : failed ? "text-red-400" : waiting ? "text-amber-400" : "text-[var(--text-muted)]"}`}
     >
       <Icon
         aria-hidden="true"
-        className={`w-3.5 h-3.5 ${query.isLoading ? "animate-spin" : ""}`}
+        className={`${compact ? "w-3 h-3" : "w-3.5 h-3.5"} ${loading ? "animate-spin" : ""}`}
       />
     </span>
   );
