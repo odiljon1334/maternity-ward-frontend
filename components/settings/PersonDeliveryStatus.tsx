@@ -39,7 +39,8 @@ export function PersonDeliveryStatus({ hospitalId, employeeId }: { hospitalId?: 
         {query.isError && <p role="alert" className="text-xs text-red-400">Holatni olib bo‘lmadi. <button type="button" className="underline" onClick={() => void query.refetch()}>Qayta tekshirish</button></p>}
         {query.data && <>
           <p className="text-xs text-[var(--text-muted)]">{Object.entries(states).map(([k, label]) => `${label}: ${query.data.counts[k] ?? 0}`).join(" · ")}</p>
-          {!query.data.items.length && <p className="text-xs text-[var(--text-muted)]">Hali yetkazish yozuvi yo‘q. Yangi o‘zgarishlar avtomatik navbatga tushadi; avvalgi xodimlar uchun Sinxronlash tugmasini bosing.</p>}
+          {query.data.withoutPhoto > 0 && <p className="text-xs text-amber-400">Rasmsiz xodimlar: {query.data.withoutPhoto}. Ular terminalga yuborilmaydi. Surat yuklangach avtomatik navbatga tushadi.</p>}
+          {!query.data.items.length && !(employeeId && query.data.withoutPhoto > 0) && <p className="text-xs text-[var(--text-muted)]">Hali yetkazish yozuvi yo‘q. Yangi o‘zgarishlar avtomatik navbatga tushadi; avvalgi xodimlar uchun Sinxronlash tugmasini bosing.</p>}
           <div className="space-y-2" aria-live="polite">
             {query.data.items.map(item => {
               const delivered = item.state === "DELIVERED" && item.revision === item.deliveredRevision;
