@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { employeesApi, attendanceApi, payrollApi, photoUrl as buildPhotoUrl } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth";
-import { PersonDeliveryStatus } from "@/components/settings/PersonDeliveryStatus";
+import { EmployeeTerminalBadge } from "@/components/employees/EmployeeTerminalBadge";
 import { EmployeeWorkSitesPanel, WorkSiteChips } from "@/components/employees/EmployeeWorkSites";
 import { Topbar } from "@/components/layout/Topbar";
 import { getInitials, getAvatarColor, formatMoney, formatMinutes, cn } from "@/lib/utils";
@@ -805,6 +805,9 @@ export default function EmployeeProfilePage() {
                     {initials}
                   </div>
                 )}
+                {canManageGps && <span className="absolute -bottom-1 -right-1">
+                  <EmployeeTerminalBadge hospitalId={employee.hospitalId} employeeId={id} photoUrl={employee.photoUrl} />
+                </span>}
               </div>
 
               {/* Information */}
@@ -927,7 +930,6 @@ export default function EmployeeProfilePage() {
         {tab === "gps"        && (
           <EmployeeWorkSitesPanel employeeId={id} hospitalId={employee.hospitalId} canManage={canManageGps} />
         )}
-        {canManageGps && <PersonDeliveryStatus hospitalId={employee.hospitalId} employeeId={id} />}
       </div>
     </div>
   );
