@@ -510,7 +510,18 @@ export interface PersonDelivery {
   action: string; state: string; revision: number; deliveredRevision: number; attempts: number;
   lastError: string | null; confirmedAt: string | null; updatedAt: string;
 }
+export type PersonDeliveryFilter = "ALL" | "DELIVERED" | "ERROR" | "WAITING" | "NO_PHOTO";
+export interface TerminalDeliveryEmployee {
+  id: string; fullName: string; employeeNo: string | null; photoUrl: string | null;
+  department: string | null; position: string | null;
+  deliveries: (Pick<PersonDelivery,"id"|"employeeNo"|"terminalName"|"action"|"state"|"lastError"|"revision"|"deliveredRevision"> & {photoUrl:string|null})[];
+}
+export interface PersonDeliveryPeople {
+  employees: TerminalDeliveryEmployee[]; counts: Record<PersonDeliveryFilter,number>; total:number; page:number; pageSize:number;
+}
 export const hikvisionApi = {
+  personDeliveryPeople: (hospitalId:string, employeeId?:string, filter:PersonDeliveryFilter="ALL", page=1) =>
+    api.get(`/hikvision/person-delivery-people/${hospitalId}`, {params:{employeeId,filter,page}}).then(r=>r.data.data as PersonDeliveryPeople),
   personDeliveries: (hospitalId: string, employeeId?: string, page = 1, summary = false) =>
     api.get(`/hikvision/person-deliveries/${hospitalId}`, { params: { employeeId, page, summary } })
       .then(r => r.data.data as { items: PersonDelivery[]; total: number; withoutPhoto: number; page: number; pageSize: number; counts: Record<string, number> }),
