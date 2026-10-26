@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { formatTerminalConnectivity } from "@/lib/utils";
 import { useConfirmation } from "@/components/ui";
+import { PersonDeliveryStatus } from "@/components/settings/PersonDeliveryStatus";
 import { TerminalSyncStatus, useTerminalSync } from "@/components/settings/TerminalSync";
 
 // ── Hospital Form Modal ─────────────────────────
@@ -375,6 +376,7 @@ function TerminalModal({ open, onClose, hospital }: {
           )}
 
           <TerminalSyncStatus job={sync.job} />
+          <PersonDeliveryStatus hospitalId={hospital?.id} />
 
           {addMode ? (
             <div className="space-y-3 pt-2 border-t border-[var(--border)]">

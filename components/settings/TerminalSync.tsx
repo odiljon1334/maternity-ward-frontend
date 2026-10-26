@@ -49,7 +49,7 @@ export function useTerminalSync(hospitalId?: string) {
       if (job.state === "FAILED") toast.error(job.message || "Sinxronlash xato bilan to'xtadi");
       else if (job.failed > 0)
         toast.warning(`Sync tugadi: ${job.created} yangi, ${job.skipped} mavjud, ${job.failed} xato`);
-      else toast.success(`Sync tugadi: ${job.created} yangi, ${job.skipped} mavjud`);
+      else toast.success(job.message || `Sync tugadi: ${job.created} yangi, ${job.skipped} mavjud`);
       // Terminal holatlari (online/offline) ham yangilansin
       void qc.invalidateQueries({ queryKey: ["settings-terminals", hospitalId] });
       void qc.invalidateQueries({ queryKey: ["terminals", hospitalId] });
@@ -104,6 +104,7 @@ export function TerminalSyncStatus({ job }: { job: TerminalSyncJob | null }) {
           <p className="text-[10px] text-[var(--text-muted)]">{tzTime(job.finishedAt).format("DD.MM HH:mm")}</p>
         )}
       </div>
+      {job.message && <p className="text-xs text-[var(--text-muted)]">{job.message}</p>}
       <div className="grid grid-cols-4 gap-2 text-center">
         {[
           { label: "Xodim", val: job.total, cls: "bg-[var(--bg-card)]", color: "text-[var(--text-primary)]" },
@@ -129,7 +130,7 @@ export function TerminalSyncStatus({ job }: { job: TerminalSyncJob | null }) {
       )}
       {job.withoutPhoto > 0 && (
         <p className="text-[11px] text-amber-400">
-          {job.withoutPhoto} ta xodimning profil rasmi yo&apos;q — ular terminalga yuborilmadi.
+          {job.withoutPhoto} ta xodimning profil rasmi yo&apos;q — ular uchun yuz yuklash talab qilinadi.
         </p>
       )}
       {job.errors.length > 0 && (

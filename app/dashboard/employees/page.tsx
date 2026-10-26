@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
+import { PersonDeliveryStatus } from "@/components/settings/PersonDeliveryStatus";
 import { useState, useEffect, useRef, useCallback, memo, useMemo, useTransition } from "react";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -485,6 +486,9 @@ function EmployeeModal({
             </div>
           </div>
 
+          {employee?.id && ["SUPER_ADMIN", "ASSISTANT_ADMIN", "DIRECTOR", "ADMIN"].includes(user?.role ?? "") && (
+            <PersonDeliveryStatus hospitalId={targetHospitalId || employee.hospitalId || user?.hospitalId || undefined} employeeId={employee.id} />
+          )}
           <div className="flex gap-3 pt-3">
             <button type="button" onClick={onClose} className="btn-secondary flex-1 py-2.5 font-bold">Bekor</button>
             <button type="submit" disabled={mutation.isPending} className="btn-primary flex-1 py-2.5 font-bold">

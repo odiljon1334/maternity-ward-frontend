@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { employeesApi, attendanceApi, payrollApi, photoUrl as buildPhotoUrl } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth";
+import { PersonDeliveryStatus } from "@/components/settings/PersonDeliveryStatus";
 import { EmployeeWorkSitesPanel, WorkSiteChips } from "@/components/employees/EmployeeWorkSites";
 import { Topbar } from "@/components/layout/Topbar";
 import { getInitials, getAvatarColor, formatMoney, formatMinutes, cn } from "@/lib/utils";
@@ -925,6 +926,7 @@ export default function EmployeeProfilePage() {
         {tab === "salary"     && <SalaryTab employeeId={id} baseSalary={Number(employee.baseSalary) || 0} />}
         {tab === "gps"        && (
           <EmployeeWorkSitesPanel employeeId={id} hospitalId={employee.hospitalId} canManage={canManageGps} />
+          {canManageGps && <PersonDeliveryStatus hospitalId={employee.hospitalId} employeeId={id} />}
         )}
       </div>
     </div>

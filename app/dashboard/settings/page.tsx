@@ -14,6 +14,7 @@ import {
 import { usePushNotification } from "@/hooks/usePushNotification";
 import { cn, formatTerminalConnectivity, isSuperLike } from "@/lib/utils";
 import { useConfirmation } from "@/components/ui";
+import { PersonDeliveryStatus } from "@/components/settings/PersonDeliveryStatus";
 import { TerminalSyncStatus, useTerminalSync } from "@/components/settings/TerminalSync";
 import { TelegramBotAccessPanel } from "@/components/settings/TelegramBotAccessPanel";
 import { GeofencePanel } from "@/components/settings/GeofencePanel";
@@ -688,6 +689,7 @@ function TerminalsPanel({ hospitalId }: { hospitalId?: string }) {
         )}
 
         <TerminalSyncStatus job={sync.job} />
+          <PersonDeliveryStatus hospitalId={hospitalId} />
       </div>
     </div>
   );

@@ -505,7 +505,17 @@ export const compensationApi = {
     api.post("/compensation/my/advances", data).then((r) => r.data.data ?? r.data),
 };
 
+export interface PersonDelivery {
+  id: string; terminalId: string; terminalName: string; employeeId: string; employeeNo: string; fullName: string;
+  action: string; state: string; revision: number; deliveredRevision: number; attempts: number;
+  lastError: string | null; confirmedAt: string | null; updatedAt: string;
+}
 export const hikvisionApi = {
+  personDeliveries: (hospitalId: string, employeeId?: string, page = 1) =>
+    api.get(`/hikvision/person-deliveries/${hospitalId}`, { params: { employeeId, page } })
+      .then(r => r.data.data as { items: PersonDelivery[]; total: number; page: number; pageSize: number; counts: Record<string, number> }),
+  retryPersonDelivery: (hospitalId: string, id: string) =>
+    api.post(`/hikvision/person-deliveries/${hospitalId}/${id}/retry`).then(r => r.data.data),
   // Terminal CRUD
   getTerminals: (hospitalId: string) =>
     api.get(`/hikvision/terminals?hospitalId=${hospitalId}`),
