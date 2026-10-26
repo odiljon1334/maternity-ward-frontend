@@ -511,8 +511,8 @@ export interface PersonDelivery {
   lastError: string | null; confirmedAt: string | null; updatedAt: string;
 }
 export const hikvisionApi = {
-  personDeliveries: (hospitalId: string, employeeId?: string, page = 1) =>
-    api.get(`/hikvision/person-deliveries/${hospitalId}`, { params: { employeeId, page } })
+  personDeliveries: (hospitalId: string, employeeId?: string, page = 1, summary = false) =>
+    api.get(`/hikvision/person-deliveries/${hospitalId}`, { params: { employeeId, page, summary } })
       .then(r => r.data.data as { items: PersonDelivery[]; total: number; withoutPhoto: number; page: number; pageSize: number; counts: Record<string, number> }),
   retryPersonDelivery: (hospitalId: string, id: string) =>
     api.post(`/hikvision/person-deliveries/${hospitalId}/${id}/retry`).then(r => r.data.data),
