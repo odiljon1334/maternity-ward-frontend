@@ -926,8 +926,8 @@ export default function EmployeeProfilePage() {
         {tab === "salary"     && <SalaryTab employeeId={id} baseSalary={Number(employee.baseSalary) || 0} />}
         {tab === "gps"        && (
           <EmployeeWorkSitesPanel employeeId={id} hospitalId={employee.hospitalId} canManage={canManageGps} />
-          {canManageGps && <PersonDeliveryStatus hospitalId={employee.hospitalId} employeeId={id} />}
         )}
+        {canManageGps && <PersonDeliveryStatus hospitalId={employee.hospitalId} employeeId={id} />}
       </div>
     </div>
   );
