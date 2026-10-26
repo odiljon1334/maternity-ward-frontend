@@ -724,7 +724,7 @@ const EmpRow = memo(function EmpRow({
       </td>
       <td className="px-5 py-3.5">
         <div className="flex items-center gap-3">
-          <button onClick={(e) => { e.stopPropagation(); onPhoto(emp.id); }} className="relative group flex-shrink-0">
+          <div className="relative flex-shrink-0"><button onClick={(e) => { e.stopPropagation(); onPhoto(emp.id); }} className="relative group block">
             {emp.photoUrl ? (
               <img src={photoThumbUrl(emp.photoUrl)} alt={emp.fullName} className="w-10 h-10 rounded-full object-cover border border-[var(--border)]" loading="lazy" decoding="async" />
             ) : (
@@ -740,8 +740,9 @@ const EmpRow = memo(function EmpRow({
                 <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               </div>
             )}
-            {emp.photoUrl && uploadingId !== emp.id && <span className="absolute -bottom-0.5 -right-0.5"><EmployeeTerminalBadgeIcon status={emp.terminalPhotoStatus} compact /></span>}
           </button>
+            {emp.photoUrl && uploadingId !== emp.id && <span className="absolute -bottom-0.5 -right-0.5"><EmployeeTerminalBadgeIcon status={emp.terminalPhotoStatus} hospitalId={emp.hospitalId} employeeId={emp.id} compact /></span>}
+          </div>
           <div className="min-w-0">
           <button onClick={() => router.push(`/dashboard/employees/${emp.id}`)} className="block text-left group/name">
             <div className="flex items-center gap-2 flex-wrap">
@@ -1390,7 +1391,7 @@ const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
                     : <Square className="w-5 h-5" />}
                 </button>
 
-                <button onClick={() => handlePhotoClick(emp.id)} className="relative group flex-shrink-0">
+                <div className="relative flex-shrink-0"><button onClick={() => handlePhotoClick(emp.id)} className="relative group block">
                   {emp.photoUrl
                     ? <img src={photoThumbUrl(emp.photoUrl)} alt={emp.fullName} className="w-11 h-11 rounded-full object-cover border border-[var(--border)]" loading="lazy" decoding="async" />
                     : <div className={cn("w-11 h-11 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-inner", getAvatarColor(emp.fullName))}>
@@ -1400,8 +1401,9 @@ const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
                   <div className="absolute inset-0 rounded-full bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                     <Camera className="w-4 h-4 text-white" />
                   </div>
-                  {emp.photoUrl && uploadingEmpId !== emp.id && <span className="absolute -bottom-0.5 -right-0.5"><EmployeeTerminalBadgeIcon status={emp.terminalPhotoStatus} compact /></span>}
                 </button>
+                  {emp.photoUrl && uploadingEmpId !== emp.id && <span className="absolute -bottom-0.5 -right-0.5"><EmployeeTerminalBadgeIcon status={emp.terminalPhotoStatus} hospitalId={emp.hospitalId} employeeId={emp.id} compact /></span>}
+                </div>
 
                 <button className="flex-1 min-w-0 text-left" onClick={() => router.push(`/dashboard/employees/${emp.id}`)}>
                   <div className="flex items-center gap-1.5 flex-wrap">
