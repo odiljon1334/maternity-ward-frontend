@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { Dialog } from "@/components/ui/Dialog";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Clock3, AlertCircle, CloudUpload, Loader2 } from "lucide-react";
-import { hikvisionApi } from "@/lib/api";
+import { hikvisionApi, photoUrl as buildPhotoUrl } from "@/lib/api";
 
 export function EmployeeTerminalBadge({
   hospitalId,
@@ -153,17 +153,46 @@ function TerminalErrorDetails({
   employeeId: string;
   onClose: () => void;
 }) {
+  const qc = useQueryClient();
+  const [retried, setRetried] = useState<string[]>([]);
   const details = useQuery({
     queryKey: ["person-delivery-errors", hospitalId, employeeId],
     queryFn: () =>
       hikvisionApi.personDeliveryPeople(hospitalId, employeeId, "ALL"),
     staleTime: 0,
+    refetchInterval: (q) =>
+      q.state.data?.employees.some((e) =>
+        e.deliveries.some(
+          (d) =>
+            retried.includes(d.id) && ["WAITING", "ACTIVE"].includes(d.state),
+        ),
+      )
+        ? 5000
+        : false,
     retry: 1,
+  });
+  const retry = useMutation({
+    mutationFn: async (id: string) => {
+      const result = await hikvisionApi.retryPersonDelivery(hospitalId, id);
+      if (!result?.queued)
+        throw new Error("Holat o‘zgargan. Oynani qayta ochib tekshiring.");
+      return id;
+    },
+    onSuccess: (id) => {
+      setRetried((ids) => ids.includes(id) ? ids : [...ids, id]);
+      void details.refetch();
+      void qc.invalidateQueries({ queryKey: ["employees"] });
+      void qc.invalidateQueries({
+        queryKey: ["person-deliveries", hospitalId],
+      });
+    },
   });
   const failedTasks =
     details.data?.employees
-      .flatMap((e) => e.deliveries)
-      .filter((d) => d.state === "ERROR") ?? [];
+      .flatMap((e) =>
+        e.deliveries.map((d) => ({ ...d, currentPhotoUrl: e.photoUrl })),
+      )
+      .filter((d) => d.state === "ERROR" || retried.includes(d.id)) ?? [];
   return (
     <span
       onClick={(e) => e.stopPropagation()}
@@ -199,9 +228,57 @@ function TerminalErrorDetails({
                 className="rounded-xl border border-red-400/30 p-3 space-y-2"
               >
                 <p className="font-semibold">{d.terminalName}</p>
-                <p className="text-red-400">
-                  {explainTerminalError(d.lastError)}
+                {d.photoUrl && <RejectedDeliveryPhoto key={d.photoUrl} src={d.photoUrl} />}
+                <p
+                  className={
+                    d.state === "DELIVERED" &&
+                    d.revision === d.deliveredRevision
+                      ? "text-emerald-500"
+                      : d.state === "ERROR"
+                        ? "text-red-400"
+                        : "text-amber-400"
+                  }
+                  role="status"
+                >
+                  {d.state === "ERROR"
+                    ? explainTerminalError(d.lastError)
+                    : d.state === "DELIVERED" &&
+                        d.revision === d.deliveredRevision
+                      ? "Shu terminalga yuklangani tasdiqlandi."
+                      : d.state === "ACTIVE"
+                        ? "Shu terminalga yuborilmoqda…"
+                        : "Shu terminalga qayta yuborish navbatda. Bu hali yuklanganini bildirmaydi."}
                 </p>
+                {d.action === "UPSERT" && d.state === "ERROR" && (
+                  <div className="space-y-2">
+                    <p className="text-xs text-[var(--text-muted)]">
+                      Avval sababni tuzating. Qayta yuborishda xodimning hozir
+                      saqlangan surati ishlatiladi.
+                    </p>
+                    {d.currentPhotoUrl !== d.photoUrl && (
+                      <p className="text-xs text-amber-400">
+                        Profil surati o‘zgargan. Yuqorida navbatda saqlangan
+                        surat ko‘rsatilgan.
+                      </p>
+                    )}
+                    <button
+                      type="button"
+                      className="btn-secondary text-xs px-3 py-2 disabled:opacity-50"
+                      disabled={retry.isPending || !d.currentPhotoUrl}
+                      onClick={() => retry.mutate(d.id)}
+                    >
+                      {retry.isPending && retry.variables === d.id
+                        ? "Navbatga qo‘shilmoqda…"
+                        : "Shu terminalga qayta yuborish"}
+                    </button>
+                    {retry.isError && retry.variables === d.id && (
+                      <p role="alert" className="text-red-400 text-xs">
+                        Qayta yuborishni navbatga qo‘shib bo‘lmadi. Ulanish va
+                        joriy holatni tekshirib, qayta urinib ko‘ring.
+                      </p>
+                    )}
+                  </div>
+                )}
                 {d.lastError && (
                   <details className="text-xs text-[var(--text-muted)]">
                     <summary className="cursor-pointer">
@@ -223,6 +300,32 @@ function TerminalErrorDetails({
         </div>
       </Dialog>
     </span>
+  );
+}
+
+function RejectedDeliveryPhoto({ src }: { src: string }) {
+  const [failed, setFailed] = useState(false);
+  return (
+    <figure className="space-y-1">
+      {failed ? (
+        <p className="text-xs text-[var(--text-muted)]">
+          Surat fayli topilmadi yoki ochilmadi.
+        </p>
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={buildPhotoUrl(src)}
+          alt="Terminalga yuborish uchun saqlangan yuz rasmi"
+          className="h-36 w-28 rounded-lg object-contain bg-[var(--bg-hover)]"
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          onError={() => setFailed(true)}
+        />
+      )}
+      <figcaption className="text-xs text-[var(--text-muted)]">
+        Terminalga yuborish uchun saqlangan surat
+      </figcaption>
+    </figure>
   );
 }
 
