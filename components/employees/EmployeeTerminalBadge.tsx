@@ -102,7 +102,7 @@ export function EmployeeTerminalBadgeIcon({
         : loading
           ? Loader2
           : CloudUpload;
-  const clickable = failed && !!hospitalId && !!employeeId;
+  const clickable = (failed || uploaded) && !!hospitalId && !!employeeId;
   return (
     <>
       <span
@@ -128,7 +128,11 @@ export function EmployeeTerminalBadgeIcon({
         tabIndex={clickable ? 0 : undefined}
         role={clickable ? "button" : "img"}
         aria-haspopup={clickable ? "dialog" : undefined}
-        aria-label={clickable ? `${label}. Sababini ko‘rish` : label}
+        aria-label={
+          clickable
+            ? `${label}. ${failed ? "Sababini" : "Holatini"} ko‘rish`
+            : label
+        }
         title={label}
         className={`inline-flex ${clickable ? "cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-400" : ""} rounded-full ${compact ? "p-0.5" : "p-1"} bg-[var(--bg-card)] ring-2 ring-[var(--bg-card)] shadow ${uploaded ? "text-emerald-500" : failed ? "text-red-400" : waiting ? "text-amber-400" : "text-[var(--text-muted)]"}`}
       >
@@ -141,6 +145,7 @@ export function EmployeeTerminalBadgeIcon({
         <TerminalErrorDetails
           hospitalId={hospitalId}
           employeeId={employeeId}
+          showAll={uploaded}
           onClose={() => setOpen(false)}
         />
       )}
@@ -151,10 +156,12 @@ export function EmployeeTerminalBadgeIcon({
 function TerminalErrorDetails({
   hospitalId,
   employeeId,
+  showAll,
   onClose,
 }: {
   hospitalId: string;
   employeeId: string;
+  showAll: boolean;
   onClose: () => void;
 }) {
   const qc = useQueryClient();
@@ -222,7 +229,9 @@ function TerminalErrorDetails({
       .flatMap((e) =>
         e.deliveries.map((d) => ({ ...d, currentPhotoUrl: e.photoUrl })),
       )
-      .filter((d) => d.state === "ERROR" || retried.includes(d.id)) ?? [];
+      .filter(
+        (d) => showAll || d.state === "ERROR" || retried.includes(d.id),
+      ) ?? [];
   return (
     <span
       onClick={(e) => e.stopPropagation()}
@@ -231,8 +240,12 @@ function TerminalErrorDetails({
       <Dialog
         open
         onClose={onClose}
-        title="Terminalga yuklashdagi xatolik"
-        description="Har bir terminal bo‘yicha oxirgi qayd etilgan sabab."
+        title={
+          showAll
+            ? "Terminalga yuklash holati"
+            : "Terminalga yuklashdagi xatolik"
+        }
+        description="Har bir terminal bo‘yicha joriy holat va suratni yangilash."
       >
         <div className="max-h-[60vh] overflow-y-auto space-y-3 text-sm">
           {replacePhoto.isSuccess && (
@@ -287,59 +300,64 @@ function TerminalErrorDetails({
                         ? "Shu terminalga yuborilmoqda…"
                         : "Shu terminalga qayta yuborish navbatda. Bu hali yuklanganini bildirmaydi."}
                 </p>
-                {d.action === "UPSERT" && d.state === "ERROR" && (
-                  <div className="space-y-2">
-                    <p className="text-xs text-[var(--text-muted)]">
-                      Avval sababni tuzating. Qayta yuborishda xodimning hozir
-                      saqlangan surati ishlatiladi.
-                    </p>
-                    {d.currentPhotoUrl !== d.photoUrl && (
-                      <p className="text-xs text-amber-400">
-                        Profil surati o‘zgargan. Yuqorida navbatda saqlangan
-                        surat ko‘rsatilgan.
-                      </p>
-                    )}
-                    <button
-                      type="button"
-                      className="btn-secondary text-xs px-3 py-2 disabled:opacity-50"
-                      disabled={
-                        retry.isPending ||
-                        replacePhoto.isPending ||
-                        !d.currentPhotoUrl
-                      }
-                      onClick={() => retry.mutate(d.id)}
-                    >
-                      {retry.isPending && retry.variables === d.id
-                        ? "Navbatga qo‘shilmoqda…"
-                        : "Shu terminalga qayta yuborish"}
-                    </button>
-                    <PhotoReplacementForm
-                      hospitalId={hospitalId}
-                      employeeId={employeeId}
-                      deliveryId={d.id}
-                      busy={retry.isPending || replacePhoto.isPending}
-                      saving={
-                        replacePhoto.isPending &&
-                        replacePhoto.variables?.deliveryId === d.id
-                      }
-                      error={
-                        replacePhoto.isError &&
-                        replacePhoto.variables?.deliveryId === d.id
-                          ? photoReplacementError(replacePhoto.error)
-                          : null
-                      }
-                      onSave={(file) =>
-                        replacePhoto.mutate({ file, deliveryId: d.id })
-                      }
-                    />
-                    {retry.isError && retry.variables === d.id && (
-                      <p role="alert" className="text-red-400 text-xs">
-                        Qayta yuborishni navbatga qo‘shib bo‘lmadi. Ulanish va
-                        joriy holatni tekshirib, qayta urinib ko‘ring.
-                      </p>
-                    )}
-                  </div>
-                )}
+                {d.action === "UPSERT" &&
+                  ["ERROR", "DELIVERED"].includes(d.state) && (
+                    <div className="space-y-2">
+                      {d.state === "ERROR" && (
+                        <>
+                          <p className="text-xs text-[var(--text-muted)]">
+                            Avval sababni tuzating. Qayta yuborishda xodimning
+                            hozir saqlangan surati ishlatiladi.
+                          </p>
+                          {d.currentPhotoUrl !== d.photoUrl && (
+                            <p className="text-xs text-amber-400">
+                              Profil surati o‘zgargan. Yuqorida navbatda
+                              saqlangan surat ko‘rsatilgan.
+                            </p>
+                          )}
+                          <button
+                            type="button"
+                            className="btn-secondary text-xs px-3 py-2 disabled:opacity-50"
+                            disabled={
+                              retry.isPending ||
+                              replacePhoto.isPending ||
+                              !d.currentPhotoUrl
+                            }
+                            onClick={() => retry.mutate(d.id)}
+                          >
+                            {retry.isPending && retry.variables === d.id
+                              ? "Navbatga qo‘shilmoqda…"
+                              : "Shu terminalga qayta yuborish"}
+                          </button>
+                        </>
+                      )}
+                      <PhotoReplacementForm
+                        hospitalId={hospitalId}
+                        employeeId={employeeId}
+                        deliveryId={d.id}
+                        busy={retry.isPending || replacePhoto.isPending}
+                        saving={
+                          replacePhoto.isPending &&
+                          replacePhoto.variables?.deliveryId === d.id
+                        }
+                        error={
+                          replacePhoto.isError &&
+                          replacePhoto.variables?.deliveryId === d.id
+                            ? photoReplacementError(replacePhoto.error)
+                            : null
+                        }
+                        onSave={(file) =>
+                          replacePhoto.mutate({ file, deliveryId: d.id })
+                        }
+                      />
+                      {retry.isError && retry.variables === d.id && (
+                        <p role="alert" className="text-red-400 text-xs">
+                          Qayta yuborishni navbatga qo‘shib bo‘lmadi. Ulanish va
+                          joriy holatni tekshirib, qayta urinib ko‘ring.
+                        </p>
+                      )}
+                    </div>
+                  )}
                 {d.lastError && (
                   <details className="text-xs text-[var(--text-muted)]">
                     <summary className="cursor-pointer">
