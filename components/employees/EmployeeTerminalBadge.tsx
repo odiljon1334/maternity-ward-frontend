@@ -4,7 +4,11 @@ import { useState } from "react";
 import { Dialog } from "@/components/ui/Dialog";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Clock3, AlertCircle, CloudUpload, Loader2 } from "lucide-react";
-import { hikvisionApi, photoUrl as buildPhotoUrl } from "@/lib/api";
+import {
+  hikvisionApi,
+  employeesApi,
+  photoUrl as buildPhotoUrl,
+} from "@/lib/api";
 
 export function EmployeeTerminalBadge({
   hospitalId,
@@ -179,12 +183,38 @@ function TerminalErrorDetails({
       return id;
     },
     onSuccess: (id) => {
-      setRetried((ids) => ids.includes(id) ? ids : [...ids, id]);
+      setRetried((ids) => (ids.includes(id) ? ids : [...ids, id]));
       void details.refetch();
       void qc.invalidateQueries({ queryKey: ["employees"] });
       void qc.invalidateQueries({
         queryKey: ["person-deliveries", hospitalId],
       });
+    },
+  });
+  const replacePhoto = useMutation({
+    mutationFn: async ({ file }: { file: File; deliveryId: string }) => {
+      if (!["image/jpeg", "image/png", "image/webp"].includes(file.type))
+        throw new Error("JPG, PNG yoki WebP formatidagi suratni tanlang.");
+      if (file.size > 10 * 1024 * 1024)
+        throw new Error("Surat hajmi 10 MB dan oshmasin.");
+      // Server validates exactly one face before saving; the atomic outbox trigger queues the new photo.
+      return employeesApi.uploadPhoto(employeeId, file, {
+        targetHospitalId: hospitalId,
+      });
+    },
+    onSuccess: (_employee, { deliveryId }) => {
+      setRetried((ids) =>
+        ids.includes(deliveryId) ? ids : [...ids, deliveryId],
+      );
+      void details.refetch();
+      void qc.invalidateQueries({ queryKey: ["employees"] });
+      void qc.invalidateQueries({ queryKey: ["employee", employeeId] });
+      void qc.invalidateQueries({
+        queryKey: ["person-deliveries", hospitalId],
+      });
+    },
+    onError: () => {
+      void details.refetch();
     },
   });
   const failedTasks =
@@ -205,6 +235,12 @@ function TerminalErrorDetails({
         description="Har bir terminal bo‘yicha oxirgi qayd etilgan sabab."
       >
         <div className="max-h-[60vh] overflow-y-auto space-y-3 text-sm">
+          {replacePhoto.isSuccess && (
+            <p role="status" className="text-emerald-500">
+              Yangi surat yuz tekshiruvidan o‘tdi va saqlandi. Terminal
+              tasdig‘ini quyida kuzating.
+            </p>
+          )}
           {details.isLoading ? (
             <p role="status">Tafsilotlar yuklanmoqda…</p>
           ) : details.isError ? (
@@ -228,7 +264,9 @@ function TerminalErrorDetails({
                 className="rounded-xl border border-red-400/30 p-3 space-y-2"
               >
                 <p className="font-semibold">{d.terminalName}</p>
-                {d.photoUrl && <RejectedDeliveryPhoto key={d.photoUrl} src={d.photoUrl} />}
+                {d.photoUrl && (
+                  <RejectedDeliveryPhoto key={d.photoUrl} src={d.photoUrl} />
+                )}
                 <p
                   className={
                     d.state === "DELIVERED" &&
@@ -264,13 +302,56 @@ function TerminalErrorDetails({
                     <button
                       type="button"
                       className="btn-secondary text-xs px-3 py-2 disabled:opacity-50"
-                      disabled={retry.isPending || !d.currentPhotoUrl}
+                      disabled={
+                        retry.isPending ||
+                        replacePhoto.isPending ||
+                        !d.currentPhotoUrl
+                      }
                       onClick={() => retry.mutate(d.id)}
                     >
                       {retry.isPending && retry.variables === d.id
                         ? "Navbatga qo‘shilmoqda…"
                         : "Shu terminalga qayta yuborish"}
                     </button>
+                    <div className="space-y-2 border-t border-[var(--border)] pt-3">
+                      <label
+                        className="block text-xs font-semibold"
+                        htmlFor={`replace-photo-${d.id}`}
+                      >
+                        Yangi xodim surati
+                      </label>
+                      <input
+                        id={`replace-photo-${d.id}`}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="block w-full text-xs"
+                        disabled={retry.isPending || replacePhoto.isPending}
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          event.target.value = "";
+                          if (file)
+                            replacePhoto.mutate({ file, deliveryId: d.id });
+                        }}
+                      />
+                      <p className="text-xs text-[var(--text-muted)]">
+                        Surat tanlangach yuz borligi tekshiriladi. Tekshiruvdan
+                        o‘tsa profil rasmi yangilanadi va shu terminalga
+                        yuborish navbatga qo‘shiladi. Profil surati boshqa
+                        tegishli terminallarda ham yangilanadi.
+                      </p>
+                      {replacePhoto.isPending &&
+                        replacePhoto.variables?.deliveryId === d.id && (
+                          <p role="status" className="text-amber-400 text-xs">
+                            Surat yuklanmoqda va yuz tekshirilmoqda…
+                          </p>
+                        )}
+                      {replacePhoto.isError &&
+                        replacePhoto.variables?.deliveryId === d.id && (
+                          <p role="alert" className="text-red-400 text-xs">
+                            {photoReplacementError(replacePhoto.error)}
+                          </p>
+                        )}
+                    </div>
                     {retry.isError && retry.variables === d.id && (
                       <p role="alert" className="text-red-400 text-xs">
                         Qayta yuborishni navbatga qo‘shib bo‘lmadi. Ulanish va
@@ -346,4 +427,20 @@ function explainTerminalError(error: string | null): string {
   if (/face|picture|image|surat|rasm|yuz/i.test(text))
     return `Suratni yuklash tasdiqlanmadi: ${text}`;
   return `Terminal amalni bajara olmadi: ${text}`;
+}
+
+function photoReplacementError(error: unknown): string {
+  const err = error as {
+    message?: string;
+    code?: string;
+    response?: { data?: { message?: string | string[] } };
+  };
+  if (err.code === "ECONNABORTED" || (!err.response && err.code))
+    return "Javob olinmadi. Surat saqlangan bo‘lishi mumkin; oynani qayta ochib joriy holatni tekshiring.";
+  const message = err.response?.data?.message;
+  return Array.isArray(message)
+    ? message.join(" ")
+    : message ||
+        err.message ||
+        "Suratni almashtirib bo‘lmadi. Qayta urinib ko‘ring.";
 }
