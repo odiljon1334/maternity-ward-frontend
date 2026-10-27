@@ -248,14 +248,34 @@ function TerminalErrorDetails({
         description="Har bir terminal bo‘yicha joriy holat va suratni yangilash."
       >
         <div className="max-h-[60vh] overflow-y-auto space-y-3 text-sm">
+          {(replacePhoto.isPaused || retry.isPaused) && (
+            <p role="status" className="text-amber-400">
+              Internet uzilgan. So‘rov hali serverga yuborilmadi; sahifa ochiq
+              tursa, aloqa tiklanganda davom etadi.
+            </p>
+          )}
+          {details.fetchStatus === "paused" &&
+            !details.isPending &&
+            !replacePhoto.isPaused &&
+            !retry.isPaused && (
+              <p role="status" className="text-amber-400">
+                Internet uzilgan. Hozir oldingi holat ko‘rsatilmoqda; aloqa
+                tiklanganda yangilanadi.
+              </p>
+            )}
+
           {replacePhoto.isSuccess && (
             <p role="status" className="text-emerald-500">
               Yangi surat yuz tekshiruvidan o‘tdi va saqlandi. Terminal
               tasdig‘ini quyida kuzating.
             </p>
           )}
-          {details.isLoading ? (
-            <p role="status">Tafsilotlar yuklanmoqda…</p>
+          {details.isPending ? (
+            <p role="status">
+              {details.fetchStatus === "paused"
+                ? "Internet uzilgan. Tafsilotlarni olish uchun aloqa tiklanishini kutyapmiz."
+                : "Tafsilotlar yuklanmoqda…"}
+            </p>
           ) : details.isError ? (
             <div role="alert">
               <p>
@@ -326,7 +346,9 @@ function TerminalErrorDetails({
                             onClick={() => retry.mutate(d.id)}
                           >
                             {retry.isPending && retry.variables === d.id
-                              ? "Navbatga qo‘shilmoqda…"
+                              ? retry.isPaused
+                                ? "Internet kutilmoqda…"
+                                : "Navbatga qo‘shilmoqda…"
                               : "Shu terminalga qayta yuborish"}
                           </button>
                         </>
@@ -340,6 +362,7 @@ function TerminalErrorDetails({
                           replacePhoto.isPending &&
                           replacePhoto.variables?.deliveryId === d.id
                         }
+                        waitingNetwork={replacePhoto.isPaused}
                         error={
                           replacePhoto.isError &&
                           replacePhoto.variables?.deliveryId === d.id
@@ -388,6 +411,7 @@ function PhotoReplacementForm({
   deliveryId,
   busy,
   saving,
+  waitingNetwork,
   error,
   onSave,
 }: {
@@ -396,10 +420,13 @@ function PhotoReplacementForm({
   deliveryId: string;
   busy: boolean;
   saving: boolean;
+  /** So'rov internet yo'qligi sababli hali yuborilmagan (react-query paused) */
+  waitingNetwork: boolean;
   error: string | null;
   onSave: (file: File) => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
+  const [checkAttempt, setCheckAttempt] = useState(0);
   const [preview, setPreview] = useState<string | null>(null);
   const [check, setCheck] = useState<{
     valid: boolean;
@@ -430,14 +457,14 @@ function PhotoReplacementForm({
           setCheck({
             valid: false,
             pending: false,
-            error: photoReplacementError(err),
+            error: photoReplacementError(err, "validate"),
           });
       });
     return () => {
       cancelled = true;
       URL.revokeObjectURL(url);
     };
-  }, [file, employeeId, hospitalId]);
+  }, [file, employeeId, hospitalId, checkAttempt]);
   return (
     <div className="space-y-2 border-t border-[var(--border)] pt-3">
       <label
@@ -502,9 +529,24 @@ function PhotoReplacementForm({
         </p>
       )}
       {check.error && (
-        <p role="alert" className="text-red-400 text-xs">
-          {check.error}
-        </p>
+        <div className="space-y-2">
+          <p role="alert" className="text-red-400 text-xs">
+            {check.error}
+          </p>
+          {file && (
+            <button
+              type="button"
+              className="text-xs underline"
+              disabled={busy || check.pending}
+              onClick={() => {
+                setCheck({ valid: false, pending: true, error: null });
+                setCheckAttempt((n) => n + 1);
+              }}
+            >
+              Yuzni qayta tekshirish
+            </button>
+          )}
+        </div>
       )}
       <button
         type="button"
@@ -514,7 +556,11 @@ function PhotoReplacementForm({
           if (file && check.valid && !busy) onSave(file);
         }}
       >
-        {saving ? "Saqlanmoqda…" : "Saqlash va terminalga yuborish"}
+        {saving
+          ? waitingNetwork
+            ? "Internet kutilmoqda…"
+            : "Saqlanmoqda…"
+          : "Saqlash va terminalga yuborish"}
       </button>
       {error && (
         <p role="alert" className="text-red-400 text-xs">
@@ -574,14 +620,19 @@ function explainTerminalError(error: string | null): string {
   return `Terminal amalni bajara olmadi: ${text}`;
 }
 
-function photoReplacementError(error: unknown): string {
+function photoReplacementError(
+  error: unknown,
+  stage: "validate" | "save" = "save",
+): string {
   const err = error as {
     message?: string;
     code?: string;
     response?: { data?: { message?: string | string[] } };
   };
   if (err.code === "ECONNABORTED" || (!err.response && err.code))
-    return "Javob olinmadi. Surat saqlangan bo‘lishi mumkin; oynani qayta ochib joriy holatni tekshiring.";
+    return stage === "validate"
+      ? "Yuz tekshiruvi uchun serverga ulanib bo‘lmadi yoki javob kechikdi. Surat saqlanmadi va terminalga yuborilmadi. Aloqa tiklangach yuzni qayta tekshiring."
+      : "Javob olinmadi. Surat saqlangan bo‘lishi mumkin; oynani qayta ochib joriy holatni tekshiring.";
   const message = err.response?.data?.message;
   return Array.isArray(message)
     ? message.join(" ")
