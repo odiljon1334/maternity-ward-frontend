@@ -229,6 +229,11 @@ export const employeesApi = {
     api.put(`/employees/${id}/fire`, data ?? {}, { params }).then((r) => r.data.data),
   delete: (id: string, params?: { targetHospitalId?: string }) =>
     api.delete(`/employees/${id}`, { params }).then((r) => r.data.data),
+  validatePhoto: (id: string, file: File, params?: { targetHospitalId?: string }) => {
+    const form = new FormData();
+    form.append("photo", file);
+    return api.post(`/employees/${id}/photo/validate`, form, { headers: { "Content-Type": "multipart/form-data" }, params, timeout: 60_000 }).then(r => r.data.data as { valid: boolean });
+  },
   uploadPhoto: (id: string, file: File, params?: { targetHospitalId?: string }) => {
     const form = new FormData();
     form.append("photo", file);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog } from "@/components/ui/Dialog";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Clock3, AlertCircle, CloudUpload, Loader2 } from "lucide-react";
@@ -313,45 +313,25 @@ function TerminalErrorDetails({
                         ? "Navbatga qo‘shilmoqda…"
                         : "Shu terminalga qayta yuborish"}
                     </button>
-                    <div className="space-y-2 border-t border-[var(--border)] pt-3">
-                      <label
-                        className="block text-xs font-semibold"
-                        htmlFor={`replace-photo-${d.id}`}
-                      >
-                        Yangi xodim surati
-                      </label>
-                      <input
-                        id={`replace-photo-${d.id}`}
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp"
-                        className="block w-full text-xs"
-                        disabled={retry.isPending || replacePhoto.isPending}
-                        onChange={(event) => {
-                          const file = event.target.files?.[0];
-                          event.target.value = "";
-                          if (file)
-                            replacePhoto.mutate({ file, deliveryId: d.id });
-                        }}
-                      />
-                      <p className="text-xs text-[var(--text-muted)]">
-                        Surat tanlangach yuz borligi tekshiriladi. Tekshiruvdan
-                        o‘tsa profil rasmi yangilanadi va shu terminalga
-                        yuborish navbatga qo‘shiladi. Profil surati boshqa
-                        tegishli terminallarda ham yangilanadi.
-                      </p>
-                      {replacePhoto.isPending &&
-                        replacePhoto.variables?.deliveryId === d.id && (
-                          <p role="status" className="text-amber-400 text-xs">
-                            Surat yuklanmoqda va yuz tekshirilmoqda…
-                          </p>
-                        )}
-                      {replacePhoto.isError &&
-                        replacePhoto.variables?.deliveryId === d.id && (
-                          <p role="alert" className="text-red-400 text-xs">
-                            {photoReplacementError(replacePhoto.error)}
-                          </p>
-                        )}
-                    </div>
+                    <PhotoReplacementForm
+                      hospitalId={hospitalId}
+                      employeeId={employeeId}
+                      deliveryId={d.id}
+                      busy={retry.isPending || replacePhoto.isPending}
+                      saving={
+                        replacePhoto.isPending &&
+                        replacePhoto.variables?.deliveryId === d.id
+                      }
+                      error={
+                        replacePhoto.isError &&
+                        replacePhoto.variables?.deliveryId === d.id
+                          ? photoReplacementError(replacePhoto.error)
+                          : null
+                      }
+                      onSave={(file) =>
+                        replacePhoto.mutate({ file, deliveryId: d.id })
+                      }
+                    />
                     {retry.isError && retry.variables === d.id && (
                       <p role="alert" className="text-red-400 text-xs">
                         Qayta yuborishni navbatga qo‘shib bo‘lmadi. Ulanish va
@@ -381,6 +361,153 @@ function TerminalErrorDetails({
         </div>
       </Dialog>
     </span>
+  );
+}
+
+function PhotoReplacementForm({
+  hospitalId,
+  employeeId,
+  deliveryId,
+  busy,
+  saving,
+  error,
+  onSave,
+}: {
+  hospitalId: string;
+  employeeId: string;
+  deliveryId: string;
+  busy: boolean;
+  saving: boolean;
+  error: string | null;
+  onSave: (file: File) => void;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [check, setCheck] = useState<{
+    valid: boolean;
+    pending: boolean;
+    error: string | null;
+  }>({ valid: false, pending: false, error: null });
+  useEffect(() => {
+    if (!file) {
+      setPreview(null);
+      return;
+    }
+    let cancelled = false;
+    const url = URL.createObjectURL(file);
+    setPreview(url);
+    setCheck({ valid: false, pending: true, error: null });
+    employeesApi
+      .validatePhoto(employeeId, file, { targetHospitalId: hospitalId })
+      .then((result) => {
+        if (!cancelled)
+          setCheck({
+            valid: result.valid === true,
+            pending: false,
+            error: result.valid ? null : "Yuz tekshiruvi tasdiqlanmadi.",
+          });
+      })
+      .catch((err) => {
+        if (!cancelled)
+          setCheck({
+            valid: false,
+            pending: false,
+            error: photoReplacementError(err),
+          });
+      });
+    return () => {
+      cancelled = true;
+      URL.revokeObjectURL(url);
+    };
+  }, [file, employeeId, hospitalId]);
+  return (
+    <div className="space-y-2 border-t border-[var(--border)] pt-3">
+      <label
+        className="block text-xs font-semibold"
+        htmlFor={`replace-photo-${deliveryId}`}
+      >
+        Yangi xodim surati
+      </label>
+      <input
+        id={`replace-photo-${deliveryId}`}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="block w-full text-xs"
+        disabled={busy}
+        onChange={(event) => {
+          const next = event.target.files?.[0];
+          event.target.value = "";
+          if (!next) return;
+          setFile(null);
+          setCheck({ valid: false, pending: false, error: null });
+          if (!["image/jpeg", "image/png", "image/webp"].includes(next.type)) {
+            setCheck({
+              valid: false,
+              pending: false,
+              error: "JPG, PNG yoki WebP formatidagi suratni tanlang.",
+            });
+            return;
+          }
+          if (next.size > 10 * 1024 * 1024) {
+            setCheck({
+              valid: false,
+              pending: false,
+              error: "Surat hajmi 10 MB dan oshmasin.",
+            });
+            return;
+          }
+          setCheck({ valid: false, pending: true, error: null });
+          setFile(next);
+        }}
+      />
+      {preview && (
+        <figure className="space-y-1">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={preview}
+            alt="Tanlangan yangi surat — hali saqlanmagan"
+            className="h-36 w-28 rounded-lg object-contain bg-[var(--bg-hover)]"
+          />
+          <figcaption className="text-xs text-[var(--text-muted)]">
+            Yangi surat — hali saqlanmagan
+          </figcaption>
+        </figure>
+      )}
+      {check.pending && (
+        <p role="status" className="text-amber-400 text-xs">
+          Yuz borligi tekshirilmoqda…
+        </p>
+      )}
+      {check.valid && (
+        <p role="status" className="text-emerald-500 text-xs">
+          Bitta yuz aniqlandi. Suratni saqlash mumkin.
+        </p>
+      )}
+      {check.error && (
+        <p role="alert" className="text-red-400 text-xs">
+          {check.error}
+        </p>
+      )}
+      <button
+        type="button"
+        className="btn-secondary text-xs px-3 py-2 disabled:opacity-50"
+        disabled={!file || !check.valid || check.pending || busy}
+        onClick={() => {
+          if (file && check.valid && !busy) onSave(file);
+        }}
+      >
+        {saving ? "Saqlanmoqda…" : "Saqlash va terminalga yuborish"}
+      </button>
+      {error && (
+        <p role="alert" className="text-red-400 text-xs">
+          {error}
+        </p>
+      )}
+      <p className="text-xs text-[var(--text-muted)]">
+        Surat faqat tugma bosilganda saqlanadi va yuborish navbatiga qo‘shiladi.
+        Profil surati boshqa tegishli terminallarda ham yangilanadi.
+      </p>
+    </div>
   );
 }
 
